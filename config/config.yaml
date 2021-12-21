@@ -1,0 +1,103 @@
+base:
+  label_dir: E:\00IT\P\PaddleOCR\ppotr\data\transport
+  bg_dir: E:\00IT\P\PaddleOCR\ppotr\static\paper
+  output_dir: E:\00IT\P\uniform\data\empty\complex
+  type: complex
+  save_mid: True
+
+filters:
+  disable: true
+  keys_length: 6
+  keys_length_fixed: true
+  max_num_of_rows: 15
+  max_table_width: 80
+  min_num_of_rows: 10
+  min_table_width: 10
+  vstack_split_ratio: 1
+  min_width_of_cell: 4
+  empty_cell_ratio: 0.05
+form_type:
+  cross_rows_cross_cols:
+    probability: 0.5
+    max_num: 2
+    max_num_of_rows: 2
+    max_num_of_cols: 3
+    max_num_of_blocks: 3
+  complex:
+    left_to_right_ratio: 0.5
+    max_depth_of_header: 3
+    max_num: 1
+    max_num_of_cols: 2
+    max_num_of_rows: 3
+    min_depth_of_header: 2
+    min_num_of_cols: 2
+    min_num_of_rows: 2
+    fixed_width_ratio: 1
+    probability: 0.8
+  multiline_text:
+    has_title_raito: 0.5
+    max_num: 1
+    max_num_of_rows: 8
+    min_num_of_rows: 3
+    probability: 0.5
+  multiple_key_value_pairs:
+    max_num: 3
+    max_num_of_pairs: 3
+    min_num_of_pairs: 2
+    probability: 0.8
+  multiple_rows_multiple_columns:
+    header_left_ratio: 0.5
+    header_top_ratio: 0.5
+    hrules_all_ratio: 1
+    max_num: 2
+    max_num_of_cols: 6
+    max_num_of_rows: 5
+    min_num_of_cols: 4
+    min_num_of_rows: 3
+    probability: 0.8
+    vrules_all_ratio: 1
+  single_key_multiple_values:
+    max_num: 3
+    max_options: 4
+    min_num: 1
+    min_options: 2
+    probability: 0.8
+  single_key_value:
+    max_num: 3
+    min_num: 1
+    probability: 0.8
+  single_line:
+    max_num: 3
+    min_num: 1
+    probability: 0.8
+post_processor:
+  random_seal:
+    seal_dir: static/seal
+    ratio: 0.4
+  random_pollution:
+    dirty_dir: static/dirty
+    ratio: 0
+  random_fold:
+    min_range: 0.25
+    max_range: 0.75
+    ratio: 0.5
+  random_noise:
+    max_prob: 0.01
+    ratio: 0.5
+  random_distortion:
+    max_peak: 0.4
+    max_period: 10
+    ratio: 0.3
+  random_rotate:
+    min_angle: -0.5
+    max_angle: 0.5
+    ratio: 0.3
+  random_perspective:
+    min_offset: 0.01
+    max_offset: 0.05
+    ratio: 0.3
+  random_background:
+    bg_dir: static/background
+    min_offset: 20
+    max_offset: 50
+    ratio: 0.3

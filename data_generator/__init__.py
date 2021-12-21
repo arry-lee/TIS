@@ -1,0 +1,1 @@
+from .data_generator import bank_detail_generator,bank_table_generator
