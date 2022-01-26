@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from post_processor.post_processor import rotate_bound, keepdata
+from post_processor._post_processor import rotate_bound, keepdata
 
 w_mm = 210  # A4 的毫米尺寸
 h_mm = 279
@@ -19,13 +19,13 @@ texture_dir = '../static/paper/'
 
 class Paper(object):
     """纸张模拟器"""
-    def __init__(self, type='A4', texture=None, color=(255, 255, 255), dip=4, direction='v'):
+    def __init__(self, type='A4', texture=None, color=(255, 255, 255), dip=4, direction='v',offset=20):
         self.type = type
         self.direction = direction
         self.dip = dip
         self.texture =texture
         self.color = color
-
+        self.offset = offset
         if self.type.upper() == 'A4':
             self.width_mm = 210
             self.height_mm = 279
@@ -39,18 +39,28 @@ class Paper(object):
         if self.texture:
             self._image = Image.open(self.texture).resize(self.size)
         else:
-            _image = np.random.randint(244,255,(self.height,self.width,3),np.uint8)
-            self._image = Image.fromarray(_image)
-            # self._image = Image.new('RGB',self.size,self.color)
+            # _image = np.random.randint(244,255,(self.height,self.width,3),np.uint8)
+            # self._image = Image.fromarray(_image)
+            self._image = Image.new('RGB',self.size,self.color)
         #
         self._draw = ImageDraw.Draw(self._image)
 
-        self.box = (25 * DIP, 20 * DIP, 25 * DIP, 20 * DIP)
+        self.pad = (offset * self.dip, offset * self.dip, offset * self.dip, offset * self.dip)
+        self._box = (offset * self.dip, offset * self.dip, self.width-offset * self.dip, self.height-offset * self.dip)
+        self.header_box = (0, 0,self.width, offset * self.dip)
+        self.footer_box = (0, self.height-offset * self.dip, self.width,self.height)
+
 
     @property
     def image(self):
         self._draw.rectangle(self._box)
         return self._image
+
+    def set_header(self,text,font,align='c',line=True):
+        xy = self.width//2,self.header_box[3]//2
+        self._draw.line((0, 10 * DIP)+(self.width,10 * DIP),fill=(0,0,0),width=2)
+        self._draw.text(xy,text,fill='black',font=font,anchor='mm')
+
 
 
     @property
@@ -62,8 +72,6 @@ class Paper(object):
         if isinstance(value, (tuple, list)) and len(value)==4:
             self.left,self.top,self.right,self.bottom = value
             self._box = (self.left,self.top,self.width-self.right,self.height-self.bottom)
-
-
 
 
 

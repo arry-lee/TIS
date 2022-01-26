@@ -18,7 +18,99 @@ DEBUG = False
 vpat = re.compile("[║╬╦╩╣╠╗╔╝╚]")
 
 H_SYMBOLS = '═╩╦╬╝╚╗╔'
+ALL_SYMBOLS = set('║╬╦╩╣╠╗╔╝╚═╩╦╬╝╚╗╔')
 
+LINE_PAT = re.compile(r'(\n*[╔╠╚].+?[╗╣╝]\n*)')
+def paginate(table,lines_per_page=40):
+    """分页算法
+    1.保证按行分割，行内有换行不会被分开
+    2.必须分割时另起一页
+    3.修复分割线
+    """
+    lct=0
+    lines = re.split(LINE_PAT,str(table))
+    out = ''
+    for line in lines:
+        if not line:continue
+        if line[0] == '║':
+            if lct >= lines_per_page:
+                yield out
+                out = out.splitlines()[-1]+'\n'+line # 封顶
+                lct = len(line.splitlines())
+            else:
+                out+=line
+                lct += len(line.splitlines())
+        else:
+            out+=line
+    yield out
+
+
+def clear_symbols(s):
+    o = ''
+    for c in s:
+        if c in ALL_SYMBOLS:
+            o+=' '
+        else:
+            o+=c
+    return o
+
+
+def _align_cell(ct,align):
+    nc = ct.strip()
+    lpad = (len(ct) - len(nc)) // 2
+    rpad = len(ct) - len(nc) - lpad
+    if align == 'c':
+        nt = (lpad * ' ') + nc + (rpad * ' ')
+    elif align == 'l':
+        nt = ' ' + nc + ((lpad + rpad - 1) * ' ')
+    elif align == 'r':
+        nt = ((lpad + rpad - 1) * ' ') + nc + ' '
+    else:
+        raise KeyError
+    return nt
+
+def set_align(t,cno,align,rno=None):
+    # 精细调整表格列内对齐方式
+    lines = str(t).splitlines()
+    if rno is None:
+        out = []
+        for line in lines:
+            if '═' in line:
+                out.append(line)
+            else:
+                cells = re.split(vpat, line)[1:-1]
+                try:
+                    ct = cells[cno]
+                except:
+                    continue
+                nt = _align_cell(ct,align)
+                line = line.replace(ct,nt)
+                out.append(line)
+        return '\n'.join(out)
+    else:
+        line = lines[2*rno+1]
+        cells = re.split(vpat, line)[1:-1]
+        ct = cells[cno]
+        nt = _align_cell(ct, align)
+        lines[2*rno+1] = line.replace(ct, nt)
+        return '\n'.join(lines)
+
+def merge(t,rno):
+    # 合并同一行的cells
+    lines = str(t).splitlines()
+    rline = lines[2*rno+1]
+
+    nline = '║'+ rline.replace('║',' ')[1:-1]+'║'
+    lines[2*rno+1] = nline
+    return '\n'.join(lines)
+
+def del_line(t,start=2,end=-1,keepblank=True):
+    lines = str(t).splitlines()
+    if keepblank:
+        lines[start:end:2] = ['║'+(len(l)-2)*' '+'║' for l in lines[start:end:2]]
+    else:
+        del lines[start:end:2]
+    return '\n'.join(lines)
 
 class AwesomeTable(prettytable.PrettyTable):
     """可以在表格上下左右添加标题栏的AwesomeTable，获取结构化数据的字符串表示
@@ -27,7 +119,6 @@ class AwesomeTable(prettytable.PrettyTable):
     field_names 列名
     title_pos   标题所在位置
     max_cols    最大列数
-    methods = ‘nl’ 超过最大列数的处理方法；nl 连带标题换新行？TODO？真的必须吗
     """
     def __init__(self, field_names=None, **kwargs):
         super().__init__(field_names, kwargs=kwargs)
@@ -36,6 +127,21 @@ class AwesomeTable(prettytable.PrettyTable):
         self._table_width = kwargs.get("table_width",None)
         self._title_pos = kwargs.get("title_pos",'t')
 
+    def __getitem__(self, index):
+        new = AwesomeTable()
+        new.field_names = self.field_names
+        for attr in self._options:
+            setattr(new, "_" + attr, getattr(self, "_" + attr))
+        setattr(new, "_align", getattr(self, "_align"))
+        if isinstance(index, slice):
+            for row in self._rows[index]:
+                new.add_row(row)
+        elif isinstance(index, int):
+            new.add_row(self._rows[index])
+        else:
+            raise Exception(
+                f"Index {index} is invalid, must be an integer or slice")
+        return new
 
     @property
     def title_pos(self):
@@ -49,7 +155,7 @@ class AwesomeTable(prettytable.PrettyTable):
 
     @property
     def table_width(self):
-        return len(self.get_string().split('\n')[0])
+        return len(str(self.get_string().split('\n')[0]))
 
     @table_width.setter
     def table_width(self, val):
@@ -376,7 +482,6 @@ class AwesomeTable(prettytable.PrettyTable):
         self.box_width_layer = np.max(self.box_width_layer, axis=0)
 
 
-
     def scale(self, xratio, yratio=1.0):
         self.box_width_layer = np.int32(self.box_width_layer * xratio)
 
@@ -499,6 +604,36 @@ class AwesomeTable(prettytable.PrettyTable):
         return np.hstack([o, s])
 
 
+
+class MultiTable(object):
+    """多表格类"""
+    def __init__(self,tables):
+        self._tables = tables
+        self._table_width = 0
+
+    def add_table(self,table):
+        assert isinstance(table,AwesomeTable)
+        self._tables.append(table)
+
+    @property
+    def table_width(self):
+        return self._table_width
+
+    @table_width.setter
+    def table_width(self,val):
+        self._table_width = val
+        for table in self._tables:
+            table.table_width = val
+
+    def get_string(self):
+        if self._table_width == 0:
+            self.table_width = max([t._table_width for t in self._tables])
+        return vstack(self._tables)
+
+    def __str__(self):
+        return self.get_string()
+
+
 def encode_table(table):
     table_lines = str(table).splitlines()
     new_table = []
@@ -564,11 +699,12 @@ def table2image(table,
                 bgcolor='white',
                 background=None,
                 bg_box=None,
-                font_path="./static/fonts/simfang.ttf",
+                font_path="simsun.ttc",#"./static/fonts/simfang.ttf",
                 line_pad=0,
                 line_height=None,
                 vrules='ALL',
                 hrules='ALL',
+                keep_ratio=False
                 ):
     """
     将PrettyTable 字符串对象化为表格图片
@@ -580,25 +716,31 @@ def table2image(table,
     half_char_width = char_width // 2
 
     w = (len(lines[0])+1) * char_width # 图片宽度
-    h = (len(lines)) * font_size      # 图片高度
-
     if line_height is None:
         line_height = font_size + line_pad
+
+    h = (len(lines)) * line_height  # 图片高度
 
     if background and bg_box:
         x1,y1,x2,y2 = bg_box
         w0,h0 = x2-x1, y2-y1
-        background = Image.open(background)
+        if isinstance(background,str):
+            background = Image.open(background)
         wb, hb = background.size
-        wn,hn  = int(wb*w/w0),int(hb*h/h0)
-        background = background.resize((wn,hn))
-        x0,y0 = int(x1*w/w0),int(y1*h/h0)
+        if not keep_ratio:
+            wn,hn  = int(wb*w/w0),int(hb*h/h0)
+            background = background.resize((wn, hn))
+            x0, y0 = int(x1 * w / w0), int(y1 * h / h0)
+        else:
+            wn, hn = int(wb * w / w0), int(hb * w / w0)# 宽度自适应，高度保持比例
+            background = background.resize((wn,hn))
+            x0,y0 = int(x1*w/w0),int(y1*w / w0)
     else:
         background = Image.new('RGB', (w, h), bgcolor)
         x0, y0 = xy or (char_width, char_width)
 
     draw = ImageDraw.Draw(background)
-    font = ImageFont.truetype(font_path, font_size, encoding="utf-8")
+    font = ImageFont.truetype(font_path, font_size,encoding="utf-8")
 
     cell_boxes = set()      # 多行文字的外框是同一个，需要去重
     text_boxes = []    # 文本框
@@ -705,7 +847,8 @@ def banktable2image(table,
                     line_height=None,
                     logo_path=None,
                     watermark=True,
-                    dot_line=False):
+                    dot_line=False,
+                    multiline=False):
     """
     将银行流水单渲染成图片
     """
@@ -714,7 +857,7 @@ def banktable2image(table,
     lines = list(filter(lambda x: '<r' not in x,origin_lines)) # 过滤掉标记
 
     # 判断是不是表头换行的表格
-    multiline = is_chinese(re.split(vpat,lines[9])[1].strip()[0])
+    # multiline = is_chinese(re.split(vpat,lines[9])[1].strip()[0])
 
     char_width = font_size // 2        # 西文字符宽度
     half_char_width = char_width // 2
@@ -968,9 +1111,11 @@ def add_width(self, num=1):
         if ch == '═':
         # newline = line[0:-1] + ch * (num) + line[-1]
             newline = line[0] + line[1:-1] + line[-2] * (num) + line[-1]
-        else:
+        elif '║' in line:
             x = line.rsplit('║',2)
             newline = x[0]+'║'+' '*(num//2)+x[1]+' '*(num-num//2)+'║'
+        else:
+            newline = line
         newlines.append(newline)
 
     return '\n'.join(newlines)
@@ -1032,6 +1177,7 @@ def _hstack(self, other, merge=True,space=0):
         elif e == '╝' and s == '╚':
             ret = '╩'
         else:
+            print(self,other)
             raise Exception('Unmatch symbol %s and %s' % (e, s))
         if merge:
             new_lines.append(lss[lno][:-1] + ret + lso[lno][1:])
@@ -1048,13 +1194,15 @@ def _vstack(self, other,merge=True):
     so = str(other)
     hss = len(ss.splitlines()[0])
     hso = len(so.splitlines()[0])
-
     if hss > hso:
         so = add_width(so, hss - hso)
     elif hss < hso:
         ss = add_width(ss, hso - hss)
     else:
         pass
+    if ss.splitlines()[-1][-1]!='╝' or so[0]!='╔': # 这种情况下至少有一方不是表格，直接叠加
+        return ss+'\n'+so
+
     if merge:
         ens = ss.splitlines()[-1]
         suc = so.splitlines()[0]
@@ -1073,8 +1221,12 @@ def _vstack(self, other,merge=True):
                 ret.append('╩')
             elif e == '═' and s == '╦':
                 ret.append('╦')
+            elif e == '═' and s == '╗':
+                ret.append('╗')
             else:
                 print(e, s)
+                print(self)
+                print(other)
                 raise Exception('unmatch')
         midline = ''.join(ret)
         new_lines = ss.splitlines()[:-1] + [midline] + so.splitlines()[1:]
@@ -1118,6 +1270,7 @@ def wrap(line, width):
     if n:
         lines.append(n)
     return '\n'.join(lines)
+
 
 def from_dataframe(df, field_names=None, **kwargs):
     if not field_names:
@@ -1268,6 +1421,7 @@ def convert(x):
     else:
         return from_str(x)
 
+
 def pprint(x):
     print(convert(x))
 
@@ -1313,32 +1467,21 @@ class TableGrouper(object):
 
 
 if __name__ == '__main__':
-    jsonobject = {'table':
-                      {'a': 1,
-                       'b': {
-                           'c': [111111, 222222, 33333],
-                           'd': 222222,
-                           'e': 333333,
-                       },
-                       'g': {'h1': 1, 'h2': 2}
-                       },
-                  'table2':
-                      {'a': 1,
-                       'b': {
-                           'c': [111111, 222222, 33333],
-                           'd': 'test\nmulti\nline',
-                           'e': 333333,
-                       },
-                       'g': {'h1': 1, 'h2': 2}
-                       }
-                  }
-
-    ls = [['x']*5]*6
-
-    tab = from_dict(jsonobject,True)
-    print(tab)
-    data = table2image(tab)['image']
-    cvshow(data)
+    s = '1234'
+    t = from_str(s,w=10)
+    print(t)
+    # jsonobject = {'本年金额':{'归属':{'a':1,'b':2,'v':3,'d':4,'e':5,'f':6},'少数':1,'所有':2},
+    #               '上年金额': {'归属':{'a':1,'b':2,'v':3,'d':4,'e':5,'f':6}, '少数': 1,
+    #                        '所有': 2},}
+    # test = ['项目',
+    #         ['本年金额',[['gv',[2,3,4,[2,[3,4]],6,7]],'少数','所有者']],
+    #         ['上年金额',[['gv',[2,3,4,5,6,7]],'少数','所有者']]]
+    #
+    # tab = from_list(test,False)
+    # # tab = from_dict(jsonobject,True)
+    # print(tab)
+    # data = table2image(tab)['image']
+    # cvshow(data)
     # cv2.imwrite('tmp.jpg',data['image'])
 
     # print(tab)

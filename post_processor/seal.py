@@ -4,13 +4,46 @@ import cv2
 import numpy as np
 from PIL import Image,ImageDraw,ImageFont
 
-from post_processor.deco import as_pillow, c2p
+from post_processor.deco import as_pillow, c2p, as_cv
 from post_processor.rotation import rotate_bound
 
 
-def gen_seal(text, bottom_text='结算专用章', center_text='2021.01.01', width=200):
+def gen_name_seal(name,font_size=40,yang=True):
+    """生成人名方章"""
+    if yang:
+        bg,fg = 'white','red'
+    else:
+        bg,fg = 'red','white'
+    font = ImageFont.truetype('simkai.ttf', font_size)
+    if len(name) == 3:
+        size = (2*font_size,2*font_size)
+        w,h = size
+        out = Image.new('RGB', size, 'white')
+        draw = ImageDraw.Draw(out)
+        draw.rounded_rectangle((0, 0) + (w - 1, h - 1), radius=5, fill=bg,outline=fg,
+                               width=2)
+        draw.text((0,0),name[2], fill=fg, font=font)
+        draw.text((font_size, 0), name[0], fill=fg, font=font)
+        draw.text((font_size, font_size), name[1], fill=fg, font=font)
+        draw.text((0, font_size), '印', fill=fg, font=font)
+    else:
+        size = font.getsize(name)
+        out = Image.new('RGB', size, 'white')
+        draw = ImageDraw.Draw(out)
+        w, h = size
+        draw.rounded_rectangle((0, 0) + (w - 1, h - 1), radius=4, fill=bg,
+                               outline=fg, width=2)
+        draw.text((0, 0), name, fill=fg, font=font)
+
+    return out
+
+
+def gen_seal(text, bottom_text='结算专用章', center_text='2021.01.01', width=200,usestar=False):
     """印章生成器"""
-    out = Image.new('RGB', (width, width), 'white')
+    if usestar:
+        out = Image.open('./static/seal/star.png').resize((width,width))
+    else:
+        out = Image.new('RGB', (width, width), 'white')
     draw = ImageDraw.Draw(out)
     draw.ellipse((0, 0) + (width, width), outline='red', width=5)
 
@@ -60,8 +93,9 @@ def add_seal(img, seal_p='./static/seal/seal.jpg', xy=None, angle=None):
         xy = random.randint(0, 3 * w // 4), random.randint(0, 3 * h // 4)
     if angle is None:
         angle = random.randint(0, 45)
+    seal_p = as_cv(seal_p)
 
-    seal = c2p(rotate_bound(cv2.imread(seal_p, cv2.IMREAD_COLOR), angle,borderValue=(255,255,255)))
+    seal = c2p(rotate_bound(seal_p, angle,borderValue=(255,255,255)))
     mask = seal.convert('L').point(lambda x: 0 if x > 200 else 255)
     img.paste(seal, xy, mask=mask)
     return img

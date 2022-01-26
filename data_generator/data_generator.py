@@ -172,7 +172,9 @@ def from_dataframe(df,max_cols=12,drop=True):
         table.add_row(field_names)
         for row in ndf.values:
             table.add_row(row.tolist())
+        multi = False
     else:
+        multi = True
         r = field_names
         table.add_row(r[:max_cols])
         table.add_row(r[max_cols:] + [' '] * (max_cols - len(r[max_cols:])))
@@ -180,7 +182,7 @@ def from_dataframe(df,max_cols=12,drop=True):
             r = row.tolist()
             table.add_row(r[:max_cols])
             table.add_row(r[max_cols:] + [' '] * (max_cols - len(r[max_cols:])))
-    return table
+    return table,multi
 
 
 def bank_table_generator(bank_detail,max_width=16,align='l'):
@@ -202,11 +204,11 @@ def bank_table_generator(bank_detail,max_width=16,align='l'):
                '操作柜员:' + str(bank_detail['操作柜员'])
                ])
 
-    table = from_dataframe(bank_detail['流水明细'])
+    table,multi = from_dataframe(bank_detail['流水明细'])
     table.max_width = max_width
     table.align = align
     h = vstack([b, c, table])
-    return h
+    return h,multi
 
 
 if __name__ == '__main__':

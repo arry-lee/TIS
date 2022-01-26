@@ -10,7 +10,7 @@ def add_background(image,background,offset=0,mask=None):
     w += offset*2
     bg = as_pillow(background).resize((w,h))
     # mask = img.convert('L').point(lambda x: 0 if x < 10 else 255)
-    print(mask)
+    # print(mask)
     if mask is not None:
         mask = as_pillow(mask).convert('L')
     bg.paste(img,(offset,offset),mask=mask)

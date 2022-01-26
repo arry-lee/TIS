@@ -1,11 +1,13 @@
 import os
 import random
+import re
 import time
 from functools import partial
 from itertools import cycle
 from threading import Thread
 
 import cv2
+import numpy as np
 import yaml
 from tqdm import tqdm
 
@@ -13,7 +15,9 @@ from awesometable import banktable2image, table2image
 from data_generator import bank_detail_generator, bank_table_generator
 from data_generator.fakekeys import read_background
 from data_generator.uniform import UniForm
+from data_generator.fs_data import FinancialStatementTable, fstable2image
 from post_processor import random as _random
+from post_processor.background import add_background_data
 from post_processor.deco import keepdata
 from post_processor.label import log_label, show_label
 from post_processor.seal import gen_seal, add_seal
@@ -35,17 +39,17 @@ class Factory(Thread):
         self.data_generator = bank_detail_generator  # >data
         self.table_generator = bank_table_generator  # data > table
         self.image_compositor = banktable2image  # table > image
-        # self.post_processor = [
-        #     {'func': random_seal, 'ratio': 0.4},
-        #     {'func': random_pollution, 'ratio': 0},
-        #     {'func': random_fold, 'ratio': 0.5},
-        #     {'func': random_noise, 'ratio': 0.5},
-        #     {'func': random_distortion, 'ratio': 1},
-        #     {'func': random_rotate, 'ratio': 0.3},
-        #     {'func': random_perspective, 'ratio': 0.3},
-        #     {'func': random_background, 'ratio': 0.3},
-        #     {'func': show_label, 'ratio': 1},
-        # ]
+        self.post_processor = [
+            {'func': random_seal, 'ratio': 0.4},
+            {'func': random_pollution, 'ratio': 0},
+            {'func': random_fold, 'ratio': 0.5},
+            {'func': random_noise, 'ratio': 0.5},
+            {'func': random_distortion, 'ratio': 1},
+            {'func': random_rotate, 'ratio': 0.3},
+            {'func': random_perspective, 'ratio': 0.3},
+            {'func': random_background, 'ratio': 0.3},
+            {'func': show_label, 'ratio': 1},
+        ]
 
         with open('config/post_processor_config.yaml', 'r',encoding='utf-8') as f:
             self.post_processor_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -73,7 +77,7 @@ class Factory(Thread):
         for data in self.data_generator.create(iterations=self.batch):
             bankname = data['银行']
             align = random.choice('lcr')
-            table = self.table_generator(data, align=align)
+            table,multi = self.table_generator(data, align=align)
             c = random.randint(230, 255)
             image_data = self.image_compositor(table,
                                                bgcolor=(c, c, c),
@@ -81,7 +85,8 @@ class Factory(Thread):
                                                logo_path=get_logo_path(
                                                    bankname),
                                                watermark=False,
-                                               dot_line=random.choice((True,False)))
+                                               dot_line=random.choice((True,False)),
+                                               multiline = multi)
 
             if self.save_mid:
                 fn = '0' + str(int(time.time() * 1000))[5:]
@@ -106,7 +111,8 @@ class Factory(Thread):
                         self._save_and_log(image_data, fn)
             else:
                 if not func is self.post_processor[-1]['func']:
-                    image_data = random_background(image_data,bg_dir,0,0)
+                    white = np.ones_like(image_data['image'])*255
+                    image_data = add_background_data(image_data,white,0)
 
             if not self.save_mid:
                 fn = '0' + str(int(time.time() * 1000))[5:]
@@ -183,9 +189,10 @@ class UniFactory(Thread):
                                         image_data['image'])
                             log_label(os.path.join(output_dir, '%s.txt' % fn),
                                       '%s.jpg' % fn, image_data)
-                else: # 如果最后没有使用到 背景，就无偏的增加背景
+                else: # 如果最后没有使用到 背景，就无偏的增加白底
                     if not func is self.post_processor[-1]['func']:
-                        image_data = random_background(image_data,bg_dir,0,0)
+                        white = np.ones_like(image_data['image'])*255
+                        image_data = add_background_data(image_data, white, 0)
 
             if not self.save_mid:
                 cv2.imwrite(os.path.join(output_dir, '%s.jpg' % fn),
@@ -197,6 +204,125 @@ class UniFactory(Thread):
             pbar.update(1)
         pbar.close()
 
+
+class FSFactory(Thread):
+    """工厂模式"""
+    BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
+    BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
+    def __init__(self, type, batch,config='config/financial_statement_config.yaml'):
+        super().__init__()
+        self.batch = batch
+        with open(config, 'r', encoding='utf-8') as f:
+            config = yaml.load(f, Loader=yaml.SafeLoader)
+            for k, v in config.items():
+                for vk, vv in v.items():
+                    if vv:
+                        v[vk] = []
+                        for idx, item in enumerate(vv.split()):
+                            if item[0].isdigit():
+                                v[vk].append('  ' + item)
+                            elif item[0] == '（':
+                                v[vk].append(' ' + item)
+                            else:
+                                v[vk].append(item)
+                config[k] = v
+        if type == 'all':
+            names = list(config.keys())
+        else:
+            names = [n for n in config.keys() if type in n]
+
+        self.table_machines = [FinancialStatementTable(name,config) for name in names]
+        # self.table_generator = FinancialStatementTable(name,config)  # data > table
+        self.image_compositor = fstable2image  # table > image
+        self.background_generator = None
+        # self.post_processor = [
+        #     {'func': random_seal, 'ratio': 0.4},
+        #     {'func': random_pollution, 'ratio': 0},
+        #     {'func': random_fold, 'ratio': 0.5},
+        #     {'func': random_noise, 'ratio': 0.5},
+        #     {'func': random_distortion, 'ratio': 1},
+        #     {'func': random_rotate, 'ratio': 0.3},
+        #     {'func': random_perspective, 'ratio': 0.3},
+        #     {'func': random_background, 'ratio': 0.3},
+        #     {'func': show_label, 'ratio': 1},
+        # ]
+
+        with open('config/post_processor_config.yaml', 'r',encoding='utf-8') as f:
+            self.post_processor_config = yaml.load(f, Loader=yaml.SafeLoader)
+        self.post_processor = []
+        # for k,v in self.post_processor_config.items():
+        #     ratio = v.pop('ratio')
+        #     func = partial(getattr(_random, k),**v)
+        #     self.post_processor.append({'func':func,'ratio':ratio})
+
+        self.output_dir = './data/financial_statement/'
+        self.save_mid = False
+
+    def _save_and_log(self, image_data, fn):
+        cv2.imwrite(os.path.join(self.output_dir, '%s.jpg' % fn),
+                    image_data['image'])
+        log_label(os.path.join(self.output_dir, '%s.txt' % fn), '%s.jpg' % fn,
+                  image_data)
+
+    def run(self):
+        output_dir = self.output_dir
+        pbar = tqdm(total=self.batch)
+        pbar.set_description("FsFactory")
+        # print('start')
+        sealdir = self.post_processor_config['random_seal']['seal_dir']
+        count = 0
+        for table_generator in cycle(self.table_machines):
+            for t in table_generator.create(1,page_it=False):
+                fn = '0' + str(int(time.time() * 1000))[5:]
+                if random.random()<0.5:
+                    back_pattern = self.BACK_PATTERN
+                else:
+                    back_pattern = None
+                image_data = fstable2image(t,bold_pattern=self.BOLD_PATTERN,back_pattern=back_pattern)
+
+                if self.save_mid:
+                    cv2.imwrite(os.path.join(output_dir, '%s.jpg' % fn),
+                                image_data['image'])
+                    log_label(os.path.join(output_dir, '%s.txt' % fn),
+                              '%s.jpg' % fn,
+                              image_data)
+                    if count>=self.batch:
+                        return
+                    else:
+                        count+=1
+
+                if self.post_processor:
+                    for fno, fd in enumerate(self.post_processor, start=1):
+                        if random.random() < fd['ratio']:
+                            func = fd.get('func')
+                            image_data = func(image_data)  # 默认参数就是随机的
+                            if self.save_mid:
+                                fn = str(fno) + fn[1:]
+                                cv2.imwrite(os.path.join(output_dir, '%s.jpg' % fn),
+                                            image_data['image'])
+                                log_label(os.path.join(output_dir, '%s.txt' % fn),
+                                          '%s.jpg' % fn, image_data)
+                                if count >= self.batch:
+                                    return
+                                else:
+                                    count += 1
+                    else:  # 如果最后没有使用到 背景，就无偏的增加白底
+                        if not func is self.post_processor[-1]['func']:
+                            white = np.ones_like(image_data['image']) * 255
+                            image_data = add_background_data(image_data, white, 0)
+
+                if not self.save_mid:
+                    cv2.imwrite(os.path.join(output_dir, '%s.jpg' % fn),
+                                image_data['image'])
+                    log_label(os.path.join(output_dir, '%s.txt' % fn),
+                              '%s.jpg' % fn,
+                              image_data)
+                    if count>=self.batch:
+                        return
+                    else:
+                        count += 1
+                pbar.update(1)
+        pbar.close()
 
 def main(argv):
     type = argv[1]
@@ -211,5 +337,7 @@ def main(argv):
 if __name__ == '__main__':
     # import sys
     # main(sys.argv)
-    bank_factory = Factory(batch=1)
-    bank_factory.start()
+    # bank_factory = Factory(batch=10)
+    # bank_factory.start()
+    fsfactory = FSFactory('all',10,'config/financial_statement_config.yaml')
+    fsfactory.start()

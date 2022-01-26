@@ -1,5 +1,5 @@
 opencv-python~=4.5.3.56
-numpy~=1.19.3
+numpy
 pillow~=8.4.0
 pypinyin~=0.43.0
 yaml~=0.2.5

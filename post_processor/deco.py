@@ -5,7 +5,7 @@ from decorator import decorator
 
 def p2c(image):
     # pillow to cv
-    return cv2.cvtColor(np.array(image, np.uint8), cv2.COLOR_RGB2BGR)
+    return cv2.cvtColor(np.asarray(image, np.uint8), cv2.COLOR_RGB2BGR)
 
 
 def c2p(image):

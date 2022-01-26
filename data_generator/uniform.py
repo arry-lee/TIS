@@ -119,8 +119,6 @@ class UniForm(object):
                      for r in range(random.randint(1, 3))])
 
                 ret = '\n'.join([top, sepr, bottom])
-
-
             else:
                 if len(rows) > 1:
                     ret = vstack(rows)
