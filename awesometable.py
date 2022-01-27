@@ -1389,8 +1389,10 @@ def from_dict(d, t2b=True,w=None):
                 tv = value
             else:
                 tv = from_str(value,w)
-
-            row = _hstack(title, tv)
+            if value is None:
+                row = title
+            else:
+                row = _hstack(title, tv)
             rows.append(row)
         return vstack(rows)
     else:
@@ -1407,7 +1409,10 @@ def from_dict(d, t2b=True,w=None):
             else:
                 tv = from_str(value,w)
 
-            col = _vstack(title, tv)
+            if value is None:
+                col = title
+            else:
+                col = _vstack(title, tv)
             cols.append(col)
 
         return hstack(cols)
