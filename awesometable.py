@@ -1381,17 +1381,19 @@ def from_dict(d, t2b=True,w=None):
         rows = []
         for key, value in d.items():
             title = from_str(key,w)
-            if isinstance(value, dict):
-                tv = from_dict(value,t2b,w)
-            elif isinstance(value, list):
-                tv = from_list(value,t2b,w)
-            elif isinstance(value, AwesomeTable):
-                tv = value
-            else:
-                tv = from_str(value,w)
             if value is None:
                 row = title
+            elif isinstance(value,int):
+                row = from_str(key,value)
             else:
+                if isinstance(value, dict):
+                    tv = from_dict(value, t2b, w)
+                elif isinstance(value, list):
+                    tv = from_list(value, t2b, w)
+                elif isinstance(value, AwesomeTable):
+                    tv = value
+                else:
+                    tv = from_str(value, w)
                 row = _hstack(title, tv)
             rows.append(row)
         return vstack(rows)
@@ -1399,19 +1401,19 @@ def from_dict(d, t2b=True,w=None):
         cols = []
         for key, value in d.items():
             title = from_str(key,w)
-
-            if isinstance(value, dict):
-                tv = from_dict(value,t2b,w)
-            elif isinstance(value, list):
-                tv = from_list(value,t2b,w)
-            elif isinstance(value, AwesomeTable):
-                tv = value
-            else:
-                tv = from_str(value,w)
-
             if value is None:
                 col = title
+            elif isinstance(value,int):
+                col = from_str(key,value)
             else:
+                if isinstance(value, dict):
+                    tv = from_dict(value,t2b,w)
+                elif isinstance(value, list):
+                    tv = from_list(value,t2b,w)
+                elif isinstance(value, AwesomeTable):
+                    tv = value
+                else:
+                    tv = from_str(value,w)
                 col = _vstack(title, tv)
             cols.append(col)
 
