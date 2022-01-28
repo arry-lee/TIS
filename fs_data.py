@@ -8,10 +8,11 @@ import faker
 import numpy as np
 import yaml
 from PIL import ImageFont, Image, ImageDraw
+from toolz import partition_all
 
 from awesometable import (AwesomeTable, vstack, paginate,
                           vpat, _count_padding, __c, H_SYMBOLS,
-                          _str_block_width, from_list)
+                          _str_block_width, from_list, from_dict)
 from post_processor.A4 import Paper
 from post_processor.seal import gen_name_seal, add_seal, gen_seal
 from utils.ulpb import encode
@@ -23,14 +24,56 @@ faker.Faker.seed(RANDOM_SEED)
 random_price = lambda: '{:,}'.format(random.randint(10000000, 1000000000))
 hit = lambda r:random.random()<=r
 
-lang = 'zh_CN'
-if lang == 'zh_CN':
+LANG = 'zh_CN'
+if LANG == 'zh_CN':
     def _(x):
         return x
 else:
     @lru_cache
     def _(x):
         return encode(x).title()
+
+
+
+def random_dic(dicts):
+    dict_key_ls = list(dicts.keys())
+    random.shuffle(dict_key_ls)
+    new_dic = {}
+    for key in dict_key_ls:
+        v = dicts.get(key)
+        if isinstance(v,dict):
+            v = random_dic(v)
+        new_dic[key] = v
+    return new_dic
+
+def build_complex_header(headers,columns):
+    """根据headers 和 columns 构建复杂表头字典"""
+    inner = {}
+    for ino, h, keys in zip(range(len(headers)),
+                            reversed(headers),
+                            partition_all(len(columns)//len(headers),columns)):
+        if ino == 0:
+            inner = {h: dict.fromkeys(keys)}
+        else:
+            inner = {h: {**inner, **dict.fromkeys(keys)}}
+    return inner
+
+def build_complex_header_w(headers,columns,widths):
+    """
+    headers 标题list
+    columns 列名list
+    widths  列宽list
+    """
+    inner = {}
+    for ino, h, keys,ws in zip(range(len(headers)),
+                            reversed(headers),
+                            partition_all(len(columns)//len(headers),columns),
+                            partition_all(len(columns)//len(headers),widths)):
+        if ino == 0:
+            inner = {h: {k:v for k,v in zip(keys,ws)}}
+        else:
+            inner = {h: {**inner, **{k:v for k,v in zip(keys,ws)}}}
+    return inner
 
 class FinancialStatementTable(object):
     """财报统一生成接口"""
@@ -45,25 +88,17 @@ class FinancialStatementTable(object):
                       ]
     complex_headers = ['归属于母公司所有者权益', '其他综合收益']
 
-    def __init__(self, name, config='./config/financial_statement_config.yaml'):
+    def __init__(self, name, lang=LANG):
         self.faker = faker.Faker(lang)
-        if isinstance(config, str):
-            with open(config, 'r', encoding='utf-8') as f:
-                config = yaml.load(f, Loader=yaml.SafeLoader)
-            for k, v in config.items():
-                for vk, vv in v.items():
-                    if vv:
-                        v[vk] = []
-                        for idx, item in enumerate(vv.split()):
-                            if item[0].isdigit():
-                                v[vk].append('  ' + item)
-                            elif item[0] == '（':
-                                v[vk].append(' ' + item)
-                            else:
-                                v[vk].append(item)
-                config[k] = v
-        if isinstance(config, dict):
-            self.config = config
+        self.lang = lang
+        if lang == 'zh_CN':
+            config = './config/financial_statement_config.yaml'
+        else:
+            config = './config/en-config.yaml'
+
+        with open(config, 'r', encoding='utf-8') as f:
+            config = yaml.load(f, Loader=yaml.SafeLoader)
+        self.config = config
         self.name = name
         self._index = config[name]
 
@@ -148,10 +183,17 @@ class FinancialStatementTable(object):
             t.add_row(columns)
         rno = 1
         for k, v in self.index.items():
-            t.add_row([k] + [''] * (len(columns) - 1))
+            t.add_row([_(k)] + [''] * (len(columns) - 1))
             if v is None: continue
             for item in v:
-                row = [' ' * indent + item]
+                if item[0] == '（':
+                    item = ' '*indent*2 + _(item)
+                elif item[0].isdigit():
+                    item = ' ' * indent * 3 + _(item)
+                else:
+                    item = ' '* indent+_(item)
+
+                row = [item]
                 for c in columns[1:]:
                     if c == _('行次'):
                         row.append(rno)
@@ -170,8 +212,8 @@ class FinancialStatementTable(object):
                         else:
                             row.append('-')
                 t.add_row(row)
-        if not self.can_complex and hit(auto_ratio):
-            t.add_autoindex()
+        # if not self.can_complex and hit(auto_ratio):
+        #     t.add_autoindex()
         return t
 
     def _build_multilayer(self, this_year='本年金额', last_year='上年金额'):
@@ -185,6 +227,16 @@ class FinancialStatementTable(object):
         col1 = [this_year, [[t[0], inner], c[-2], c[-1]]]
         col2 = [last_year, [[t[0], inner], c[-2], c[-1]]]
         return [c[0], col1, col2]
+
+    def _build_complex_header(self,t,headers=None,layers=3):
+        columns = self.columns
+        if not headers and layers>1:
+            headers = list(range(layers))
+        widths = [len(c)+2 for c in re.split(vpat,str(t).splitlines()[0])[1:-1]]
+        assert len(widths) == len(columns)
+        print(widths)
+        return from_dict(build_complex_header_w(headers,columns,widths))
+
 
     def process_body(self, t):
         t.align = 'c'
@@ -206,11 +258,12 @@ class FinancialStatementTable(object):
             random_text = self.faker.paragraph()
             t = vstack([t, random_text, new])
 
-        elif self.can_complex:  # 表头
-            t.max_width = 14
-            t.min_width = 14
-            complex_list = self._build_multilayer()
-            _header = from_list(complex_list, False, w=18)
+        if self.can_complex:  # 表头
+            # t.max_width = 14
+            # t.min_width = 14
+            # complex_list = self._build_multilayer()
+            # _header = from_list(complex_list, False, w=18)
+            _header = self._build_complex_header(t)
             t = vstack(_header, t)
 
         elif self.can_truncate:  # 截断
@@ -257,6 +310,7 @@ def fstable2image(table,
                   xy=None,
                   font_size=20,
                   bgcolor='white',
+                  offset = 0,
                   background=None,
                   bg_box=None,
                   font_path="./static/fonts/simfang.ttf",
@@ -264,7 +318,9 @@ def fstable2image(table,
                   line_height=None,
                   vrules='ALL',
                   hrules='ALL',
-                  DEBUG=False, sealed=True, bold_pattern=None,
+                  DEBUG=False,
+                  sealed=True,
+                  bold_pattern=None,
                   back_pattern=None):
     """
     将财务报表渲染成图片
@@ -289,8 +345,8 @@ def fstable2image(table,
         background = background.resize((wn, hn))
         x0, y0 = int(x1 * w / w0), int(y1 * h / h0)
     else:
-        background = Image.new('RGB', (w, h), bgcolor)
-        x0, y0 = xy or (char_width, char_width)
+        background = Image.new('RGB', (w+char_width*offset*2, h), bgcolor)
+        x0, y0 = xy or (char_width*offset, char_width)
 
     draw = ImageDraw.Draw(background)
     font = ImageFont.truetype(font_path, font_size)
@@ -361,8 +417,7 @@ def fstable2image(table,
 
         # 以下内容将不会包含'═'
         for cno, cell in enumerate(cells):
-            ll = sum(
-                _str_block_width(c) + 1 for c in cells[:cno]) + 1 
+            ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1
             if cell == '':  #
                 start += char_width
                 continue
@@ -419,8 +474,7 @@ def fstable2image(table,
             while __c(lines, tt)[ll] not in H_SYMBOLS: tt -= 1
             while __c(lines, bb)[ll] not in H_SYMBOLS: bb += 1
             if lno < len(lines) - 2:
-                cbox = (
-                    left, tt * line_height + y0, right, bb * line_height + y0)
+                cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
                 cell_boxes.add(cbox)
                 box_dict[cbox].append(striped_cell)
 
@@ -434,42 +488,34 @@ def fstable2image(table,
                     background.paste(im, box, mask=im)
                     break
 
+    cell_boxes = list(cell_boxes)
     # 以下处理标注
+    l, t, r, b = cell_boxes[0]  # 求表格四极
     for box in cell_boxes:
+        l = min(l, box[0])
+        t = min(t, box[1])
+        r = max(r, box[2])
+        b = max(b, box[3])
         text_boxes.append([box, 'cell@'])
         if vrules == 'ALL':
-            draw.line((box[0], box[1]) + (box[0], box[3]), fill='black',
-                      width=2)
-            draw.line((box[2], box[1]) + (box[2], box[3]), fill='black',
-                      width=2)
-
+            draw.line((box[0], box[1]) + (box[0], box[3]), fill='black',width=2)
+            draw.line((box[2], box[1]) + (box[2], box[3]), fill='black',width=2)
         if hrules == 'ALL':
-            draw.line((box[0], box[1]) + (box[2], box[1]), fill='black',
-                      width=2)
-            draw.line((box[0], box[3]) + (box[2], box[3]), fill='black',
-                      width=2)
+            draw.line((box[0], box[1]) + (box[2], box[1]), fill='black',width=2)
+            draw.line((box[0], box[3]) + (box[2], box[3]), fill='black',width=2)
 
     points = []
     cell_boxes = [tb[0] for tb in text_boxes]  # 单纯的boxes分不清是行列还是表格和文本
-    l, t, r, b = cell_boxes[0]  # 求表格四极
+    cell_boxes.append([l, t, r, b])
     for box in cell_boxes:
         points.append([box[0], box[1]])
         points.append([box[2], box[1]])
         points.append([box[2], box[3]])
         points.append([box[0], box[3]])
-        l = min(l, box[0])
-        t = min(t, box[1])
-        r = max(r, box[2])
-        b = max(b, box[3])
-    cell_boxes.append([l, t, r, b])
-    points.append([l, t])
-    points.append([r, t])
-    points.append([r, b])
-    points.append([l, b])
 
     label = [tb[1] for tb in text_boxes] + ['table@0']
 
-    if sealed:
+    if sealed and LANG!='en':
         b, c = seals.pop(0)
         seal = gen_seal(c, '财务专用章', '', usestar=True)
         background = add_seal(background, seal, (b[2], b[1] - 80))
@@ -487,11 +533,25 @@ def fstable2image(table,
             }
 
 
-if __name__ == '__main__':
-    f = FinancialStatementTable("公司股东权益变动(多表)表",
-                                config='./config/financial_statement_config.yaml')
 
+if __name__ == '__main__':
+    # t = {'H1':{'H2':{'H3':{0:None,1:None},2:None,3:None},4:None,5:None}}
+    #
+    # lt = [1,[[2,[5,[6,[8,9]],7]],3,4]]
+    #
+    # headers = ['H1','H2','H3']
+    # columns = list(range(6))
+    # # t = build_complex_header(headers,columns)
+    # t = build_complex_header_w(headers,columns,[6,7,8,9,10,11])
+    #
+    # print(from_dict(random_dic(t)))
+    # print(from_list(lt))
+    # assert from_dict(t)==from_list(lt)
+    # f = FinancialStatementTable("合并利润表",
+    #                             config='./config/financial_statement_config.yaml')
+    f = FinancialStatementTable("合并利润表",lang=LANG)
     t = f.table
+    print(t)
     BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
     BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
     data = fstable2image(t, DEBUG=False, bold_pattern=BOLD_PATTERN,
