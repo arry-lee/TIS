@@ -1107,14 +1107,17 @@ def add_width(self, num=1):
     lines = ss.splitlines()
     newlines = []
     for line in lines:
-        ch = line[-2]
-        if ch == '═':
-        # newline = line[0:-1] + ch * (num) + line[-1]
-            newline = line[0] + line[1:-1] + line[-2] * (num) + line[-1]
-        elif '║' in line:
-            x = line.rsplit('║',2)
-            newline = x[0]+'║'+' '*(num//2)+x[1]+' '*(num-num//2)+'║'
-        else:
+        try:
+            ch = line[-2]
+            if ch == '═':
+            # newline = line[0:-1] + ch * (num) + line[-1]
+                newline = line[0] + line[1:-1] + line[-2] * (num) + line[-1]
+            elif '║' in line:
+                x = line.rsplit('║',2)
+                newline = x[0]+'║'+' '*(num//2)+x[1]+' '*(num-num//2)+'║'
+            else:
+                newline = line
+        except IndexError:
             newline = line
         newlines.append(newline)
 
