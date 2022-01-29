@@ -15,7 +15,7 @@ from awesometable import banktable2image, table2image
 from data_generator import bank_detail_generator, bank_table_generator
 from data_generator.fakekeys import read_background
 from data_generator.uniform import UniForm
-from data_generator.fs_data import FinancialStatementTable, fstable2image
+from fs_data import FinancialStatementTable, fstable2image
 from post_processor import random as _random
 from post_processor.background import add_background_data
 from post_processor.deco import keepdata
@@ -209,29 +209,22 @@ class FSFactory(Thread):
     """工厂模式"""
     BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
     BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
-    def __init__(self, type, batch,config='config/financial_statement_config.yaml'):
+    def __init__(self, type, batch,lang='zh_CN'):
         super().__init__()
         self.batch = batch
+        if lang == 'zh_CN':
+            config = './config/financial_statement_config.yaml'
+        else:
+            config = './config/en-config.yaml'
+
         with open(config, 'r', encoding='utf-8') as f:
             config = yaml.load(f, Loader=yaml.SafeLoader)
-            for k, v in config.items():
-                for vk, vv in v.items():
-                    if vv:
-                        v[vk] = []
-                        for idx, item in enumerate(vv.split()):
-                            if item[0].isdigit():
-                                v[vk].append('  ' + item)
-                            elif item[0] == '（':
-                                v[vk].append(' ' + item)
-                            else:
-                                v[vk].append(item)
-                config[k] = v
         if type == 'all':
             names = list(config.keys())
         else:
             names = [n for n in config.keys() if type in n]
 
-        self.table_machines = [FinancialStatementTable(name,config) for name in names]
+        self.table_machines = [FinancialStatementTable(name,lang) for name in names]
         # self.table_generator = FinancialStatementTable(name,config)  # data > table
         self.image_compositor = fstable2image  # table > image
         self.background_generator = None
@@ -272,13 +265,13 @@ class FSFactory(Thread):
         sealdir = self.post_processor_config['random_seal']['seal_dir']
         count = 0
         for table_generator in cycle(self.table_machines):
-            for t in table_generator.create(1,page_it=False):
+            for t in table_generator.create(5,page_it=False):
                 fn = '0' + str(int(time.time() * 1000))[5:]
                 if random.random()<0.5:
                     back_pattern = self.BACK_PATTERN
                 else:
                     back_pattern = None
-                image_data = fstable2image(t,bold_pattern=self.BOLD_PATTERN,back_pattern=back_pattern)
+                image_data = fstable2image(t,offset=10,bold_pattern=self.BOLD_PATTERN,back_pattern=back_pattern)
 
                 if self.save_mid:
                     cv2.imwrite(os.path.join(output_dir, '%s.jpg' % fn),
@@ -339,5 +332,5 @@ if __name__ == '__main__':
     # main(sys.argv)
     # bank_factory = Factory(batch=10)
     # bank_factory.start()
-    fsfactory = FSFactory('all',10,'config/financial_statement_config.yaml')
+    fsfactory = FSFactory('all',100)
     fsfactory.start()
