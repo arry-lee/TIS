@@ -408,6 +408,9 @@ def fstable2image(table,
     text_boxes = []  # 文本框
     seals = []  # 统一盖章信息
     box_dict = defaultdict(list)  # 单元格映射到文本内容
+    table_boxes = []
+
+    l, t, r, b = w, h, 0, 0  # 记录表格四极
     for lno, line in enumerate(lines):
         v = lno * line_height + y0
         start = half_char_width + x0
@@ -417,6 +420,10 @@ def fstable2image(table,
             draw.text((start, v), line, font=font, fill='black', anchor='lm')
             text_box = draw.textbbox((start, v), line, font=font, anchor='lm')
             text_boxes.append([text_box, 'text@' + line])
+
+            if (l, t, r, b) != (w, h, 0, 0):
+                table_boxes.append([l,t,r,b])
+                l, t, r, b = w, h, 0, 0    #记录表格坐标
             continue
 
         if '═' in line:
@@ -449,7 +456,7 @@ def fstable2image(table,
             draw.text((x0, v), company, font=subtitlefont, fill='black',
                       anchor='lm')
             titlebox = draw.textbbox((x0, v), company, font=subtitlefont,
-                                     anchor='mm')
+                                     anchor='lm')
             text_boxes.append([titlebox, 'text@' + company])
             seals.append((titlebox, company[5:]))
             draw.text((w - x0, v), info, font=subtitlefont, fill='black',
@@ -522,6 +529,12 @@ def fstable2image(table,
             if lno < len(lines) - 2:
                 cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
                 cell_boxes.add(cbox)
+                # 记录当前的表格坐标
+                l = min(l,cbox[0])
+                t = min(t,cbox[1])
+                r = max(r,cbox[2])
+                b = max(b,cbox[3])
+
                 box_dict[cbox].append(striped_cell)
 
     # 处理背景匹配
@@ -536,12 +549,15 @@ def fstable2image(table,
 
     cell_boxes = list(cell_boxes)
     # 以下处理标注
-    l, t, r, b = cell_boxes[0]  # 求表格四极
+    # l, t, r, b = cell_boxes[0]  # 求表格四极
+    for box in table_boxes:
+        text_boxes.append([box, 'table@'])
+
     for box in cell_boxes:
-        l = min(l, box[0])
-        t = min(t, box[1])
-        r = max(r, box[2])
-        b = max(b, box[3])
+        # l = min(l, box[0])
+        # t = min(t, box[1])
+        # r = max(r, box[2])
+        # b = max(b, box[3])
         text_boxes.append([box, 'cell@'])
         if vrules == 'ALL':
             draw.line((box[0], box[1]) + (box[0], box[3]), fill='black',width=2)
@@ -552,14 +568,13 @@ def fstable2image(table,
 
     points = []
     cell_boxes = [tb[0] for tb in text_boxes]  # 单纯的boxes分不清是行列还是表格和文本
-    cell_boxes.append([l, t, r, b])
+    label = [tb[1] for tb in text_boxes]
+    # cell_boxes.append([l, t, r, b])
     for box in cell_boxes:
         points.append([box[0], box[1]])
         points.append([box[2], box[1]])
         points.append([box[2], box[3]])
         points.append([box[0], box[3]])
-
-    label = [tb[1] for tb in text_boxes] + ['table@0']
 
     if sealed and LANG!='en':
         b, c = seals.pop(0)
