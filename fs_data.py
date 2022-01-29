@@ -2,24 +2,29 @@ import random
 import re
 from collections import defaultdict
 from functools import lru_cache
+import textwrap
+from itertools import cycle
 
 import cv2
 import faker
 import numpy as np
 import yaml
-from PIL import ImageFont, Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from toolz import partition_all
 
-from awesometable import (AwesomeTable, vstack, paginate,
-                          vpat, _count_padding, __c, H_SYMBOLS,
-                          _str_block_width, from_list, from_dict)
+from awesometable import (AwesomeTable, H_SYMBOLS, __c, _count_padding,
+                          _str_block_width, from_dict, from_list, from_str,
+                          paginate,
+                          vpat, vstack, wrap)
 from post_processor.A4 import Paper
-from post_processor.seal import gen_name_seal, add_seal, gen_seal
+from post_processor.seal import add_seal, gen_name_seal, gen_seal
 from utils.ulpb import encode
 
-RANDOM_SEED = 42
-random.seed(RANDOM_SEED)
-faker.Faker.seed(RANDOM_SEED)
+CHINESE_NUM = '一二三四五六七八九十'
+
+# RANDOM_SEED = 42
+# random.seed(RANDOM_SEED)
+# faker.Faker.seed(RANDOM_SEED)
 
 random_price = lambda: '{:,}'.format(random.randint(10000000, 1000000000))
 hit = lambda r:random.random()<=r
@@ -32,7 +37,6 @@ else:
     @lru_cache
     def _(x):
         return encode(x).title()
-
 
 
 def random_dic(dicts):
@@ -71,20 +75,22 @@ def build_complex_header_w(headers,columns,widths):
                             partition_all(len(columns)//len(headers),widths)):
         if ino == 0:
             inner = {h: {k:v for k,v in zip(keys,ws)}}
+
         else:
             inner = {h: {**inner, **{k:v for k,v in zip(keys,ws)}}}
     return inner
 
+
 class FinancialStatementTable(object):
     """财报统一生成接口"""
-    complex_columns = [
-        [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'), _('盈余公积'),
-         _('一般风险准备'), _('未分配利润')],
-    ]
+
     common_columns = [[_('项目'), _('本期发生额'), _('上期发生额')],
                       [_('项目'), _('本月实际'), _('本年累计'), _('上年同期')],
                       [_('项目'), _('行次'), _('本月实际'), _('本年累计'), _('上年同期')],
                       [_('项目'), _('附注'), _('本月实际'), _('本年累计'), _('上年同期')],
+                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'), _('盈余公积')],
+                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'), _('盈余公积'), _('一般风险准备')],
+                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'), _('盈余公积'), _('一般风险准备'), _('未分配利润')]
                       ]
     complex_headers = ['归属于母公司所有者权益', '其他综合收益']
 
@@ -101,11 +107,11 @@ class FinancialStatementTable(object):
         self.config = config
         self.name = name
         self._index = config[name]
-
-        if '权益' in self.name:
-            self.is_complex = True
-        else:
-            self.is_complex = False
+        self._columns_generator = cycle(self.common_columns)
+        # if '权益' in self.name:
+        #     self.is_complex = True
+        # else:
+        #     self.is_complex = False
 
     def _ops_dispatch(self):
         # 对于生成的表格根据其长度分发到不同的操作
@@ -116,26 +122,22 @@ class FinancialStatementTable(object):
         c = len(self._columns)
         r = sum(len(v) + 1 for v in self._index.values() if v)
         rmax = 30  # 单页最大行数
-        rmin = 10  # 低于此行数实行多表堆叠
+        rmin = 15  # 低于此行数实行多表堆叠
         cmin = 3  # 低于此列数可以合并
         cmax = 6  # 大于此列复杂化
 
-        self.can_hstack = r >= rmax and c <= cmin
-        self.can_vstack = r <= rmin and c >= cmax
+        self.can_hstack = hit(0.5) and r > rmax
+        self.can_vstack = hit(0.5) and r > rmin
         self.can_paginate = r >= rmax and cmin < c < cmax
-        self.can_truncate = r >= rmax and cmin < c < cmax
-        self.can_complex = r > rmin and c >= cmax
+        self.can_truncate = True
+        self.can_complex = hit(0.7) and c>=cmin
 
     @property
-    def index(self, shuffle=False):
-        if shuffle:
-            random.shuffle(self._index)
+    def index(self):
         return self._index
 
     @property
-    def columns(self, shuffle=False):
-        if shuffle:
-            random.shuffle(self._columns)
+    def columns(self):
         return self._columns
 
     def _base_info(self):
@@ -143,10 +145,8 @@ class FinancialStatementTable(object):
         self.this_year = self.faker.date()
         self.last_year = str(int(self.this_year[:4]) - 1) + self.this_year[4:]
         self.common_columns.append([_('项目'), self.this_year, self.last_year])
-        if self.is_complex:
-            self._columns = random.choice(self.complex_columns)
-        else:
-            self._columns = random.choice(self.common_columns)
+        self._columns = next(self._columns_generator)#random.choice(self.common_columns)
+        self._cpx_headers =(self.this_year,self.last_year,'组合一','组合二')
 
     @property
     def title(self):
@@ -157,8 +157,7 @@ class FinancialStatementTable(object):
     @property
     def info(self):
         _info = AwesomeTable()
-        _info.add_row(
-            [_('编制单位:') + '%s' % self.company, _('单位：千元 币种：人民币 审计类型：未经审计')])
+        _info.add_row( [_('编制单位:') + '%s' % self.company, _('单位：千元 币种：人民币 审计类型：未经审计')])
         return _info
 
     @property
@@ -176,31 +175,21 @@ class FinancialStatementTable(object):
 
     def _build_table(self, indent=2, fill_ratio=0.7,brace_ratio=0.3,auto_ratio=0.5):
         t = AwesomeTable()
-        if self.can_complex:
-            columns = self.columns + self.columns[1:]  # 不添加columns
-        else:
-            columns = self.columns
-            t.add_row(columns)
+        columns = self.columns
+        t.add_row(columns)
         rno = 1
         for k, v in self.index.items():
             t.add_row([_(k)] + [''] * (len(columns) - 1))
             if v is None: continue
             for item in v:
-                if item[0] == '（':
-                    item = ' '*indent*2 + _(item)
-                elif item[0].isdigit():
-                    item = ' ' * indent * 3 + _(item)
-                else:
-                    item = ' '* indent+_(item)
-
-                row = [item]
+                row = [self._indent_item(indent, item)]
                 for c in columns[1:]:
                     if c == _('行次'):
                         row.append(rno)
                         rno += 1
                     elif c == _('附注'):
                         if hit(fill_ratio):
-                            row.append('({})'.format(random.choice('一二三四五六七八九十')))
+                            row.append('({})'.format(random.choice(CHINESE_NUM)))
                         else:
                             row.append(' ')
                     else:
@@ -212,65 +201,69 @@ class FinancialStatementTable(object):
                         else:
                             row.append('-')
                 t.add_row(row)
-        # if not self.can_complex and hit(auto_ratio):
-        #     t.add_autoindex()
+        if hit(auto_ratio):
+            t.add_autoindex(fieldname='行次')
         return t
 
-    def _build_multilayer(self, this_year='本年金额', last_year='上年金额'):
-        t = self.complex_headers
-        c = self.columns[1:]
-        random.shuffle(c)
-        c.insert(0, self.columns[0])
-        assert self.can_complex
-        inner = [[t[1], [c[1], c[2]]]] + c[3:-2]
-        random.shuffle(inner)
-        col1 = [this_year, [[t[0], inner], c[-2], c[-1]]]
-        col2 = [last_year, [[t[0], inner], c[-2], c[-1]]]
-        return [c[0], col1, col2]
+    @staticmethod
+    def _indent_item(indent, item):
+        if item[0] == '（':
+            item = ' ' * indent * 2 + _(item)
+        elif item[0].isdigit():
+            item = ' ' * indent * 3 + _(item)
+        else:
+            item = ' ' * indent + _(item)
+        return item
 
-    def _build_complex_header(self,t,headers=None,layers=3):
-        columns = self.columns
-        if not headers and layers>1:
-            headers = list(range(layers))
-        widths = [len(c)+2 for c in re.split(vpat,str(t).splitlines()[0])[1:-1]]
-        assert len(widths) == len(columns)
-        print(widths)
-        return from_dict(build_complex_header_w(headers,columns,widths))
 
+    def _build_complex_header(self,t):
+        lines = str(t).splitlines()
+        cc = [c.strip() for c in re.split(vpat, lines[1])[1:-1]]
+        w = [len(c) + 2 for c in re.split(vpat, lines[0])[1:-1]]
+        assert len(w) == len(cc)
+        if len(cc)>=5:
+            _header = from_list(gen_header(cc,w,self._cpx_headers),False)
+            return vstack(_header,t)
+        else:
+            return t
 
     def process_body(self, t):
         t.align = 'c'
         t._align['Field 1'] = 'l'
 
-        if self.can_hstack:  # 并列
-            new = AwesomeTable()
-            new.add_row(t._rows[0] + t._rows[0])
-            mid = (len(t._rows) - 1) // 2
-            for i in range(1, mid):
-                new.add_row(t._rows[i] + t._rows[i + mid])
-            new._align['Field 1'] = 'l'
-            new._align['Field %d' % (len(t._rows[0]) + 1)] = 'l'
-            t = new
-            t.max_width = 30
+        if self.can_vstack:  # 多表
+            npart = random.randint(3,4)
+            out = []
+            for i in range(npart):
+                _max = 26//npart
+                step = random.randint(_max//2,_max)
+                start = random.randint(0,26-_max)
+                new = t[start:start+step]
+                if hit(0.3):
+                    new = self._build_complex_header(new)
+                out.append(new)
+                w = len(str(new).splitlines()[0])
+                random_text = wrap('    '+self.faker.paragraph(10),w)
+                out.append(random_text)
+            t = vstack(out)
+        else:
+            if self.can_hstack:
+                new = AwesomeTable()
+                new.add_row(t._rows[0] + t._rows[0])
+                mid = (len(t._rows) - 1) // 2
+                for i in range(1, mid):
+                    new.add_row(t._rows[i] + t._rows[i + mid])
+                new._align['Field 1'] = 'l'
+                new._align['Field %d' % (len(t._rows[0]) + 1)] = 'l'
+                t = new
+                t.max_width = 30
 
-        elif self.can_vstack:  # 多表
-            new = t.copy()
-            random_text = self.faker.paragraph()
-            t = vstack([t, random_text, new])
-
-        if self.can_complex:  # 表头
-            # t.max_width = 14
-            # t.min_width = 14
-            # complex_list = self._build_multilayer()
-            # _header = from_list(complex_list, False, w=18)
-            _header = self._build_complex_header(t)
-            t = vstack(_header, t)
-
-        elif self.can_truncate:  # 截断
-            # t.sort_key = lambda x: random.random()
-            # t.sortby = 'Field 1'
-            t = t[:26]
-
+            elif self.can_truncate:  # 截断
+                # t.sort_key = lambda x: random.random()
+                # t.sortby = 'Field 1'
+                t = t[:26]
+            if self.can_complex:  # 表头
+                t = self._build_complex_header(t)
         self.table_width = str(t).splitlines()[0].__len__()
         return t
 
@@ -278,7 +271,11 @@ class FinancialStatementTable(object):
     def table(self):
         self._base_info()
         self._ops_dispatch()
-        return vstack([self.title, self.info, self.body, self.footer])
+        # print(self.body)
+        if self.can_vstack:
+            return vstack([self.title, self.info,self.body])
+        else:
+            return vstack([self.title, self.info, self.body, self.footer])
 
     def create(self, batch, page_it=False):
         if not page_it:
@@ -290,6 +287,56 @@ class FinancialStatementTable(object):
                 for t in paginate(self.table, lpp):
                     yield t
 
+def gen_header(cs, ws, hs=tuple(range(5))):
+    """枚举复杂表头格式
+    没有人能优化这段代码我说的
+    """
+    if len(cs) == 5:
+        t = [{cs[0]:ws[0]}, {hs[0]:{cs[1]:ws[1], cs[2]:ws[2]}},
+             {hs[1]:{cs[3]:ws[3], cs[4]:ws[4]}}]
+    elif len(cs) == 6:
+        t = [{cs[0]:ws[0]},
+             {hs[0]:{cs[1]:ws[1], cs[2]:ws[2]}},
+             {cs[3]:ws[3]},
+             {hs[1]:{cs[4]:ws[4], cs[5]:ws[5]}}]
+    elif len(cs) == 7:
+        t = [{cs[0]:ws[0]},
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}, cs[3]:ws[3]}},
+             {hs[1]:{hs[2]:{cs[4]:ws[4], cs[5]:ws[5]}, cs[6]:ws[6]}}]
+    elif len(cs) == 8:
+        t = [{cs[0]:ws[0]},
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}}, cs[3]:ws[3]},
+             {hs[1]:{hs[2]:{cs[4]:ws[4], cs[5]:ws[5]}}, cs[6]:ws[6], cs[7]:ws[7]}]
+    elif len(cs) == 9:
+        t = [{cs[0]:ws[0]},
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}}, cs[3]:ws[3], cs[4]:ws[4]},
+             {hs[1]:{hs[2]:{cs[5]:ws[5], cs[6]:ws[6]}}, cs[7]:ws[7], cs[8]:ws[8]}]
+    elif len(cs) == 10:
+        t = [{cs[0]:ws[0]},
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]},hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}}},
+             {hs[1]:{hs[2]:{cs[5]:ws[5], cs[6]:ws[6]},hs[3]:{cs[7]:ws[7], cs[8]:ws[8]}}}]
+    elif len(cs) == 11:
+        t = [{cs[0]:ws[0]},
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}},
+              hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}, cs[5]:ws[5]},
+             {hs[1]:{hs[2]:{cs[6]:ws[6], cs[7]:ws[7]}},
+              hs[3]:{cs[8]:ws[8], cs[9]:ws[9]}, cs[10]:ws[10]}]
+    elif len(cs) == 12:
+        t = [{cs[0]:ws[0]},
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]},
+              hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}, cs[5]:ws[5]}},
+             {hs[1]:{hs[2]:{cs[6]:ws[6], cs[7]:ws[7]},
+              hs[3]:{cs[8]:ws[8], cs[9]:ws[9]}, cs[10]:ws[10], cs[11]:ws[11]}}]
+    elif len(cs) == 13:
+        t = [{cs[0]:ws[0]},
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}},
+              hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}, cs[5]:ws[5], cs[6]:ws[6]},
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}},
+              hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}, cs[5]:ws[5], cs[6]:ws[6]}]
+    else:
+
+        raise KeyError()
+    return t
 
 def _compute_lines_per_page(table, fontsize=40, line_pad=-5):
     lines = str(table).splitlines()
@@ -303,7 +350,6 @@ def _compute_lines_per_page(table, fontsize=40, line_pad=-5):
     ww, hh = box[2] - box[0], box[3] - box[1]
     lines = int(hh * (w / ww) / (fontsize + line_pad))
     return lines // 2
-
 
 
 def fstable2image(table,
@@ -333,7 +379,7 @@ def fstable2image(table,
     if line_height is None:
         line_height = font_size + line_pad
 
-    w = (len(lines[0]) + 1) * char_width  # 图片宽度
+    w = (len(lines[0]) + 1) * char_width+char_width*offset*2  # 图片宽度
     h = (len(lines) + 3) * line_height  # 图片高度
 
     if background and bg_box:
@@ -345,8 +391,8 @@ def fstable2image(table,
         background = background.resize((wn, hn))
         x0, y0 = int(x1 * w / w0), int(y1 * h / h0)
     else:
-        background = Image.new('RGB', (w+char_width*offset*2, h), bgcolor)
-        x0, y0 = xy or (char_width*offset, char_width)
+        background = Image.new('RGB', (w, h), bgcolor)
+        x0, y0 = xy or (char_width+char_width*offset, char_width)
 
     draw = ImageDraw.Draw(background)
     font = ImageFont.truetype(font_path, font_size)
@@ -367,7 +413,7 @@ def fstable2image(table,
         start = half_char_width + x0
         cells = re.split(vpat, line)[1:-1]
 
-        if not cells:
+        if not cells: #处理中间大段文字
             draw.text((start, v), line, font=font, fill='black', anchor='lm')
             text_box = draw.textbbox((start, v), line, font=font, anchor='lm')
             text_boxes.append([text_box, 'text@' + line])
@@ -534,29 +580,31 @@ def fstable2image(table,
 
 
 
+
 if __name__ == '__main__':
     # t = {'H1':{'H2':{'H3':{0:None,1:None},2:None,3:None},4:None,5:None}}
     #
     # lt = [1,[[2,[5,[6,[8,9]],7]],3,4]]
     #
-    # headers = ['H1','H2','H3']
-    # columns = list(range(6))
-    # # t = build_complex_header(headers,columns)
-    # t = build_complex_header_w(headers,columns,[6,7,8,9,10,11])
-    #
-    # print(from_dict(random_dic(t)))
+
+
+    # t = gen_header(list(range(12)),[8]*12)
+    # print(from_list(t,False))
+
     # print(from_list(lt))
-    # assert from_dict(t)==from_list(lt)
-    # f = FinancialStatementTable("合并利润表",
-    #                             config='./config/financial_statement_config.yaml')
+
+
     f = FinancialStatementTable("合并利润表",lang=LANG)
     t = f.table
     print(t)
     BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
     BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
-    data = fstable2image(t, DEBUG=False, bold_pattern=BOLD_PATTERN,
+    data = fstable2image(t,offset=10,DEBUG=False, bold_pattern=None,
                       back_pattern=None)['image']
     cv2.imwrite('t.jpg', data)
+
+
+
 
 # FONT_MAP = [(re.compile(r'.*：$'), ('simhei.ttf', 40, 0)),
 #             (re.compile(r'.*表$'), ('simhei.ttf', 50, 1)),
