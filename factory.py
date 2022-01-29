@@ -228,7 +228,7 @@ class FSFactory(Thread):
         # self.table_generator = FinancialStatementTable(name,config)  # data > table
         self.image_compositor = fstable2image  # table > image
         self.background_generator = None
-        # self.post_processor = [
+        self.post_processor = [
         #     {'func': random_seal, 'ratio': 0.4},
         #     {'func': random_pollution, 'ratio': 0},
         #     {'func': random_fold, 'ratio': 0.5},
@@ -237,18 +237,20 @@ class FSFactory(Thread):
         #     {'func': random_rotate, 'ratio': 0.3},
         #     {'func': random_perspective, 'ratio': 0.3},
         #     {'func': random_background, 'ratio': 0.3},
-        #     {'func': show_label, 'ratio': 1},
-        # ]
+            {'func': show_label, 'ratio': 1},
+        ]
 
         with open('config/post_processor_config.yaml', 'r',encoding='utf-8') as f:
             self.post_processor_config = yaml.load(f, Loader=yaml.SafeLoader)
-        self.post_processor = []
+        # self.post_processor = []
         # for k,v in self.post_processor_config.items():
         #     ratio = v.pop('ratio')
         #     func = partial(getattr(_random, k),**v)
         #     self.post_processor.append({'func':func,'ratio':ratio})
 
         self.output_dir = './data/financial_statement/'
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
         self.save_mid = False
 
     def _save_and_log(self, image_data, fn):
@@ -332,5 +334,5 @@ if __name__ == '__main__':
     # main(sys.argv)
     # bank_factory = Factory(batch=10)
     # bank_factory.start()
-    fsfactory = FSFactory('all',100)
+    fsfactory = FSFactory('all',10)
     fsfactory.start()
