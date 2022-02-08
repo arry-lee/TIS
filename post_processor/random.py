@@ -13,7 +13,9 @@ from post_processor.seal import add_seal
 from post_processor.shadow import add_fold
 from post_processor.watermark import add_watermark
 
-__all__ = ['random_seal','random_noise','random_fold','random_pollution','random_rotate','random_perspective','random_distortion']
+__all__ = ['random_seal','random_noise','random_fold','random_pollution',
+           'random_rotate','random_background',
+           'random_perspective','random_distortion']
 
 
 def random_distortion(data,max_peak,max_period):

@@ -199,8 +199,6 @@ class UniFactory(Thread):
                             image_data['image'])
                 log_label(os.path.join(output_dir, '%s.txt' % fn), '%s.jpg' % fn,
                           image_data)
-
-
             pbar.update(1)
         pbar.close()
 
@@ -237,11 +235,11 @@ class FSFactory(Thread):
         #     {'func': random_rotate, 'ratio': 0.3},
         #     {'func': random_perspective, 'ratio': 0.3},
         #     {'func': random_background, 'ratio': 0.3},
-            {'func': show_label, 'ratio': 1},
+        #     {'func': show_label, 'ratio': 1},
         ]
 
-        with open('config/post_processor_config.yaml', 'r',encoding='utf-8') as f:
-            self.post_processor_config = yaml.load(f, Loader=yaml.SafeLoader)
+        # with open('config/post_processor_config.yaml', 'r',encoding='utf-8') as f:
+        #     self.post_processor_config = yaml.load(f, Loader=yaml.SafeLoader)
         # self.post_processor = []
         # for k,v in self.post_processor_config.items():
         #     ratio = v.pop('ratio')
@@ -264,7 +262,7 @@ class FSFactory(Thread):
         pbar = tqdm(total=self.batch)
         pbar.set_description("FsFactory")
         # print('start')
-        sealdir = self.post_processor_config['random_seal']['seal_dir']
+        # sealdir = self.post_processor_config['random_seal']['seal_dir']
         count = 0
         for table_generator in cycle(self.table_machines):
             for t in table_generator.create(5,page_it=False):
@@ -334,5 +332,5 @@ if __name__ == '__main__':
     # main(sys.argv)
     # bank_factory = Factory(batch=10)
     # bank_factory.start()
-    fsfactory = FSFactory('all',10)
+    fsfactory = FSFactory('all',50,lang='en')
     fsfactory.start()

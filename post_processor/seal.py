@@ -96,6 +96,6 @@ def add_seal(img, seal_p='./static/seal/seal.jpg', xy=None, angle=None):
     seal_p = as_cv(seal_p)
 
     seal = c2p(rotate_bound(seal_p, angle,borderValue=(255,255,255)))
-    mask = seal.convert('L').point(lambda x: 0 if x > 200 else 255)
+    mask = seal.convert('L').point(lambda x: 0 if x > 200 else 200)
     img.paste(seal, xy, mask=mask)
     return img
