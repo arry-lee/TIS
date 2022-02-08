@@ -12,14 +12,11 @@ from PIL import Image, ImageDraw, ImageFont
 from toolz import partition_all
 
 from awesometable import (AwesomeTable, H_SYMBOLS, __c, _count_padding,
-                          _str_block_width, from_dict, from_list, from_str,
-                          paginate,
+                          _str_block_width, from_list, paginate,
                           vpat, vstack, wrap)
 from post_processor.A4 import Paper
 from post_processor.seal import add_seal, gen_name_seal, gen_seal
 from utils.ulpb import encode
-
-
 
 CHINESE_NUM = '一二三四五六七八九十'
 
@@ -442,7 +439,7 @@ def fstable2image(table,
     seals = []  # 统一盖章信息
     box_dict = defaultdict(list)  # 单元格映射到文本内容
     table_boxes = []  # 记录多表格的表格坐标
-    l, t, r, b = w, h, 0, 0  # 记录表格四极
+    lx, ty, rx, by = w, h, 0, 0  # 记录表格四极
 
     for lno, line in enumerate(lines):
         v = lno * line_height + y0
@@ -456,9 +453,11 @@ def fstable2image(table,
                                      anchor='lm')
             text_boxes.append([text_box, 'text@' + line])
 
-            if (l, t, r, b) != (w, h, 0, 0):
-                table_boxes.append([l, t, r, b])
-                l, t, r, b = w, h, 0, 0  # 记录表格坐标
+            if (lx, ty, rx, by) != (w, h, 0, 0):
+                table_boxes.append([lx, ty, rx, by])
+                if DEBUG:
+                    draw.rectangle([lx, ty, rx, by],outline='red',width=5)
+                lx, ty, rx, by = w, h, 0, 0  # 记录表格坐标
             continue
 
         if '═' in line:
@@ -561,24 +560,28 @@ def fstable2image(table,
             while __c(lines, tt)[ll] not in H_SYMBOLS: tt -= 1
             while __c(lines, bb)[ll] not in H_SYMBOLS: bb += 1
             if lno < len(lines) - 2:
-                cbox = (
-                left, tt * line_height + y0, right, bb * line_height + y0)
+                cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
                 cell_boxes.add(cbox)
                 # 记录当前的表格坐标
-                l = min(l, cbox[0])
-                t = min(t, cbox[1])
-                r = max(r, cbox[2])
-                b = max(b, cbox[3])
+                lx = min(lx, cbox[0])
+                ty = min(ty, cbox[1])
+                rx = max(rx, cbox[2])
+                by = max(by, cbox[3])
 
                 box_dict[cbox].append(striped_cell)
+
+
+    if (lx, ty, rx, by) != (w, h, 0, 0):
+        table_boxes.append([lx, ty, rx, by])
+        if DEBUG:
+            draw.rectangle([lx, ty, rx, by], outline='red', width=5)
 
     # 处理背景匹配
     if back_pattern:
         for box, ls in box_dict.items():
             for s in ls:
                 if re.match(back_pattern, s):
-                    im = Image.new('RGBA', (box[2] - box[0], box[3] - box[1]),
-                                   (50, 50, 50, 100))
+                    im = Image.new('RGBA', (box[2] - box[0], box[3] - box[1]),(50, 50, 50, 100))
                     background.paste(im, box, mask=im)
                     break
 
@@ -622,8 +625,7 @@ def fstable2image(table,
                 pass
 
     return {
-        'image' :cv2.cvtColor(np.array(background, np.uint8),
-                              cv2.COLOR_RGB2BGR),
+        'image' :cv2.cvtColor(np.array(background, np.uint8),cv2.COLOR_RGB2BGR),
         'boxes' :cell_boxes,  # box 和 label是一一对应的
         'label' :label,
         'points':points
@@ -646,7 +648,7 @@ if __name__ == '__main__':
     print(t)
     BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
     BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
-    data = fstable2image(t, offset=10, DEBUG=False, bold_pattern=None,
+    data = fstable2image(t, offset=10, DEBUG=True, bold_pattern=None,
                          back_pattern=None)['image']
     cv2.imwrite('t.jpg', data)
 
