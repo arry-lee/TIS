@@ -2,7 +2,6 @@ import random
 import re
 from collections import defaultdict
 from functools import lru_cache
-import textwrap
 from itertools import cycle
 
 import cv2
@@ -20,22 +19,39 @@ from post_processor.A4 import Paper
 from post_processor.seal import add_seal, gen_name_seal, gen_seal
 from utils.ulpb import encode
 
+
+
 CHINESE_NUM = '一二三四五六七八九十'
 
 # RANDOM_SEED = 42
 # random.seed(RANDOM_SEED)
 # faker.Faker.seed(RANDOM_SEED)
-
-random_price = lambda: '{:,}'.format(random.randint(10000000, 1000000000))
-hit = lambda r:random.random()<=r
-
 LANG = 'zh_CN'
+if LANG == 'zh_CN':
+    fp = r'./static/pdf/sentence.txt'
+    words = []
+    with open(fp, encoding='utf-8') as f:
+        for s in f.read().split():
+            if len(s) > 30:
+                words.append(s)
+else:
+    fp = r'./static/pdf/sentence-en.txt'
+    words = []
+    with open(fp, encoding='utf-8') as f:
+        for s in f.read().split('.'):
+            if len(s) > 30:
+                words.append(s)
+
+random_words = lambda:random.choice(words)
+random_price = lambda:'{:,}'.format(random.randint(10000000, 1000000000))
+hit = lambda r:random.random() <= r
+
 if LANG == 'zh_CN':
     def _(x):
         return x
 else:
     @lru_cache
-    def _(x):
+    def _(x): # translate
         return encode(x).title()
 
 
@@ -45,39 +61,44 @@ def random_dic(dicts):
     new_dic = {}
     for key in dict_key_ls:
         v = dicts.get(key)
-        if isinstance(v,dict):
+        if isinstance(v, dict):
             v = random_dic(v)
         new_dic[key] = v
     return new_dic
 
-def build_complex_header(headers,columns):
+
+def build_complex_header(headers, columns):
     """根据headers 和 columns 构建复杂表头字典"""
     inner = {}
     for ino, h, keys in zip(range(len(headers)),
                             reversed(headers),
-                            partition_all(len(columns)//len(headers),columns)):
+                            partition_all(len(columns) // len(headers),
+                                          columns)):
         if ino == 0:
-            inner = {h: dict.fromkeys(keys)}
+            inner = {h:dict.fromkeys(keys)}
         else:
-            inner = {h: {**inner, **dict.fromkeys(keys)}}
+            inner = {h:{**inner, **dict.fromkeys(keys)}}
     return inner
 
-def build_complex_header_w(headers,columns,widths):
+
+def build_complex_header_w(headers, columns, widths):
     """
     headers 标题list
     columns 列名list
     widths  列宽list
     """
     inner = {}
-    for ino, h, keys,ws in zip(range(len(headers)),
-                            reversed(headers),
-                            partition_all(len(columns)//len(headers),columns),
-                            partition_all(len(columns)//len(headers),widths)):
+    for ino, h, keys, ws in zip(range(len(headers)),
+                                reversed(headers),
+                                partition_all(len(columns) // len(headers),
+                                              columns),
+                                partition_all(len(columns) // len(headers),
+                                              widths)):
         if ino == 0:
-            inner = {h: {k:v for k,v in zip(keys,ws)}}
+            inner = {h:{k:v for k, v in zip(keys, ws)}}
 
         else:
-            inner = {h: {**inner, **{k:v for k,v in zip(keys,ws)}}}
+            inner = {h:{**inner, **{k:v for k, v in zip(keys, ws)}}}
     return inner
 
 
@@ -88,11 +109,13 @@ class FinancialStatementTable(object):
                       [_('项目'), _('本月实际'), _('本年累计'), _('上年同期')],
                       [_('项目'), _('行次'), _('本月实际'), _('本年累计'), _('上年同期')],
                       [_('项目'), _('附注'), _('本月实际'), _('本年累计'), _('上年同期')],
-                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'), _('盈余公积')],
-                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'), _('盈余公积'), _('一般风险准备')],
-                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'), _('盈余公积'), _('一般风险准备'), _('未分配利润')]
+                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
+                       _('盈余公积')],
+                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
+                       _('盈余公积'), _('一般风险准备')],
+                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
+                       _('盈余公积'), _('一般风险准备'), _('未分配利润')]
                       ]
-    complex_headers = ['归属于母公司所有者权益', '其他综合收益']
 
     def __init__(self, name, lang=LANG):
         self.faker = faker.Faker(lang)
@@ -108,10 +131,6 @@ class FinancialStatementTable(object):
         self.name = name
         self._index = config[name]
         self._columns_generator = cycle(self.common_columns)
-        # if '权益' in self.name:
-        #     self.is_complex = True
-        # else:
-        #     self.is_complex = False
 
     def _ops_dispatch(self):
         # 对于生成的表格根据其长度分发到不同的操作
@@ -130,7 +149,7 @@ class FinancialStatementTable(object):
         self.can_vstack = hit(0.5) and r > rmin
         self.can_paginate = r >= rmax and cmin < c < cmax
         self.can_truncate = True
-        self.can_complex = hit(0.7) and c>=cmin
+        self.can_complex = hit(0.7) and c >= cmin
 
     @property
     def index(self):
@@ -145,20 +164,22 @@ class FinancialStatementTable(object):
         self.this_year = self.faker.date()
         self.last_year = str(int(self.this_year[:4]) - 1) + self.this_year[4:]
         self.common_columns.append([_('项目'), self.this_year, self.last_year])
-        self._columns = next(self._columns_generator)#random.choice(self.common_columns)
-        self._cpx_headers =(self.this_year,self.last_year,'组合一','组合二')
+        self._columns = next(self._columns_generator)  # random.choice(self.common_columns)
+        self._cpx_headers = (self.this_year, self.last_year, _('组合一'), _('组合二'))
+        _title = AwesomeTable()
+        _title.add_rows([[self.name], [self.this_year]])
+        self._title = _title
+        _info = AwesomeTable()
+        _info.add_row([_('编制单位:') + '%s' % self.company, _('单位：千元 币种：人民币 审计类型：未经审计')])
+        self._info = _info
 
     @property
     def title(self):
-        _title = AwesomeTable()
-        _title.add_rows([[self.name], [self.this_year]])
-        return _title
+        return self._title
 
     @property
     def info(self):
-        _info = AwesomeTable()
-        _info.add_row( [_('编制单位:') + '%s' % self.company, _('单位：千元 币种：人民币 审计类型：未经审计')])
-        return _info
+        return self._info
 
     @property
     def footer(self, name_mark='〇'):
@@ -173,7 +194,7 @@ class FinancialStatementTable(object):
     def body(self):
         return self.process_body(self._build_table())
 
-    def _build_table(self, indent=2, fill_ratio=0.7,brace_ratio=0.3,auto_ratio=0.5):
+    def _build_table(self, indent=2, fill_ratio=0.7, brace_ratio=0.3, auto_ratio=0.5):
         t = AwesomeTable()
         columns = self.columns
         t.add_row(columns)
@@ -215,35 +236,39 @@ class FinancialStatementTable(object):
             item = ' ' * indent + _(item)
         return item
 
-
-    def _build_complex_header(self,t):
+    def _build_complex_header(self, t):
         lines = str(t).splitlines()
         cc = [c.strip() for c in re.split(vpat, lines[1])[1:-1]]
         w = [len(c) + 2 for c in re.split(vpat, lines[0])[1:-1]]
         assert len(w) == len(cc)
-        if len(cc)>=5:
-            _header = from_list(gen_header(cc,w,self._cpx_headers),False)
-            return vstack(_header,t)
+        if len(cc) >= 5:
+            _header = from_list(gen_header(cc, w, self._cpx_headers), False)
+            return vstack(_header, t)
         else:
             return t
 
     def process_body(self, t):
+        """ 处理表格主体
+        分别为多表,单双栏做法
+        """
+        MAXROWS = 30
         t.align = 'c'
-        t._align['Field 1'] = 'l'
+        t._align['Field 1'] = 'l'  # 破坏了封装 左对齐
 
         if self.can_vstack:  # 多表
-            npart = random.randint(3,4)
+            num = random.randint(3, 4) # 表格数量
             out = []
-            for i in range(npart):
-                _max = 26//npart
-                step = random.randint(_max//2,_max)
-                start = random.randint(0,26-_max)
-                new = t[start:start+step]
+            for i in range(num):
+                _max = MAXROWS // num
+                step = random.randint(_max // 2, _max)
+                start = random.randint(0, MAXROWS - _max)
+                new = t[start:start + step]
                 if hit(0.3):
                     new = self._build_complex_header(new)
                 out.append(new)
-                w = len(str(new).splitlines()[0])
-                random_text = wrap('    '+self.faker.paragraph(10),w)
+                # 防止文字段落宽度比表格宽度小太多
+                w = max(len(str(new).splitlines()[0]), self._info.table_width)+6
+                random_text = wrap('    ' + random_words(), w)
                 out.append(random_text)
             t = vstack(out)
         else:
@@ -261,7 +286,7 @@ class FinancialStatementTable(object):
             elif self.can_truncate:  # 截断
                 # t.sort_key = lambda x: random.random()
                 # t.sortby = 'Field 1'
-                t = t[:26]
+                t = t[:MAXROWS]
             if self.can_complex:  # 表头
                 t = self._build_complex_header(t)
         self.table_width = str(t).splitlines()[0].__len__()
@@ -271,9 +296,8 @@ class FinancialStatementTable(object):
     def table(self):
         self._base_info()
         self._ops_dispatch()
-        # print(self.body)
         if self.can_vstack:
-            return vstack([self.title, self.info,self.body])
+            return vstack([self.title, self.info, self.body])
         else:
             return vstack([self.title, self.info, self.body, self.footer])
 
@@ -287,9 +311,10 @@ class FinancialStatementTable(object):
                 for t in paginate(self.table, lpp):
                     yield t
 
+
 def gen_header(cs, ws, hs=tuple(range(5))):
     """枚举复杂表头格式
-    没有人能优化这段代码我说的
+    不要试图去优化这段代码
     """
     if len(cs) == 5:
         t = [{cs[0]:ws[0]}, {hs[0]:{cs[1]:ws[1], cs[2]:ws[2]}},
@@ -306,15 +331,20 @@ def gen_header(cs, ws, hs=tuple(range(5))):
     elif len(cs) == 8:
         t = [{cs[0]:ws[0]},
              {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}}, cs[3]:ws[3]},
-             {hs[1]:{hs[2]:{cs[4]:ws[4], cs[5]:ws[5]}}, cs[6]:ws[6], cs[7]:ws[7]}]
+             {hs[1]:{hs[2]:{cs[4]:ws[4], cs[5]:ws[5]}}, cs[6]:ws[6],
+              cs[7]:ws[7]}]
     elif len(cs) == 9:
         t = [{cs[0]:ws[0]},
-             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}}, cs[3]:ws[3], cs[4]:ws[4]},
-             {hs[1]:{hs[2]:{cs[5]:ws[5], cs[6]:ws[6]}}, cs[7]:ws[7], cs[8]:ws[8]}]
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}}, cs[3]:ws[3],
+              cs[4]:ws[4]},
+             {hs[1]:{hs[2]:{cs[5]:ws[5], cs[6]:ws[6]}}, cs[7]:ws[7],
+              cs[8]:ws[8]}]
     elif len(cs) == 10:
         t = [{cs[0]:ws[0]},
-             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]},hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}}},
-             {hs[1]:{hs[2]:{cs[5]:ws[5], cs[6]:ws[6]},hs[3]:{cs[7]:ws[7], cs[8]:ws[8]}}}]
+             {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]},
+                     hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}}},
+             {hs[1]:{hs[2]:{cs[5]:ws[5], cs[6]:ws[6]},
+                     hs[3]:{cs[7]:ws[7], cs[8]:ws[8]}}}]
     elif len(cs) == 11:
         t = [{cs[0]:ws[0]},
              {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}},
@@ -324,9 +354,10 @@ def gen_header(cs, ws, hs=tuple(range(5))):
     elif len(cs) == 12:
         t = [{cs[0]:ws[0]},
              {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]},
-              hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}, cs[5]:ws[5]}},
-             {hs[1]:{hs[2]:{cs[6]:ws[6], cs[7]:ws[7]},
-              hs[3]:{cs[8]:ws[8], cs[9]:ws[9]}, cs[10]:ws[10], cs[11]:ws[11]}}]
+                     hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}, cs[5]:ws[5]}},
+             {hs[1]:{hs[2] :{cs[6]:ws[6], cs[7]:ws[7]},
+                     hs[3] :{cs[8]:ws[8], cs[9]:ws[9]}, cs[10]:ws[10],
+                     cs[11]:ws[11]}}]
     elif len(cs) == 13:
         t = [{cs[0]:ws[0]},
              {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}},
@@ -334,9 +365,9 @@ def gen_header(cs, ws, hs=tuple(range(5))):
              {hs[0]:{hs[2]:{cs[1]:ws[1], cs[2]:ws[2]}},
               hs[3]:{cs[3]:ws[3], cs[4]:ws[4]}, cs[5]:ws[5], cs[6]:ws[6]}]
     else:
-
         raise KeyError()
     return t
+
 
 def _compute_lines_per_page(table, fontsize=40, line_pad=-5):
     lines = str(table).splitlines()
@@ -356,7 +387,7 @@ def fstable2image(table,
                   xy=None,
                   font_size=20,
                   bgcolor='white',
-                  offset = 0,
+                  offset=0,
                   background=None,
                   bg_box=None,
                   font_path="./static/fonts/simfang.ttf",
@@ -379,7 +410,7 @@ def fstable2image(table,
     if line_height is None:
         line_height = font_size + line_pad
 
-    w = (len(lines[0]) + 1) * char_width+char_width*offset*2  # 图片宽度
+    w = (len(lines[0]) + 1) * char_width + char_width * offset * 2  # 图片宽度
     h = (len(lines) + 3) * line_height  # 图片高度
 
     if background and bg_box:
@@ -392,38 +423,42 @@ def fstable2image(table,
         x0, y0 = int(x1 * w / w0), int(y1 * h / h0)
     else:
         background = Image.new('RGB', (w, h), bgcolor)
-        x0, y0 = xy or (char_width+char_width*offset, char_width)
+        x0, y0 = xy or (char_width + char_width * offset, char_width)
 
     draw = ImageDraw.Draw(background)
     font = ImageFont.truetype(font_path, font_size)
 
-    titlefont = ImageFont.truetype('simhei.ttf', font_size + 10)
-    subtitlefont = ImageFont.truetype('simkai.ttf', font_size - 2)
-    hwfonts = [ImageFont.truetype('./static/fonts/shouxie.ttf', font_size + 10),
-               ImageFont.truetype('./static/fonts/shouxie1.ttf', font_size + 10),
-               ImageFont.truetype('./static/fonts/shouxie2.ttf', font_size + 10)]
-    heitifont = ImageFont.truetype('simkai.ttf', font_size)
+    title_font = ImageFont.truetype('simhei.ttf', font_size + 10)
+    subtitle_font = ImageFont.truetype('simkai.ttf', font_size - 2)
+    handwrite_fonts = [
+        ImageFont.truetype('./static/fonts/shouxie.ttf', font_size + 10),
+        ImageFont.truetype('./static/fonts/shouxie1.ttf', font_size + 10),
+        ImageFont.truetype('./static/fonts/shouxie2.ttf', font_size + 10)]
+    bold_font = ImageFont.truetype('simkai.ttf', font_size)
+    text_font = ImageFont.truetype(font_path, font_size - 2)
 
     cell_boxes = set()  # 多行文字的外框是同一个，需要去重
     text_boxes = []  # 文本框
     seals = []  # 统一盖章信息
     box_dict = defaultdict(list)  # 单元格映射到文本内容
-    table_boxes = []
-
+    table_boxes = []  # 记录多表格的表格坐标
     l, t, r, b = w, h, 0, 0  # 记录表格四极
+
     for lno, line in enumerate(lines):
         v = lno * line_height + y0
         start = half_char_width + x0
         cells = re.split(vpat, line)[1:-1]
 
-        if not cells: #处理中间大段文字
-            draw.text((start, v), line, font=font, fill='black', anchor='lm')
-            text_box = draw.textbbox((start, v), line, font=font, anchor='lm')
+        if not cells:  # 处理中间大段文字
+            draw.text((start, v), line, font=text_font, fill='black',
+                      anchor='lm')
+            text_box = draw.textbbox((start, v), line, font=text_font,
+                                     anchor='lm')
             text_boxes.append([text_box, 'text@' + line])
 
             if (l, t, r, b) != (w, h, 0, 0):
-                table_boxes.append([l,t,r,b])
-                l, t, r, b = w, h, 0, 0    #记录表格坐标
+                table_boxes.append([l, t, r, b])
+                l, t, r, b = w, h, 0, 0  # 记录表格坐标
             continue
 
         if '═' in line:
@@ -431,9 +466,9 @@ def fstable2image(table,
 
         if lno == 1:  # title
             title = cells[0].strip()
-            draw.text((w // 2, v), title, font=titlefont, fill='black',
+            draw.text((w // 2, v), title, font=title_font, fill='black',
                       anchor='mm')
-            titlebox = draw.textbbox((w // 2, v), title, font=titlefont,
+            titlebox = draw.textbbox((w // 2, v), title, font=title_font,
                                      anchor='mm')
             text_boxes.append([titlebox, 'text@' + title])
             if DEBUG:
@@ -453,15 +488,15 @@ def fstable2image(table,
 
         if lno == 5:
             company, info = cells[0].strip(), cells[1].strip()
-            draw.text((x0, v), company, font=subtitlefont, fill='black',
+            draw.text((x0, v), company, font=subtitle_font, fill='black',
                       anchor='lm')
-            titlebox = draw.textbbox((x0, v), company, font=subtitlefont,
+            titlebox = draw.textbbox((x0, v), company, font=subtitle_font,
                                      anchor='lm')
             text_boxes.append([titlebox, 'text@' + company])
             seals.append((titlebox, company[5:]))
-            draw.text((w - x0, v), info, font=subtitlefont, fill='black',
+            draw.text((w - x0, v), info, font=subtitle_font, fill='black',
                       anchor='rm')
-            titlebox = draw.textbbox((w - x0, v), info, font=subtitlefont,
+            titlebox = draw.textbbox((w - x0, v), info, font=subtitle_font,
                                      anchor='rm')
             text_boxes.append([titlebox, 'text@' + info])
             if DEBUG:
@@ -479,7 +514,7 @@ def fstable2image(table,
             if box[1] != box[3]:
                 if '〇' in cell:  # 手写签名
                     name = striped_cell.strip('〇')
-                    handwritefont = hwfonts.pop()
+                    handwritefont = handwrite_fonts.pop()
                     draw.text(((box[0] + box[2]) // 2, v), name,
                               font=handwritefont, fill='black', anchor='mm')
                     box = draw.textbbox(((box[0] + box[2]) // 2, v), name,
@@ -488,7 +523,7 @@ def fstable2image(table,
                     seals.append((box, name))
                 else:
                     if bold_pattern and re.match(bold_pattern, cell.strip()):
-                        draw.text((start, v), cell, font=heitifont,
+                        draw.text((start, v), cell, font=bold_font,
                                   fill='black',
                                   anchor='lm')
                     else:
@@ -496,7 +531,6 @@ def fstable2image(table,
                                   anchor='lm')
                     lpad, rpad = _count_padding(cell)
                     l = box[0] + lpad * char_width
-                    # striped_cell = cell.strip()
                     # 如果有多个空格分隔,例如无线表格
                     if '  ' in striped_cell:
                         lt = l
@@ -527,13 +561,14 @@ def fstable2image(table,
             while __c(lines, tt)[ll] not in H_SYMBOLS: tt -= 1
             while __c(lines, bb)[ll] not in H_SYMBOLS: bb += 1
             if lno < len(lines) - 2:
-                cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
+                cbox = (
+                left, tt * line_height + y0, right, bb * line_height + y0)
                 cell_boxes.add(cbox)
                 # 记录当前的表格坐标
-                l = min(l,cbox[0])
-                t = min(t,cbox[1])
-                r = max(r,cbox[2])
-                b = max(b,cbox[3])
+                l = min(l, cbox[0])
+                t = min(t, cbox[1])
+                r = max(r, cbox[2])
+                b = max(b, cbox[3])
 
                 box_dict[cbox].append(striped_cell)
 
@@ -549,34 +584,33 @@ def fstable2image(table,
 
     cell_boxes = list(cell_boxes)
     # 以下处理标注
-    # l, t, r, b = cell_boxes[0]  # 求表格四极
     for box in table_boxes:
         text_boxes.append([box, 'table@'])
 
     for box in cell_boxes:
-        # l = min(l, box[0])
-        # t = min(t, box[1])
-        # r = max(r, box[2])
-        # b = max(b, box[3])
         text_boxes.append([box, 'cell@'])
         if vrules == 'ALL':
-            draw.line((box[0], box[1]) + (box[0], box[3]), fill='black',width=2)
-            draw.line((box[2], box[1]) + (box[2], box[3]), fill='black',width=2)
+            draw.line((box[0], box[1]) + (box[0], box[3]), fill='black',
+                      width=2)
+            draw.line((box[2], box[1]) + (box[2], box[3]), fill='black',
+                      width=2)
         if hrules == 'ALL':
-            draw.line((box[0], box[1]) + (box[2], box[1]), fill='black',width=2)
-            draw.line((box[0], box[3]) + (box[2], box[3]), fill='black',width=2)
+            draw.line((box[0], box[1]) + (box[2], box[1]), fill='black',
+                      width=2)
+            draw.line((box[0], box[3]) + (box[2], box[3]), fill='black',
+                      width=2)
 
     points = []
     cell_boxes = [tb[0] for tb in text_boxes]  # 单纯的boxes分不清是行列还是表格和文本
     label = [tb[1] for tb in text_boxes]
-    # cell_boxes.append([l, t, r, b])
+
     for box in cell_boxes:
         points.append([box[0], box[1]])
         points.append([box[2], box[1]])
         points.append([box[2], box[3]])
         points.append([box[0], box[3]])
 
-    if sealed and LANG!='en':
+    if sealed and LANG != 'en':
         b, c = seals.pop(0)
         seal = gen_seal(c, '财务专用章', '', usestar=True)
         background = add_seal(background, seal, (b[2], b[1] - 80))
@@ -587,13 +621,13 @@ def fstable2image(table,
             except:
                 pass
 
-    return {'image': cv2.cvtColor(np.array(background, np.uint8),cv2.COLOR_RGB2BGR),
-            'boxes': cell_boxes,  # box 和 label是一一对应的
-            'label': label,
-            'points': points
-            }
-
-
+    return {
+        'image' :cv2.cvtColor(np.array(background, np.uint8),
+                              cv2.COLOR_RGB2BGR),
+        'boxes' :cell_boxes,  # box 和 label是一一对应的
+        'label' :label,
+        'points':points
+        }
 
 
 if __name__ == '__main__':
@@ -602,24 +636,19 @@ if __name__ == '__main__':
     # lt = [1,[[2,[5,[6,[8,9]],7]],3,4]]
     #
 
-
     # t = gen_header(list(range(12)),[8]*12)
     # print(from_list(t,False))
 
     # print(from_list(lt))
 
-
-    f = FinancialStatementTable("合并利润表",lang=LANG)
+    f = FinancialStatementTable("合并利润表", lang=LANG)
     t = f.table
     print(t)
     BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
     BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
-    data = fstable2image(t,offset=10,DEBUG=False, bold_pattern=None,
-                      back_pattern=None)['image']
+    data = fstable2image(t, offset=10, DEBUG=False, bold_pattern=None,
+                         back_pattern=None)['image']
     cv2.imwrite('t.jpg', data)
-
-
-
 
 # FONT_MAP = [(re.compile(r'.*：$'), ('simhei.ttf', 40, 0)),
 #             (re.compile(r'.*表$'), ('simhei.ttf', 50, 1)),
