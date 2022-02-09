@@ -205,8 +205,8 @@ class FinancialStatementTable(object):
         t.align = 'c'
         t._align['Field 1'] = 'l'  # 破坏了封装 左对齐
 
-        if self.can_vstack or True:  # 多表
-            num = random.randint(3, 5) # 表格数量
+        if self.can_vstack:  # 多表
+            num = random.randint(2, 4) # 表格数量
             out = []
             w = max(t.table_width, self._info.table_width)-2
             for i in range(num):
@@ -415,7 +415,7 @@ def fstable2image(table,
         line_height = font_size + line_pad
 
     w = (len(lines[0]) + 1) * char_width + char_width * offset * 2  # 图片宽度
-    h = (len(lines) + 3) * line_height  # 图片高度
+    h = (len(lines) + 5) * line_height  # 图片高度
 
     if background and bg_box:
         x1, y1, x2, y2 = bg_box
@@ -533,7 +533,7 @@ def fstable2image(table,
                               font=handwritefont, fill='black', anchor='mm')
                     box = draw.textbbox(((box[0] + box[2]) // 2, v), name,
                                         font=handwritefont, anchor='mm')
-                    text_boxes.append([box, 'text@' + name])
+                    text_boxes.append([box, 'script@' + name])
                     seals.append((box, name))
                 else:
                     if bold_pattern and re.match(bold_pattern, cell.strip()):
@@ -599,6 +599,25 @@ def fstable2image(table,
                     im = Image.new('RGBA', (box[2] - box[0], box[3] - box[1]),(50, 50, 50, 100))
                     background.paste(im, box, mask=im)
                     break
+    # 处理印章框
+    if sealed:
+        b, c = seals.pop(0)
+        seal = gen_seal(c, '财务专用章', '', usestar=True)
+        background = add_seal(background, seal, (b[2], b[1] - 80))
+
+        seal_box = [b[2], b[1] - 80, b[2] + seal.shape[0],
+                    b[1] - 80 + seal.shape[1]]
+        text_boxes.append([seal_box, 'arc_seal@'])
+
+        for b, n in seals:
+            seal = gen_name_seal(n, font_size * 2)
+            try:
+                background = add_seal(background, seal, (b[0], b[1] - 10))
+                seal_box = [b[2], b[1] - 10, b[2] + seal.width,
+                            b[1] - 10 + seal.height]
+                text_boxes.append([seal_box, 'rect_seal@'])
+            except:
+                pass
 
     cell_boxes = list(cell_boxes)
     # 以下处理标注
@@ -628,16 +647,7 @@ def fstable2image(table,
         points.append([box[2], box[3]])
         points.append([box[0], box[3]])
 
-    if sealed and LANG != 'en':
-        b, c = seals.pop(0)
-        seal = gen_seal(c, '财务专用章', '', usestar=True)
-        background = add_seal(background, seal, (b[2], b[1] - 80))
-        for b, n in seals:
-            seal = gen_name_seal(n, font_size * 2)
-            try:
-                background = add_seal(background, seal, (b[0], b[1] - 10))
-            except:
-                pass
+
 
     return {
         'image' :cv2.cvtColor(np.array(background, np.uint8),cv2.COLOR_RGB2BGR),
