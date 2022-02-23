@@ -1,5 +1,6 @@
 import random
 import re
+import textwrap
 from collections import defaultdict
 from functools import lru_cache
 from itertools import cycle
@@ -15,41 +16,50 @@ from awesometable import (AwesomeTable, H_SYMBOLS, __c, _count_padding,
                           _str_block_width, from_list, paginate,from_str,
                           vpat, vstack, wrap)
 from post_processor.A4 import Paper
-from post_processor.seal import add_seal, gen_name_seal, gen_seal
+from post_processor.seal import add_seal, gen_name_seal, gen_seal,add_seal_box
 from utils.ulpb import encode
 
-CHINESE_NUM = '一二三四五六七八九十'
 
+CHINESE_NUM = '一二三四五六七八九十'
 # RANDOM_SEED = 42
 # random.seed(RANDOM_SEED)
 # faker.Faker.seed(RANDOM_SEED)
-LANG = 'en'
-if LANG == 'zh_CN':
-    fp = r'./static/pdf/sentence.txt'
-    words = []
-    with open(fp, encoding='utf-8') as f:
-        for s in f.read().split():
-            if len(s) > 30:
-                words.append(s)
-else:
-    fp = r'./static/pdf/sentence-en.txt'
-    words = []
-    with open(fp, encoding='utf-8') as f:
-        for s in f.read().split('.'):
-            if len(s) > 30:
-                words.append(s)
+
+fp = r'./static/pdf/sentence.txt'
+words = []
+with open(fp, encoding='utf-8') as f:
+    for s in f.read().split():
+        if len(s) > 30:
+            words.append(s)
 
 random_words = lambda:random.choice(words)
 random_price = lambda:'{:,}'.format(random.randint(1000000, 1000000000))
 hit = lambda r:random.random() <= r
 
+translation = {'项目'    :'ITEM', '本期发生额':'AMOUNT FOR THIS PERIOD',
+               '上期发生额' :'AMOUNT FOR LAST PERIOD',
+               '本月实际'  :'ACTUAL AMOUNT THIS MONTH',
+               '本年累计'  :'TOTAL AMOUNT THIS YEAR',
+               '上年同期'  :'TOTAL AMOUNT LAST YEAR',
+               '附注'    :'NOTES', '实收资本(或股本)':'PAID-IN CAPITAL OR SHARE CAPITAL',
+               '资本公积'  :'CAPITAL RESERVE',
+               '其他综合收益':'OTHER COMPREHENSIVE INCOME', '盈余公积':'SURPLUS RESERVE',
+               '一般风险准备':'GENERAL RISK PREPARATION',
+               '组合一'   :'GROUP ONE', '组合二':'GROUP TWO', '组合三':'GROUP THREE',
+               '组合四'   :'GROUP FOUR', '组合五':'GROUP FIVE', '组合六':'GROUP SIX',
+               '行次'    :'No.'
+               }
+
+LANG = 'en'
 if LANG == 'zh_CN':
     def _(x):
         return x
 else:
-    @lru_cache
-    def _(x): # translate
-        return encode(x).upper()
+    def _(x):
+        if x in translation.keys():
+            return textwrap.fill(translation[x],10)
+        else:
+            return encode(x).upper()
 
 
 class FinancialStatementTable(object):
@@ -57,27 +67,30 @@ class FinancialStatementTable(object):
 
     common_columns = [[_('项目'), _('本期发生额'), _('上期发生额')],
                       [_('项目'), _('本月实际'), _('本年累计'), _('上年同期')],
-                      # [_('项目'), _('附注'), _('本月实际'), _('本年累计'), _('上年同期')],
+                      [_('项目'), _('其他'), _('本月实际'), _('本年累计'), _('上年同期')],
                       [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
                        _('盈余公积')],
                       [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
                        _('盈余公积'), _('一般风险准备')]
                       ]
 
-    def __init__(self, name, lang=LANG):
+    def __init__(self, name, lang='zh_CN'):
         self.faker = faker.Faker(lang)
         self.lang = lang
-        if lang == 'zh_CN':
-            config = './config/financial_statement_config.yaml'
-        else:
-            config = './config/en-config.yaml'
 
-        with open(config, 'r', encoding='utf-8') as f:
+        if lang == 'zh_CN':
+            config_path = './config/financial_statement_config.yaml'
+        else:
+            config_path = './config/en-config.yaml'
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.load(f, Loader=yaml.SafeLoader)
+
         self.config = config
         self.name = name
         self._index = config[name]
         self._columns_generator = cycle(self.common_columns)
+
+
 
     def _ops_dispatch(self):
         # 对于生成的表格根据其长度分发到不同的操作
@@ -92,11 +105,18 @@ class FinancialStatementTable(object):
         cmin = 3  # 低于此列数可以合并
         cmax = 6  # 大于此列复杂化
 
-        self.can_hstack = hit(0) and r > rmax
-        self.can_vstack = hit(0.5) and r > rmin
-        self.can_paginate = r >= rmax and cmin < c < cmax
-        self.can_truncate = True
-        self.can_complex = hit(0) and c >= cmin
+        if self.lang == 'zh_CN':
+            self.can_hstack = hit(0.5) and r > rmax
+            self.can_vstack = hit(0.5) and r > rmin
+            self.can_paginate = r >= rmax and cmin < c < cmax
+            self.can_truncate = True
+            self.can_complex = hit(0.5) and c >= cmin
+        else:
+            self.can_hstack = hit(0.5)
+            self.can_vstack = hit(0.5) and r > rmin
+            self.can_paginate = r >= rmax and cmin < c < cmax
+            self.can_truncate = True
+            self.can_complex = hit(0.9) and c >= cmin
 
     @property
     def index(self):
@@ -111,18 +131,17 @@ class FinancialStatementTable(object):
         self.this_year = self.faker.date()
         self.last_year = str(int(self.this_year[:4]) - 1) + self.this_year[4:]
         self.common_columns.append([_('项目'), self.this_year, self.last_year])
-        self._columns = next(self._columns_generator)  # random.choice(self.common_columns)
+        self._columns = next(self._columns_generator)  #
         self._cpx_headers = (self.this_year, self.last_year, _('组合一'), _('组合二'),_('组合三'))
 
-        _title = AwesomeTable()
-        _title.add_rows([[self.name], [self.this_year]])
-        self._title = _title
-        _info = AwesomeTable()
+        self._title = AwesomeTable()
+        self._title.add_rows([[self.name], [self.this_year]])
+
+        self._info = AwesomeTable()
         if self.lang == 'zh_CN':
-            _info.add_row([_('编制单位:') + '%s' % self.company, _('单位：千元 币种：人民币 审计类型：未经审计')])
+            self._info.add_row([_('编制单位:') + '%s' % self.company, _('单位：千元 币种：人民币 审计类型：未经审计')])
         else:
-            _info.add_row(['  '])
-        self._info = _info
+            self._info.add_row(['  '])
 
     @property
     def title(self):
@@ -140,20 +159,27 @@ class FinancialStatementTable(object):
                              _('主管会计工作负责人：'), self.faker.name() + name_mark,
                              _(' 会计机构负责人：'), self.faker.name() + name_mark])
         else:
-            _footer.add_row([self.company.upper()+" Annual Report 2021"])
+            _footer.add_row([self.company.upper()+" Annual Report "+self.this_year[:4]])
             _footer.align = 'l'
         _footer.table_width = max(_footer.table_width, self.table_width)
         return _footer
 
+
+    def metatable(self,**kwargs):
+        self._base_info()
+        return self.build_table(**kwargs)
+
     @property
     def body(self):
-        return self.process_body(self._build_table())
+        return self.process_body(self.build_table())
 
-    def _build_table(self, indent=2, fill_ratio=0.7, brace_ratio=0.3, auto_ratio=0.5):
+    def build_table(self, indent=2, fill_ratio=0.7, brace_ratio=0.3, auto_ratio=0.5,note_ratio=0.5):
         t = AwesomeTable()
         columns = self._columns[:]
         if hit(auto_ratio): # 控制行号的位置以及重复
             columns.insert(1,_('行次'))
+        if hit(note_ratio):
+            columns.insert(2,_('附注'))
         t.add_row(columns)
         rno = 1
         for k, v in self.index.items():
@@ -170,7 +196,7 @@ class FinancialStatementTable(object):
                         rno += 1
                     elif c == _('附注'):
                         if hit(fill_ratio):
-                            row.append('({})'.format(random.choice(CHINESE_NUM)))
+                            row.append('({})'.format(_(random.choice(CHINESE_NUM))))
                         else:
                             row.append(' ')
                     else:
@@ -196,12 +222,36 @@ class FinancialStatementTable(object):
 
     def _build_complex_header(self, t):
         lines = str(t).splitlines()
-        cc = [c.strip() for c in re.split(vpat, lines[1])[1:-1]]
+        # 移除表原来的表头
+        for i in range(1,len(lines)):
+            if lines[i][0] == "╠":
+                break
+        nt = lines[0]+'\n'+'\n'.join(lines[i+1:])
+
+        # 如果第一行有空格或者键的重复，使用默认值填充
+        if self.lang == 'en':
+            cc = []
+            i = 0
+            for c in re.split(vpat, lines[1])[1:-1]:
+                cs = c.strip()
+                if cs=='' or cs in cc:
+                    cc.append(_("组合"+CHINESE_NUM[i]))
+                    i += 1
+                else:
+                    for k in translation.values():
+                        if cs in k:
+                            cc.append(textwrap.fill(k,10))
+                            break
+                    else:
+                        cc.append(cs)
+        elif self.lang =='zh_CN':
+            cc = [c.strip() for c in re.split(vpat, lines[1])[1:-1]]
         w = [len(c) + 2 for c in re.split(vpat, lines[0])[1:-1]]
+
         assert len(w) == len(cc)
         if len(cc) >= 5:
             _header = from_list(gen_header(cc, w, self._cpx_headers), False)
-            return vstack(_header, t)
+            return vstack(_header, nt)
         else:
             return t
 
@@ -219,20 +269,24 @@ class FinancialStatementTable(object):
         if self.can_vstack:  # 多表
             num = random.randint(2, 4) # 表格数量
             out = []
-            w = max(t.table_width, self._info.table_width)-2
+            if self.lang == 'zh_CN':
+                w = max(t.table_width, self._info.table_width)-2
+            else:
+                w = t.table_width
             for i in range(num):
                 _max = MAXROWS // num
                 step = random.randint(_max // 2, _max)
                 start = random.randint(0, MAXROWS - _max)
                 new = t[start:start + step]
-                new.table_width = t.table_width
+                if self.lang == 'zh_CN':
+                    new.table_width = t.table_width
                 if hit(0.3):
                     new = self._build_complex_header(new)
                 out.append(new)
                 if self.lang == 'zh_CN':
                     random_text = wrap('    ' + random_words(), w)
                 else:
-                    random_text = wrap(self.faker.paragraph(3), w)
+                    random_text = textwrap.fill(self.faker.paragraph(6), w)
                 out.append(random_text)
             t = vstack(out)
         else:
@@ -264,7 +318,6 @@ class FinancialStatementTable(object):
             return vstack([self.title, self.info, self.body])
         else:
             return vstack([self.title, self.info, self.body, self.footer])
-
 
 
     def create(self, batch, page_it=False):
@@ -619,18 +672,13 @@ def fstable2image(table,
     if sealed:
         b, c = seals.pop(0)
         seal = gen_seal(c, '财务专用章', '', usestar=True)
-        background = add_seal(background, seal, (b[2], b[1] - 80))
-
-        seal_box = [b[2], b[1] - 80, b[2] + seal.shape[0],
-                    b[1] - 80 + seal.shape[1]]
+        background,seal_box = add_seal_box(background, seal, (b[2], b[1] - 80),arc_seal=True)
         text_boxes.append([seal_box, 'arc_seal@'])
 
         for b, n in seals:
             seal = gen_name_seal(n, font_size * 2)
             try:
-                background = add_seal(background, seal, (b[0], b[1] - 10))
-                seal_box = [b[2], b[1] - 10, b[2] + seal.width,
-                            b[1] - 10 + seal.height]
+                background,seal_box = add_seal_box(background, seal, (b[0], b[1] - 10),arc_seal=False)
                 text_boxes.append([seal_box, 'rect_seal@'])
             except:
                 pass
@@ -674,6 +722,7 @@ def fstable2image(table,
 
 ORANGE = (235,119,46)
 BLUE = (204,237,255)
+
 def fstable2image_en(table,
                   xy=None,
                   font_size=20,
@@ -695,14 +744,15 @@ def fstable2image_en(table,
     """
     将财务报表渲染成图片
     """
-    assert font_size % 4 == 0
-    lines = str(table).splitlines()
+    assert font_size % 4 == 0    # 图个方便
+
     char_width = font_size // 2  # 西文字符宽度
     half_char_width = char_width // 2
 
     if line_height is None:
         line_height = font_size + line_pad
 
+    lines = str(table).splitlines()
     w = (len(lines[0]) + 1) * char_width + char_width * offset * 2  # 图片宽度
     h = (len(lines) + 6) * line_height  # 图片高度
 
@@ -718,10 +768,12 @@ def fstable2image_en(table,
         background = Image.new('RGB', (w, h), bgcolor)
         x0, y0 = xy or (char_width + char_width * offset, char_width)
 
-    if hit(0.5):
+    if hit(1):
         underline_color = None
+        need_striped = True
     else:
         striped_color = None
+
 
     draw = ImageDraw.Draw(background)
     font = ImageFont.truetype(font_path, font_size)
@@ -729,22 +781,34 @@ def fstable2image_en(table,
     en_font = ImageFont.truetype('arial.ttf', font_size)
     title_font = ImageFont.truetype('ariblk.ttf', font_size + 12)
     subtitle_font = ImageFont.truetype('ariali.ttf', font_size - 2)
-    handwrite_fonts = [
-        ImageFont.truetype('./static/fonts/shouxie.ttf', font_size + 10),
-        ImageFont.truetype('./static/fonts/shouxie1.ttf', font_size + 10),
-        ImageFont.truetype('./static/fonts/shouxie2.ttf', font_size + 10)]
+    # handwrite_fonts = [
+    #     ImageFont.truetype('./static/fonts/shouxie.ttf', font_size + 10),
+    #     ImageFont.truetype('./static/fonts/shouxie1.ttf', font_size + 10),
+    #     ImageFont.truetype('./static/fonts/shouxie2.ttf', font_size + 10)]
     bold_font = ImageFont.truetype('arialbi.ttf', font_size)
-    text_font = ImageFont.truetype('arial.ttf', font_size)
+    text_font = ImageFont.truetype('simfang.ttf', font_size)
 
-    cell_boxes = set()  # 多行文字的外框是同一个，需要去重
-    text_boxes = []  # 文本框
-    seals = []  # 统一盖章信息
+    cell_boxes = set()      # 多行文字的外框是同一个，需要去重
+    text_boxes = []         # 文本框
+    seals = []              # 统一盖章信息
     box_dict = defaultdict(list)  # 单元格映射到文本内容
     table_boxes = []  # 记录多表格的表格坐标
     lx, ty, rx, by = w, h, 0, 0  # 记录表格四极
 
     v = y0
     sum_diff = 0
+
+    TITLE_LINE_NO = 1
+    SUBTITLE_LINE_NO = 3
+    INFO_LINE_NO = 5
+    HEADER_START_LINE_NO = 7
+
+    i = HEADER_START_LINE_NO
+    try:
+        while lines[i][0] != "╠":i+=1
+    except:
+        pass
+    HEADER_END_LINE_NO = i
 
     for lno, line in enumerate(lines):
         start = half_char_width + x0
@@ -767,11 +831,11 @@ def fstable2image_en(table,
                     draw.rectangle([lx, ty, rx, by],outline='red',width=5)
                 lx, ty, rx, by = w, h, 0, 0  # 记录表格坐标
             v += line_height
-            v += 10
-            sum_diff+=10
+            v += 5
+            sum_diff+=5
             continue
 
-        if lno == 1:  # title
+        if lno == TITLE_LINE_NO:  # title
             title = cells[0].strip()
             draw.text((start, v), title, font=title_font, fill='black',
                       anchor='lm')
@@ -783,7 +847,7 @@ def fstable2image_en(table,
             v += line_height
             continue
 
-        if lno == 3:
+        if lno == SUBTITLE_LINE_NO:
             date = cells[0].strip()
             draw.text((start, v), date, font=subtitle_font, fill='black',
                       anchor='lm')
@@ -795,7 +859,7 @@ def fstable2image_en(table,
             v += line_height
             continue
 
-        if lno == 5:
+        if lno == INFO_LINE_NO:
             # company, info = cells[0].strip(), cells[1].strip()
             # draw.text((x0, v), company, font=subtitle_font, fill='black',
             #           anchor='lm')
@@ -815,6 +879,7 @@ def fstable2image_en(table,
 
 
         # 以下内容将不会包含'═'
+        need_striped = not need_striped
         for cno, cell in enumerate(cells):
             ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1
             if cell == '':  #
@@ -822,68 +887,51 @@ def fstable2image_en(table,
                 continue
             box = draw.textbbox((start, v), cell, font=font, anchor='lm')
 
-            if striped_color is not None and lno % 4 == 1:
+            # 条纹背景
+            if striped_color and need_striped:
                 draw.rectangle((box[0]-char_width, v - font_size // 2, box[2]+char_width, v + font_size // 2),fill=striped_color)
 
             striped_cell = cell.strip()
             if box[1] != box[3]:
-                if '〇' in cell:  # 手写签名
-                    name = striped_cell.strip('〇')
-                    handwritefont = handwrite_fonts.pop()
-                    draw.text(((box[0] + box[2]) // 2, v), name,
-                              font=handwritefont, fill='black', anchor='mm')
-                    box = draw.textbbox(((box[0] + box[2]) // 2, v), name,
-                                        font=handwritefont, anchor='mm')
-                    text_boxes.append([box, 'script@' + name])
-                    seals.append((box, name))
+                # 用英文重写,左对齐，右对齐
+                if HEADER_START_LINE_NO<=lno<HEADER_END_LINE_NO:
+                    _font = bold_font
+                    _color = 'black'
+                elif lno % 7 == 2 and lno>HEADER_END_LINE_NO+1:
+                    _font = bold_font
+                    _color = underline_color or 'black'
                 else:
-                    if bold_pattern and re.match(bold_pattern, cell.strip()):
-                        draw.text((start, v), cell, font=bold_font,
-                                  fill='black',
-                                  anchor='lm')
-                    else:
-                        # draw.text((start, v), cell, font=font, fill='white',
-                        #           anchor='lm')
-                        # 用英文重写,左对齐，右对齐
+                    _font = en_font
+                    _color = 'black'
 
+                if cno ==0:
+                    draw.text((box[0], box[1]), cell.rstrip(), font=_font,fill=_color,anchor='lt')
+                    text_box = draw.textbbox((box[0], box[1]), cell.rstrip(), font=_font, anchor='lt')
+                else:
+                    draw.text((box[2], box[1]), cell.lstrip(), font=_font,fill=_color, anchor='rt')
+                    text_box = draw.textbbox((box[2], box[1]), cell.lstrip(),font=_font, anchor='rt')
 
-                        if lno % 7 == 2:
-                            _font = bold_font
-                            _color = underline_color or 'black'
+                lpad, rpad = _count_padding(cell)
+                l = box[0] + lpad * char_width
+                # 如果有多个空格分隔,例如无线表格
+                if '  ' in striped_cell:
+                    lt = l
+                    for text in re.split('( {2,})', striped_cell):
+                        if text.strip():
+                            rt = lt + _str_block_width(text) * char_width
+                            text_box = (lt, box[1], rt, box[3] - 1)
+                            if DEBUG:
+                                draw.rectangle(text_box, outline='green')
+                            text_boxes.append([text_box, 'text@' + text])
                         else:
-                            _font = en_font
-                            _color = 'black'
-                        if lno == 7:
-                            _font = bold_font
-                        if cno ==0:
-                            draw.text((box[0], box[1]), cell.rstrip(), font=_font,fill=_color,anchor='lt')
-                            text_box = draw.textbbox((box[0], box[1]), cell.rstrip(), font=_font, anchor='lt')
-                        else:
-                            draw.text((box[2], box[1]), cell.lstrip(), font=_font,fill=_color, anchor='rt')
-                            text_box = draw.textbbox((box[2], box[1]), cell.lstrip(),font=_font, anchor='rt')
-
-                    lpad, rpad = _count_padding(cell)
-                    l = box[0] + lpad * char_width
-                    # 如果有多个空格分隔,例如无线表格
-                    if '  ' in striped_cell:
-                        lt = l
-                        for text in re.split('( {2,})', striped_cell):
-                            if text.strip():
-                                rt = lt + _str_block_width(text) * char_width
-                                text_box = (lt, box[1], rt, box[3] - 1)
-                                if DEBUG:
-                                    draw.rectangle(text_box, outline='green')
-                                text_boxes.append([text_box, 'text@' + text])
-                            else:
-                                lt = rt + _str_block_width(text) * char_width
-                    else:
-                        r = box[2] - rpad * char_width
-                        # text_box = (l, box[1], r, box[3])
-                        if DEBUG:
-                            draw.rectangle(text_box, outline='green')
-                        if striped_cell != '-':
-                            text_boxes.append(
-                                [text_box, 'text@' + striped_cell])
+                            lt = rt + _str_block_width(text) * char_width
+                else:
+                    r = box[2] - rpad * char_width
+                    if DEBUG:
+                        draw.rectangle(text_box, outline='green')
+                    if striped_cell != '-':
+                        text_boxes.append(
+                            [text_box, 'text@' + striped_cell])
 
             left = box[0] - half_char_width
             right = box[2] + half_char_width
@@ -896,8 +944,11 @@ def fstable2image_en(table,
             if lno < len(lines) - 2:
                 cbox = (left, tt * line_height + y0+sum_diff, right, bb * line_height + y0+sum_diff)
                 cell_boxes.add(cbox)
-                if lno%7==2:  #todo fix logic
-                    margin = char_width
+                margin = char_width
+                if HEADER_START_LINE_NO<=lno < HEADER_END_LINE_NO:
+                    draw.line((cbox[0] + margin, cbox[3]) + (
+                    cbox[2] - margin, cbox[3]), fill='black', width=3)
+                elif lno%7==2 and lno > HEADER_END_LINE_NO+1:
                     draw.line((cbox[0]+margin, cbox[1]) + (cbox[2]-margin, cbox[1]), fill=underline_color,width=3)
                     draw.line((cbox[0]+margin, cbox[3]) + (cbox[2]-margin, cbox[3]), fill=underline_color,width=3)
 
@@ -923,25 +974,6 @@ def fstable2image_en(table,
                     im = Image.new('RGBA', (box[2] - box[0], box[3] - box[1]),(50, 50, 50, 100))
                     background.paste(im, box, mask=im)
                     break
-    # 处理印章框
-    # if sealed:
-    #     b, c = seals.pop(0)
-    #     seal = gen_seal(c, '财务专用章', '', usestar=True)
-    #     background = add_seal(background, seal, (b[2], b[1] - 80))
-    #
-    #     seal_box = [b[2], b[1] - 80, b[2] + seal.shape[0],
-    #                 b[1] - 80 + seal.shape[1]]
-    #     text_boxes.append([seal_box, 'arc_seal@'])
-    #
-    #     for b, n in seals:
-    #         seal = gen_name_seal(n, font_size * 2)
-    #         try:
-    #             background = add_seal(background, seal, (b[0], b[1] - 10))
-    #             seal_box = [b[2], b[1] - 10, b[2] + seal.width,
-    #                         b[1] - 10 + seal.height]
-    #             text_boxes.append([seal_box, 'rect_seal@'])
-    #         except:
-    #             pass
 
     cell_boxes = list(cell_boxes)
     # 以下处理标注
@@ -982,9 +1014,6 @@ def fstable2image_en(table,
         points.append([box[2], box[1]])
         points.append([box[2], box[3]])
         points.append([box[0], box[3]])
-
-
-
     return {
         'image' :cv2.cvtColor(np.array(background, np.uint8),cv2.COLOR_RGB2BGR),
         'boxes' :cell_boxes,  # box 和 label是一一对应的
@@ -1006,12 +1035,19 @@ if __name__ == '__main__':
 
     f = FinancialStatementTable("Consolidated Balance Sheet", lang=LANG)
     t = f.table
-    print(t)
-    BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
-    BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
+    # print(t)
+    # BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
+    # BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
     data = fstable2image_en(t,line_pad=-2, offset=10, DEBUG=False, bold_pattern=None,vrules='NONE',sealed=False,
                          back_pattern=None)['image']
+    #
+    # data = table2image(a)['image']
     cv2.imwrite('t.jpg', data)
+
+
+
+
+
 
 # FONT_MAP = [(re.compile(r'.*：$'), ('simhei.ttf', 40, 0)),
 #             (re.compile(r'.*表$'), ('simhei.ttf', 50, 1)),

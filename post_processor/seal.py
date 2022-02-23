@@ -99,3 +99,29 @@ def add_seal(img, seal_p='./static/seal/seal.jpg', xy=None, angle=None):
     mask = seal.convert('L').point(lambda x: 0 if x > 200 else 200)
     img.paste(seal, xy, mask=mask)
     return img
+
+def add_seal_box(img, seal_p='./static/seal/seal.jpg', xy=None, angle=None,arc_seal=True):
+    # 输出印章位置
+    img = as_pillow(img)
+    w, h = img.size
+
+    if xy is None:
+        xy = random.randint(0, 3 * w // 4), random.randint(0, 3 * h // 4)
+    if angle is None:
+        angle = random.randint(0, 45)
+    seal_p = as_cv(seal_p)
+    seal = c2p(rotate_bound(seal_p, angle,borderValue=(255,255,255)))
+    mask = seal.convert('L').point(lambda x: 0 if x > 200 else 200)
+    img.paste(seal, xy, mask=mask)
+
+    h, w = seal_p.shape[:2]
+    if arc_seal:
+        x,y = xy
+        x += (seal.width-w)//2
+        y += (seal.height-h)//2
+        x2, y2 = x + w, y + h
+    else:
+        x,y=xy
+        x2, y2 = x+seal.width,y+seal.height
+
+    return img,(x,y,x2,y2)
