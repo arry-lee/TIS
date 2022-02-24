@@ -19,24 +19,15 @@ from post_processor.A4 import Paper
 from post_processor.seal import add_seal, gen_name_seal, gen_seal,add_seal_box
 from utils.ulpb import encode
 
+from layout import VerLayout,HorLayout,TextBlock
 
-CHINESE_NUM = '一二三四五六七八九十'
 # RANDOM_SEED = 42
 # random.seed(RANDOM_SEED)
 # faker.Faker.seed(RANDOM_SEED)
-
-fp = r'./static/pdf/sentence.txt'
-words = []
-with open(fp, encoding='utf-8') as f:
-    for s in f.read().split():
-        if len(s) > 30:
-            words.append(s)
-
-random_words = lambda:random.choice(words)
-random_price = lambda:'{:,}'.format(random.randint(1000000, 1000000000))
 hit = lambda r:random.random() <= r
-
-translation = {'项目'    :'ITEM', '本期发生额':'AMOUNT FOR THIS PERIOD',
+_ = lambda x:x
+CHINESE_NUM = '一二三四五六七八九十'
+TRANS_DICT = {'项目'     :'ITEM', '本期发生额':'AMOUNT FOR THIS PERIOD',
                '上期发生额' :'AMOUNT FOR LAST PERIOD',
                '本月实际'  :'ACTUAL AMOUNT THIS MONTH',
                '本年累计'  :'TOTAL AMOUNT THIS YEAR',
@@ -47,50 +38,53 @@ translation = {'项目'    :'ITEM', '本期发生额':'AMOUNT FOR THIS PERIOD',
                '一般风险准备':'GENERAL RISK PREPARATION',
                '组合一'   :'GROUP ONE', '组合二':'GROUP TWO', '组合三':'GROUP THREE',
                '组合四'   :'GROUP FOUR', '组合五':'GROUP FIVE', '组合六':'GROUP SIX',
-               '行次'    :'No.'
-               }
-
-LANG = 'en'
-if LANG == 'zh_CN':
-    def _(x):
-        return x
-else:
-    def _(x):
-        if x in translation.keys():
-            return textwrap.fill(translation[x],10)
-        else:
-            return encode(x).upper()
-
+              '行次'    :'No.'
+              }
+words = []
+with open(r'./static/pdf/sentence.txt', encoding='utf-8') as f:
+    for s in f.read().split():
+        if len(s) > 30:
+            words.append(s)
+random_words = lambda:random.choice(words)
 
 class FinancialStatementTable(object):
     """财报统一生成接口"""
-
-    common_columns = [[_('项目'), _('本期发生额'), _('上期发生额')],
-                      [_('项目'), _('本月实际'), _('本年累计'), _('上年同期')],
-                      [_('项目'), _('其他'), _('本月实际'), _('本年累计'), _('上年同期')],
-                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
-                       _('盈余公积')],
-                      [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
-                       _('盈余公积'), _('一般风险准备')]
-                      ]
-
-    def __init__(self, name, lang='zh_CN'):
+    def __init__(self, name, lang='zh_CN',random_price=None):
         self.faker = faker.Faker(lang)
-        self.lang = lang
-
-        if lang == 'zh_CN':
-            config_path = './config/financial_statement_config.yaml'
+        self.is_zh = 'zh' in lang
+        if random_price:
+            self.random_price = random_price
         else:
-            config_path = './config/en-config.yaml'
+            self.random_price = lambda:'{:,}'.format(random.randint(1000000, 1000000000))
+
+        if self.is_zh:
+            config_path = 'config/fs_config_zh.yaml'
+        else:
+            config_path = 'config/fs_config_en.yaml'
+            ## 翻译组件
+            def trans(x):
+                if x in TRANS_DICT.keys():
+                    return textwrap.fill(TRANS_DICT[x], 10)
+                else:
+                    return encode(x).upper()
+            global _
+            _ = trans
+
         with open(config_path, 'r', encoding='utf-8') as f:
-            config = yaml.load(f, Loader=yaml.SafeLoader)
+            self.config = yaml.load(f, Loader=yaml.SafeLoader)
 
-        self.config = config
         self.name = name
-        self._index = config[name]
-        self._columns_generator = cycle(self.common_columns)
+        self.index = self.config[name]
 
-
+        self._columns_list = [[_('项目'), _('本期发生额'), _('上期发生额')],
+                              [_('项目'), _('本月实际'), _('本年累计'), _('上年同期')],
+                              [_('项目'), _('其他'), _('本月实际'), _('本年累计'), _('上年同期')],
+                              [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
+                           _('盈余公积')],
+                              [_('项目'), _('实收资本(或股本)'), _('资本公积'), _('其他综合收益'),
+                           _('盈余公积'), _('一般风险准备')]
+                              ]
+        self._columns_generator = cycle(self._columns_list)
 
     def _ops_dispatch(self):
         # 对于生成的表格根据其长度分发到不同的操作
@@ -99,13 +93,13 @@ class FinancialStatementTable(object):
         # rows > max_perpage 截断或分页
         # rows < half_max_perpage vstack 多表
         c = len(self._columns)
-        r = sum(len(v) + 1 for v in self._index.values() if v)
+        r = sum(len(v) + 1 for v in self.index.values() if v)
         rmax = 30  # 单页最大行数
         rmin = 15  # 低于此行数实行多表堆叠
         cmin = 3  # 低于此列数可以合并
         cmax = 6  # 大于此列复杂化
 
-        if self.lang == 'zh_CN':
+        if self.is_zh:
             self.can_hstack = hit(0.5) and r > rmax
             self.can_vstack = hit(0.5) and r > rmin
             self.can_paginate = r >= rmax and cmin < c < cmax
@@ -118,30 +112,26 @@ class FinancialStatementTable(object):
             self.can_truncate = True
             self.can_complex = hit(0.9) and c >= cmin
 
-    @property
-    def index(self):
-        return self._index
-
-    @property
-    def columns(self):
-        return self._columns
-
     def _base_info(self):
         self.company = self.faker.company()
         self.this_year = self.faker.date()
         self.last_year = str(int(self.this_year[:4]) - 1) + self.this_year[4:]
-        self.common_columns.append([_('项目'), self.this_year, self.last_year])
-        self._columns = next(self._columns_generator)  #
+        self._columns_list.append([_('项目'), self.this_year, self.last_year])
+        self._columns = random.choice(self._columns_list)#next(self._columns_generator)  #
         self._cpx_headers = (self.this_year, self.last_year, _('组合一'), _('组合二'),_('组合三'))
 
         self._title = AwesomeTable()
         self._title.add_rows([[self.name], [self.this_year]])
 
         self._info = AwesomeTable()
-        if self.lang == 'zh_CN':
+        if self.is_zh:
             self._info.add_row([_('编制单位:') + '%s' % self.company, _('单位：千元 币种：人民币 审计类型：未经审计')])
         else:
             self._info.add_row(['  '])
+
+    @property
+    def columns(self):
+        return self._columns
 
     @property
     def title(self):
@@ -154,7 +144,7 @@ class FinancialStatementTable(object):
     @property
     def footer(self, name_mark='〇'):
         _footer = AwesomeTable()
-        if self.lang == 'zh_CN':
+        if self.is_zh:
             _footer.add_row([_('公司负责人：'), self.faker.name() + name_mark,
                              _('主管会计工作负责人：'), self.faker.name() + name_mark,
                              _(' 会计机构负责人：'), self.faker.name() + name_mark])
@@ -178,7 +168,7 @@ class FinancialStatementTable(object):
         columns = self._columns[:]
         if hit(auto_ratio): # 控制行号的位置以及重复
             columns.insert(1,_('行次'))
-        if hit(note_ratio):
+        elif hit(note_ratio):
             columns.insert(2,_('附注'))
         t.add_row(columns)
         rno = 1
@@ -186,7 +176,7 @@ class FinancialStatementTable(object):
             t.add_row([_(k)] + [''] * (len(columns) - 1))
             if v is None: continue
             for item in v:
-                if self.lang == 'zh_CN':
+                if self.is_zh:
                     row = [self._indent_item(indent, item)]
                 else:
                     row = [item.title()]
@@ -202,9 +192,9 @@ class FinancialStatementTable(object):
                     else:
                         if hit(fill_ratio):
                             if hit(brace_ratio):
-                                row.append('({})'.format(random_price()))
+                                row.append('({})'.format(self.random_price()))
                             else:
-                                row.append(random_price())
+                                row.append(self.random_price())
                         else:
                             row.append('-')
                 t.add_row(row)
@@ -228,8 +218,11 @@ class FinancialStatementTable(object):
                 break
         nt = lines[0]+'\n'+'\n'.join(lines[i+1:])
 
+
+        if self.is_zh:
+            cc = [c.strip() for c in re.split(vpat, lines[1])[1:-1]]
         # 如果第一行有空格或者键的重复，使用默认值填充
-        if self.lang == 'en':
+        else:
             cc = []
             i = 0
             for c in re.split(vpat, lines[1])[1:-1]:
@@ -238,14 +231,12 @@ class FinancialStatementTable(object):
                     cc.append(_("组合"+CHINESE_NUM[i]))
                     i += 1
                 else:
-                    for k in translation.values():
+                    for k in TRANS_DICT.values():
                         if cs in k:
                             cc.append(textwrap.fill(k,10))
                             break
                     else:
                         cc.append(cs)
-        elif self.lang =='zh_CN':
-            cc = [c.strip() for c in re.split(vpat, lines[1])[1:-1]]
         w = [len(c) + 2 for c in re.split(vpat, lines[0])[1:-1]]
 
         assert len(w) == len(cc)
@@ -260,7 +251,7 @@ class FinancialStatementTable(object):
         分别为多表,单双栏做法
         """
         MAXROWS = 30
-        if self.lang == 'zh_CN':
+        if self.is_zh:
             t.align = 'c'
         else:
             t.align = 'r'
@@ -269,7 +260,7 @@ class FinancialStatementTable(object):
         if self.can_vstack:  # 多表
             num = random.randint(2, 4) # 表格数量
             out = []
-            if self.lang == 'zh_CN':
+            if self.is_zh:
                 w = max(t.table_width, self._info.table_width)-2
             else:
                 w = t.table_width
@@ -278,12 +269,12 @@ class FinancialStatementTable(object):
                 step = random.randint(_max // 2, _max)
                 start = random.randint(0, MAXROWS - _max)
                 new = t[start:start + step]
-                if self.lang == 'zh_CN':
+                if self.is_zh:
                     new.table_width = t.table_width
                 if hit(0.3):
                     new = self._build_complex_header(new)
                 out.append(new)
-                if self.lang == 'zh_CN':
+                if self.is_zh:
                     random_text = wrap('    ' + random_words(), w)
                 else:
                     random_text = textwrap.fill(self.faker.paragraph(6), w)
@@ -314,11 +305,11 @@ class FinancialStatementTable(object):
     def table(self):
         self._base_info()
         self._ops_dispatch()
+
         if self.can_vstack:
             return vstack([self.title, self.info, self.body])
         else:
             return vstack([self.title, self.info, self.body, self.footer])
-
 
     def create(self, batch, page_it=False):
         if not page_it:
@@ -723,6 +714,7 @@ def fstable2image(table,
 ORANGE = (235,119,46)
 BLUE = (204,237,255)
 
+# 将其抽象出来使得普通table能用
 def fstable2image_en(table,
                   xy=None,
                   font_size=20,
@@ -756,7 +748,7 @@ def fstable2image_en(table,
     w = (len(lines[0]) + 1) * char_width + char_width * offset * 2  # 图片宽度
     h = (len(lines) + 6) * line_height  # 图片高度
 
-    if background and bg_box:
+    if background is not None and bg_box:
         x1, y1, x2, y2 = bg_box
         w0, h0 = x2 - x1, y2 - y1
         background = Image.open(background)
@@ -1033,15 +1025,18 @@ if __name__ == '__main__':
 
     # print(from_list(lt))
 
-    f = FinancialStatementTable("Consolidated Balance Sheet", lang=LANG)
+    f = FinancialStatementTable("Consolidated Balance Sheet", lang='en')
     t = f.table
+
+
     # print(t)
     # BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
     # BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
-    data = fstable2image_en(t,line_pad=-2, offset=10, DEBUG=False, bold_pattern=None,vrules='NONE',sealed=False,
-                         back_pattern=None)['image']
+    # data = fstable2image_en(t,line_pad=-2, offset=10, DEBUG=False, bold_pattern=None,vrules='NONE',sealed=False,
+    #                      back_pattern=None)['image']
     #
-    # data = table2image(a)['image']
+    data = f.get_image()
+
     cv2.imwrite('t.jpg', data)
 
 

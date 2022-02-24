@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from PIL import Image
-from decorator import decorator
+
 
 def p2c(image):
     # pillow to cv

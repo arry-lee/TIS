@@ -2,22 +2,19 @@
 # 2022-2-21 17:37:31
 # LayoutTable 是用于管理布局的表格
 
+import textwrap
+from abc import ABCMeta, abstractmethod
 
-import random
-
-import faker
+import cv2
 import numpy as np
 import prettytable
 from PIL import Image, ImageDraw, ImageFont
 
 from awesometable import AwesomeTable, from_str, hstack, vstack
-from post_processor.deco import p2c
-
-f = faker.Faker()
 
 
 class LayoutTable(AwesomeTable):
-    """布局表格"""
+    """布局文字布局管理"""
 
     def __init__(self, field_names=None, **kwargs):
         super().__init__(field_names, kwargs=kwargs)
@@ -42,13 +39,36 @@ class LayoutTable(AwesomeTable):
         self._bottom_left_junction_char = ""
 
 
-class HorLayout(object):
-    """输入二维列表，输出布局
+class AbstractTable(object, metaclass=ABCMeta):
+    def __init__(self):
+        self.layouts = []
+
+    def __str__(self):
+        return self.get_string()
+
+    @abstractmethod
+    def get_string(self):
+        return NotImplemented
+
+    @abstractmethod
+    def get_image(self, offset):
+        return NotImplemented
+
+    def extend(self, obj):
+        if hasattr(obj, "get_image"):
+            self.layouts.extend(obj)
+        else:
+            raise ValueError("Not Layout or Table")
+
+
+class HorLayout(AbstractTable):
+    """水平方向布局的抽象
     任何实现了 get_image 方法和 table_width 属性的类表格，
-    均可作为布局管理的 layouts列表的子元素，包括自身
+    均可作为布局管理的 layouts列表的子元素，包括布局自身
     """
 
     def __init__(self, layouts=None, widths=None):
+        super().__init__()
         self.layouts = layouts or []
         if isinstance(widths, int):
             self._widths = [widths] * len(self.layouts)
@@ -58,12 +78,6 @@ class HorLayout(object):
             self._widths = [x.table_width for x in self.layouts]
         self._table_width = sum(x + 1 for x in self._widths) - 1
         self.table = LayoutTable()
-
-    def add_table(self, table):
-        self.layouts.append(table)
-
-    def add_layout(self, layout):
-        self.layouts.append(layout)
 
     @property
     def table_width(self):
@@ -80,9 +94,6 @@ class HorLayout(object):
     @widths.setter
     def widths(self, val):
         self._widths = val
-
-    def __str__(self):
-        return self.get_string()
 
     def get_string(self):
         row = []
@@ -108,7 +119,7 @@ class HorLayout(object):
         y = offset
         for data in col:
             h, w = data["image"].shape[:2]
-            img[y : y + h, x : x + w] = data["image"]
+            img[y: y + h, x: x + w] = data["image"]
             data["points"] = (np.array(data["points"]) + (x, y)).tolist()
             if not out:
                 out = data
@@ -120,10 +131,11 @@ class HorLayout(object):
         return out
 
 
-class VerLayout(object):
+class VerLayout(AbstractTable):
     """输入二维列表，输出布局"""
 
     def __init__(self, layouts=None, widths=None):
+        super().__init__()
         self.layouts = layouts or []
         if isinstance(widths, int):
             self._widths = [widths] * len(self.layouts)
@@ -136,12 +148,6 @@ class VerLayout(object):
             self._widths = [self._table_width] * len(self.layouts)
         self.table = LayoutTable()
 
-    def add_table(self, table):
-        self.layouts.append(table)
-
-    def add_layout(self, layout):
-        self.layouts.append(layout)
-
     @property
     def table_width(self):
         return self._table_width
@@ -150,9 +156,6 @@ class VerLayout(object):
     def table_width(self, val):
         self._table_width = val
         self._widths = [self._table_width] * len(self.layouts)
-
-    def __str__(self):
-        return self.get_string()
 
     def get_string(self):
         row = []
@@ -175,11 +178,11 @@ class VerLayout(object):
         h = sum(x["image"].shape[0] for x in row) + offset * 2
         w = max(x["image"].shape[1] for x in row) + offset * 2
         img = np.ones((h, w, 3), np.uint8) * 255
-        y = offset
         x = offset
+        y = offset
         for data in row:
             h, w = data["image"].shape[:2]
-            img[y : y + h, x : x + w] = data["image"]
+            img[y: y + h, x: x + w] = data["image"]
             data["points"] = (np.array(data["points"]) + (x, y)).tolist()
             if not out:
                 out = data
@@ -223,64 +226,6 @@ class TextTable(AwesomeTable):
         self._top_left_junction_char = " "
         self._bottom_right_junction_char = " "
         self._bottom_left_junction_char = " "
-
-
-def from_list(ls, t2b=True, w=None):
-    if t2b:
-        rows = []
-        for value in ls:
-            if isinstance(value, list):
-                tv = from_list(value, not t2b, w)
-            elif isinstance(value, AwesomeTable):
-                value.table_width = w
-                tv = AwesomeTable()
-                tv.add_row([value.get_string()])
-            else:
-                tv = from_str(value, w + 2)
-
-            rows.append(tv)
-        return vstack(rows)
-    else:
-        cols = []
-        for value in ls:
-            if isinstance(value, list):
-                tv = from_list(value, not t2b, w)
-            elif isinstance(value, AwesomeTable):
-                value.table_width = w
-                tv = AwesomeTable()
-                tv.add_row([value.get_string()])
-            else:
-                tv = from_str(value, w + 2)
-            cols.append(tv)
-        return hstack(cols)
-
-
-def random_layout():
-    table_nums = random.randint(3, 5)
-    ln = table_nums // 2
-    rn = table_nums - ln
-
-    l, r = [], []
-    for i in range(ln):
-        l.append(TextTable(f.paragraph(8), 38))
-        l.append(
-            AwesomeTable(
-                [[1, 2, 3], [4, 5, 6], [7, 8, 9]], title_pos="b", title="table 1"
-            )
-        )
-    l.append(TextTable(f.paragraph(10), 38))
-
-    for i in range(rn):
-        r.append(TextTable(f.paragraph(6), 38))
-        r.append(
-            AwesomeTable(
-                [[1, 2, 3], [4, 5, 6], [7, 8, 9]], title_pos="b", title="table 1"
-            )
-        )
-    r.append(TextTable(f.paragraph(8), 38))
-
-    out = HorLayout([VerLayout(l), VerLayout(r)])
-    return out
 
 
 class TextBlock(object):
@@ -340,19 +285,27 @@ class TextBlock(object):
             return put_text_in_box(self.text, self._table_width * 10)[0]
 
     def get_image(self, font_path="arial.ttf", font_size=20):
-        s, img = put_text_in_box(
+        s, img,boxes = put_text_in_box(
             self.text,
             self._table_width * font_size // 2,
             font_size=font_size,
             font_path=font_path,
         )
 
-        bg = Image.new("RGB", (img.width + font_size, img.height + font_size), "white")
+        bg = Image.new("RGB", (img.width + font_size, img.height + font_size),
+                       "white")
         bg.paste(img, (font_size // 2, font_size // 2))
+        points = []
+        for box in boxes:
+            points.append([box[0]+font_size // 2, box[1]+font_size // 2])
+            points.append([box[2]+font_size // 2, box[1]+font_size // 2])
+            points.append([box[2]+font_size // 2, box[3]+font_size // 2])
+            points.append([box[0]+font_size // 2, box[3]+font_size // 2])
+
         return {
-            "image": p2c(bg),
-            "points": [[0, 0], [0, 0], [0, 0], [0, 0]],
-            "label": [""],
+            "image" :cv2.cvtColor(np.asarray(bg, np.uint8), cv2.COLOR_RGB2BGR),
+            "points":points,
+            "label" :["text@"+l for l in s.splitlines()],
         }
 
 
@@ -391,7 +344,8 @@ def draw_multiline_text(xy, text, fill, font_path="arial.ttf", font_size=20):
 
 
 def put_text_in_box(
-    text, width, fill="black", font_path="arial.ttf", font_size=20, line_pad=2
+        text, width, fill="black", font_path="arial.ttf", font_size=20,
+        line_pad=2
 ):
     # 不硬换行，软换行
     font = ImageFont.truetype(font_path, font_size)
@@ -409,7 +363,7 @@ def put_text_in_box(
     words[0] = " " * indent + words[0]
     lines = []
     line = ""
-
+    boxes = []
     x, y = 0, 0
     for word in words:
         bbox = draw.textbbox((x, y), word, font)
@@ -428,80 +382,75 @@ def put_text_in_box(
                     if i > 0:
                         draw.text((x, y), "-", fill, font)
                         line += "-"
-                        lines.append(line)
-                        x = 0
-                        y += font_size + line_pad
-                        line = word[i:] + " "
-                        draw.text((x, y), line, fill, font)
-                        x = draw.textbbox((x, y), line, font)[2]
-                    else:
-                        x = 0
-                        y += font_size + line_pad
-                        line = word[i:] + " "
-                        draw.text((x, y), line, fill, font)
-                        x = draw.textbbox((x, y), line, font)[2]
+                    lines.append(line)
+                    boxes.append((0,y,width,y+font_size))
+                    x = 0
+                    y += font_size + line_pad
+                    line = word[i:] + " "
+                    draw.text((x, y), line, fill, font)
+                    x = draw.textbbox((x, y), line, font)[2]
                     break
         else:
             draw.text((x, y), word, fill, font)
             line += word
             lines.append(line)
+            boxes.append((0, y, width, y + font_size))
             line = ""
             x = 0
             y += font_size + line_pad
+
     lines.append(line)
+    bbox = draw.textbbox((0, y), line, font)
+    boxes.append(bbox)
     height = y + font_size + line_pad
     img = img.crop((0, 0, width, height))
-    return "\n".join(lines), img
+    # points = []
+    # for box in boxes:
+    #     points.append([box[0], box[1]])
+    #     points.append([box[2], box[1]])
+    #     points.append([box[2], box[3]])
+    #     points.append([box[0], box[3]])
+    # label = ["text@"+l for l in lines]
+
+    return "\n".join(lines), img,boxes
+
+
+def from_list(ls, t2b=True, w=None):
+    if t2b:
+        rows = []
+        for value in ls:
+            if isinstance(value, list):
+                tv = from_list(value, not t2b, w)
+            elif isinstance(value, AwesomeTable):
+                value.table_width = w
+                tv = AwesomeTable()
+                tv.add_row([value.get_string()])
+            else:
+                tv = from_str(value, w + 2)
+
+            rows.append(tv)
+        return vstack(rows)
+    else:
+        cols = []
+        for value in ls:
+            if isinstance(value, list):
+                tv = from_list(value, not t2b, w)
+            elif isinstance(value, AwesomeTable):
+                value.table_width = w
+                tv = AwesomeTable()
+                tv.add_row([value.get_string()])
+            else:
+                tv = from_str(value, w + 2)
+            cols.append(tv)
+        return hstack(cols)
 
 
 if __name__ == "__main__":
-    # import textwrap
-    # a = textwrap.fill(f.paragraph(10),40,drop_whitespace=True,break_on_hyphens=True)
-    # a = textwrap.indent(a,"--")
-    # print(a)
+    import faker
 
-    # a = prettytable.PrettyTable()
-    # a.max_width = 38
-    # a.max_table_width = 38
-    # a.add_row([f.paragraph(10)])
-    # a.align = 'l'
-    # a.border = False
-    # a.header = False
-    # a = TextBlock(f.paragraph(10), 38)
-    # print(a)
-    # a = TextTable(f.paragraph(10), 38)
-    # strtable = TextTable(f.paragraph(10), indent=0)
-    # # print(a.table_height)
-    #
-    # nt = AwesomeTable([[1, 2, 3], [4, 5, 6], [7, 8, 9]], title_pos="b", title="table 1")
-    # strtable2 = TextTable(f.paragraph(10), indent=0)
-    # strtable3 = TextTable(f.paragraph(10), indent=0)
-    # v = VerLayout([strtable, nt, strtable2], 38)
-    # v2 = VerLayout([strtable3, nt, strtable], 38)
-    #
-    # h = HorLayout([v, v2], [38, 38])
-    # # print(a)
-    # # print(h)
-    #
-    # xx = VerLayout(
-    #     [
-    #         HorLayout([TextTable(f.paragraph(10), 38), TextTable(f.paragraph(10), 38)]),
-    #         AwesomeTable([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
-    #         HorLayout([TextTable(f.paragraph(10), 38), TextTable(f.paragraph(10), 38)]),
-    #     ]
-    # )
-    # xx = random_layout()
-    # print(xx)
-    # from post_processor.label import show_label
-    #
-    # img = show_label(xx.get_image(offset=30))["image"]
-    # cv2.imwrite("t.jpg", img)
-
-    import textwrap
-
+    f = faker.Faker()
     t = TextBlock(f.paragraph(10), 38, 4)
     s = t.get_string()
     print(s)
-    img = t.get_image(font_path="arial.ttf")['image']
+    img = t.get_image(font_path="arial.ttf")["image"]
     img.show()
-    #### 8.1 QPainter绘图

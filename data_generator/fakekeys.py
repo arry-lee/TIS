@@ -69,3 +69,5 @@ def read_background(bg_dir):
                 box = (int(l),int(t),int(r),int(b))
                 bg = os.path.join(p,jpg)
                 yield bg,box
+
+

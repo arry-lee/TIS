@@ -120,12 +120,15 @@ class AwesomeTable(prettytable.PrettyTable):
     title_pos   标题所在位置
     max_cols    最大列数
     """
-    def __init__(self, field_names=None, **kwargs):
+    def __init__(self, rows=None, field_names=None, **kwargs):
         super().__init__(field_names, kwargs=kwargs)
+        if rows:
+            self.add_rows(rows)
         self.set_style(prettytable.DOUBLE_BORDER)
         self.hrules = ALL
         self._table_width = kwargs.get("table_width",None)
         self._title_pos = kwargs.get("title_pos",'t')
+        self._title = kwargs.get("title", None)
 
     def __getitem__(self, index):
         new = AwesomeTable()
@@ -428,8 +431,8 @@ class AwesomeTable(prettytable.PrettyTable):
     def __str__(self):
         return self.get_string()
 
-    def get_image2(self):
-        return table2image(str(self))
+    def get_image(self,**kwargs):
+        return table2image(str(self),**kwargs)
 
     def init_attr(self):
         """
@@ -603,8 +606,6 @@ class AwesomeTable(prettytable.PrettyTable):
         print(s.shape, o.shape)
         return np.hstack([o, s])
 
-
-
 class MultiTable(object):
     """多表格类"""
     def __init__(self,tables):
@@ -699,13 +700,13 @@ def table2image(table,
                 bgcolor='white',
                 background=None,
                 bg_box=None,
-                font_path="simsun.ttc",#"./static/fonts/simfang.ttf",
+                font_path="simfang.ttf",  #"./static/fonts/simfang.ttf",
                 line_pad=0,
                 line_height=None,
                 vrules='ALL',
                 hrules='ALL',
-                keep_ratio=False
-                ):
+                keep_ratio=False,
+                debug=DEBUG):
     """
     将PrettyTable 字符串对象化为表格图片
     """
@@ -721,11 +722,13 @@ def table2image(table,
 
     h = (len(lines)) * line_height  # 图片高度
 
-    if background and bg_box:
+    if background is not None and bg_box:
         x1,y1,x2,y2 = bg_box
         w0,h0 = x2-x1, y2-y1
         if isinstance(background,str):
             background = Image.open(background)
+        elif isinstance(background,np.ndarray):
+            background = Image.fromarray(cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
         wb, hb = background.size
         if not keep_ratio:
             wn,hn  = int(wb*w/w0),int(hb*h/h0)
@@ -774,7 +777,7 @@ def table2image(table,
                                 rt = lt + _str_block_width(text)*char_width
                                 text_box = (lt, box[1], rt, box[3])
                                 text_boxes.append([text_box, 'text@' + text])
-                                if DEBUG:
+                                if debug:
                                     draw.rectangle(text_box, outline='green')
                             else: # 此时text是空格
                                 lt = rt +_str_block_width(text)*char_width
@@ -782,7 +785,7 @@ def table2image(table,
                         r = box[2] - rpad * char_width
                         text_box = (l, box[1], r, box[3])
                         text_boxes.append([text_box, 'text@' + striped_cell])
-                        if DEBUG:
+                        if debug:
                             draw.rectangle(text_box, outline='green')
 
                 left = box[0] - half_char_width  # 其实box以及包括了空白长度，此处可以不偏置
@@ -793,6 +796,7 @@ def table2image(table,
                 tt = lno - 1
                 bb = lno + 1
                 # 原因：_str_block_width 和 [ll]不一样,解决方法，将中文替换为2个字母
+
                 while __c(lines,tt)[ll] not in H_SYMBOLS: tt -= 1
                 while __c(lines,bb)[ll] not in H_SYMBOLS: bb += 1
                 cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
@@ -807,7 +811,7 @@ def table2image(table,
         if hrules=='ALL':
             draw.line((box[0], box[1]) + (box[2], box[1]), fill='black',width=2)
             draw.line((box[0],box[3])+(box[2],box[3]),fill='black',width=2)
-        if DEBUG:
+        if debug:
             print(box, '@cell')
 
     points = []
@@ -1273,6 +1277,8 @@ def wrap(line, width):
     if n:
         lines.append(n)
     return '\n'.join(lines)
+
+
 
 
 def from_dataframe(df, field_names=None, **kwargs):
