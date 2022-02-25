@@ -11,6 +11,7 @@ import prettytable
 from PIL import Image, ImageDraw, ImageFont
 
 from awesometable import AwesomeTable, from_str, hstack, vstack
+from table2image import table2image
 
 
 class LayoutTable(AwesomeTable):
@@ -51,7 +52,7 @@ class AbstractTable(object, metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
-    def get_image(self, offset):
+    def get_image(self):
         return NotImplemented
 
     def extend(self, obj):
@@ -60,23 +61,33 @@ class AbstractTable(object, metaclass=ABCMeta):
         else:
             raise ValueError("Not Layout or Table")
 
-
+#todo 移除布局类的offset，布局不应该有offset，只有gap
 class HorLayout(AbstractTable):
     """水平方向布局的抽象
     任何实现了 get_image 方法和 table_width 属性的类表格，
     均可作为布局管理的 layouts列表的子元素，包括布局自身
     """
 
-    def __init__(self, layouts=None, widths=None):
+    def __init__(self, layouts=None, widths=None,gaps=None):
         super().__init__()
         self.layouts = layouts or []
+
         if isinstance(widths, int):
             self._widths = [widths] * len(self.layouts)
         elif isinstance(widths, list):
             self._widths = widths
         else:
             self._widths = [x.table_width for x in self.layouts]
-        self._table_width = sum(x + 1 for x in self._widths) - 1
+
+        if isinstance(gaps, int):
+            self._gaps = [gaps] * (len(self.layouts)-1)
+        elif isinstance(gaps, list):
+            self._gaps = gaps
+        else:
+            self._gaps = [0]*(len(self.layouts)-1)
+        # _char_width 是字符属性 _table 是图像属性
+        self._char_width = sum(x + 1 for x in self._widths) - 1
+        self._table_width = sum(self._widths)+sum(self._gaps)
         self.table = LayoutTable()
 
     @property
@@ -104,7 +115,7 @@ class HorLayout(AbstractTable):
         self.table.add_row(row)
         return self.table.get_string()
 
-    def get_image(self, offset=0):
+    def get_image(self):
         col = []
         out = {}
         for lot, w in zip(self.layouts, self._widths):
@@ -112,12 +123,13 @@ class HorLayout(AbstractTable):
             imgc = lot.get_image()
             col.append(imgc)
         # 计算背景尺寸
-        h = max(x["image"].shape[0] for x in col) + offset * 2
-        w = sum(x["image"].shape[1] for x in col) + offset * 2
+        h = max(x["image"].shape[0] for x in col)
+        w = sum(x["image"].shape[1] for x in col)+sum(self._gaps)
         img = np.ones((h, w, 3), np.uint8) * 255
-        x = offset
-        y = offset
-        for data in col:
+        x = 0
+        y = 0
+        gaps = self._gaps+[0]
+        for data,gap in zip(col,gaps):
             h, w = data["image"].shape[:2]
             img[y: y + h, x: x + w] = data["image"]
             data["points"] = (np.array(data["points"]) + (x, y)).tolist()
@@ -127,14 +139,14 @@ class HorLayout(AbstractTable):
                 out["image"] = img
                 out["label"].extend(data["label"])
                 out["points"].extend(data["points"])
-            x += w
+            x += w+gap
         return out
 
 
 class VerLayout(AbstractTable):
     """输入二维列表，输出布局"""
 
-    def __init__(self, layouts=None, widths=None):
+    def __init__(self, layouts=None, widths=None,gaps=None):
         super().__init__()
         self.layouts = layouts or []
         if isinstance(widths, int):
@@ -146,6 +158,14 @@ class VerLayout(AbstractTable):
         else:
             self._table_width = max([x.table_width for x in self.layouts])
             self._widths = [self._table_width] * len(self.layouts)
+
+        if isinstance(gaps, int):
+            self._gaps = [gaps] * (len(self.layouts)-1)
+        elif isinstance(gaps, list):
+            self._gaps = gaps
+        else:
+            self._gaps = [0]*(len(self.layouts)-1)
+
         self.table = LayoutTable()
 
     @property
@@ -166,21 +186,21 @@ class VerLayout(AbstractTable):
         self.table.add_rows(row)
         return self.table.get_string()
 
-    def get_image(self, offset=0):
+    def get_image(self):
         row = []
         out = {}
         for lot, w in zip(self.layouts, self._widths):
             lot.table_width = w
             imgc = lot.get_image()
-            assert isinstance(imgc, dict)
             row.append(imgc)
 
-        h = sum(x["image"].shape[0] for x in row) + offset * 2
-        w = max(x["image"].shape[1] for x in row) + offset * 2
+        h = sum(x["image"].shape[0] for x in row)+sum(self._gaps)
+        w = max(x["image"].shape[1] for x in row)
         img = np.ones((h, w, 3), np.uint8) * 255
-        x = offset
-        y = offset
-        for data in row:
+        x = 0
+        y = 0
+        gaps = self._gaps+[0]
+        for data,gap in zip(row,gaps):
             h, w = data["image"].shape[:2]
             img[y: y + h, x: x + w] = data["image"]
             data["points"] = (np.array(data["points"]) + (x, y)).tolist()
@@ -190,51 +210,51 @@ class VerLayout(AbstractTable):
                 out["image"] = img
                 out["label"].extend(data["label"])
                 out["points"].extend(data["points"])
-            y += h
+            y += h + gap
         return out
 
 
-class TextTable(AwesomeTable):
-    """文本框 内自动排版
+class FlexTable(AwesomeTable):
+    """ 在 awesometable 基础上增加 tablewith 像素尺度
     英文字体大多都是非等宽字体，如果按行左对齐则右边参差补齐
     """
+    def __init__(self, w=None,font_size=40,**kwargs):
+        super().__init__(**kwargs)
+        self.font_size = font_size
+        # self.font_path = font_path
+        if w is not None:
+            self._table_width = w #像素尺寸
+            self._min_table_width = w * 2 // self.font_size - 1
+            self._max_table_width = w * 2 // self.font_size - 1
+    @property
+    def table_width(self): #按几何尺寸
+        return self._table_width
 
-    def __init__(self, string, table_width=None, indent=0):
-        super().__init__()
-        self.add_row([" " * indent + string])
-        self.align = "l"
-        self.table_width = table_width
-        self._padding_width = 0
-        self._left_padding_width = 0
-        self._right_padding_width = 0
+    @table_width.setter
+    def table_width(self,val):
+        self._validate_option("table_width", val)
+        self._min_table_width = val*2//self.font_size-1
+        self._table_width = val
+        self._max_table_width = val*2//self.font_size-1
+        print(val,val*2//self.font_size-1)
 
-    def get_image(self, **kwargs):
-        kwargs["vrules"] = "NONE"
-        kwargs["hrules"] = "NONE"
-        kwargs["font_path"] = "arial.ttf"
-        return super(TextTable, self).get_image(**kwargs)
+        # super(FlexTable, self).table_width(val*2//self.font_size)
 
-    def hide_outlines(self):
-        self._horizontal_char = " "
-        self._vertical_char = " "
-        self._junction_char = " "
-        self._top_junction_char = " "
-        self._bottom_junction_char = " "
-        self._right_junction_char = " "
-        self._left_junction_char = " "
-        self._top_right_junction_char = " "
-        self._top_left_junction_char = " "
-        self._bottom_right_junction_char = " "
-        self._bottom_left_junction_char = " "
+    def get_image(self):
+        return table2image(str(self),font_size=self.font_size,vrules=None,hrules=None,style='others')
 
 
+# todo 移除 get_image 中的参数
 class TextBlock(object):
-    def __init__(self, text, width, indent=0, **kwargs):
+    def __init__(self, text, width=70*20, indent=0, font_path="arial.ttf", font_size=20,padding=0,**kwargs):
         self._text = text
         self.indent = indent
         self._table_width = width
+        self._char_width = 2*width//font_size
         self.align = kwargs.get("align", "l")
-        self.font_size = kwargs.get("font_size", 20)
+        self.font_size = font_size
+        self.font_path = font_path
+        self.padding = padding
 
     @property
     def text(self):
@@ -242,7 +262,7 @@ class TextBlock(object):
 
     @property
     def wrap_text(self):
-        return textwrap.wrap(self.text, self._table_width)
+        return textwrap.wrap(self.text, self._char_width)
 
     @property
     def table_width(self):
@@ -280,27 +300,27 @@ class TextBlock(object):
     def get_string(self):
         if self.align == "d":
             s = "\n".join(self.wrap_text)
-            return self.double_end_align(s, self._table_width)
+            return self.double_end_align(s, self._char_width)
         else:
-            return put_text_in_box(self.text, self._table_width * 10)[0]
+            return put_text_in_box(self.text, self._table_width)[0]
 
-    def get_image(self, font_path="arial.ttf", font_size=20):
+    def get_image(self):
         s, img,boxes = put_text_in_box(
             self.text,
-            self._table_width * font_size // 2,
-            font_size=font_size,
-            font_path=font_path,
+            self._table_width,
+            font_size=self.font_size,
+            font_path=self.font_path,
         )
 
-        bg = Image.new("RGB", (img.width + font_size, img.height + font_size),
+        bg = Image.new("RGB", (img.width + self.padding*2, img.height + self.padding*2),
                        "white")
-        bg.paste(img, (font_size // 2, font_size // 2))
+        bg.paste(img, (self.padding, self.padding))
         points = []
         for box in boxes:
-            points.append([box[0]+font_size // 2, box[1]+font_size // 2])
-            points.append([box[2]+font_size // 2, box[1]+font_size // 2])
-            points.append([box[2]+font_size // 2, box[3]+font_size // 2])
-            points.append([box[0]+font_size // 2, box[3]+font_size // 2])
+            points.append([box[0]+self.padding, box[1]+self.padding])
+            points.append([box[2]+self.padding, box[1]+self.padding])
+            points.append([box[2]+self.padding, box[3]+self.padding])
+            points.append([box[0]+self.padding, box[3]+self.padding])
 
         return {
             "image" :cv2.cvtColor(np.asarray(bg, np.uint8), cv2.COLOR_RGB2BGR),
@@ -448,9 +468,14 @@ def from_list(ls, t2b=True, w=None):
 if __name__ == "__main__":
     import faker
 
-    f = faker.Faker()
-    t = TextBlock(f.paragraph(10), 38, 4)
-    s = t.get_string()
-    print(s)
-    img = t.get_image(font_path="arial.ttf")["image"]
-    img.show()
+    # f = faker.Faker()
+    # t = TextBlock(f.paragraph(10), 38, 4)
+    # s = t.get_string()
+    # print(s)
+    # img = t.get_image()["image"]
+    # img.show()
+    a = FlexTable(w=1000,font_size=40)
+    a.add_rows([[12,34,56],[33,44,55]])
+    x = a.get_image()['image']
+    cv2.imwrite('t.jpg',x)
+    print(x.shape)
