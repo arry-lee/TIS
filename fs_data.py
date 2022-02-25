@@ -523,6 +523,10 @@ def fstable2image(table,
                       anchor='lm')
             text_box = draw.textbbox((start, v), line, font=text_font,
                                      anchor='lm')
+            space_cnt=0
+            while(line[space_cnt]==' '):space_cnt+=1
+            if space_cnt:
+                text_box = (text_box[0]+space_cnt*font_size//2,text_box[1],text_box[2],text_box[3])
             text_boxes.append([text_box, 'text@' + line])
 
             if (lx, ty, rx, by) != (w, h, 0, 0):
@@ -815,6 +819,10 @@ def fstable2image_en(table,
                       anchor='lm')
             text_box = draw.textbbox((start, v), line, font=text_font,
                                      anchor='lm')
+            space_cnt=0
+            while(line[space_cnt]==' '):space_cnt+=1
+            if space_cnt:
+                text_box = (text_box[0]+space_cnt*font_size//2,text_box[1],text_box[2],text_box[3])
             text_boxes.append([text_box, 'text@' + line])
 
             if (lx, ty, rx, by) != (w, h, 0, 0):
