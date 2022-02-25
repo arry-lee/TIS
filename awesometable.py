@@ -157,7 +157,7 @@ class AwesomeTable(prettytable.PrettyTable):
         self._title_pos = pos
 
     @property
-    def table_width(self):
+    def table_width(self): #字符表格宽度
         return len(str(self.get_string().split('\n')[0]))
 
     @table_width.setter
@@ -605,6 +605,8 @@ class AwesomeTable(prettytable.PrettyTable):
         o = other.get_table_image()
         print(s.shape, o.shape)
         return np.hstack([o, s])
+
+
 
 class MultiTable(object):
     """多表格类"""

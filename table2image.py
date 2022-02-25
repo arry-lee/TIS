@@ -47,7 +47,7 @@ def table2image(table,
 
     lines = str(table).splitlines()
     w = (len(lines[0]) + 1) * char_width + char_width * offset * 2  # 图片宽度
-    h = (len(lines)) * line_height  # 图片高度 
+    h = (len(lines)) * line_height  # 图片高度
 
     if background is not None and bg_box:
         x1, y1, x2, y2 = bg_box

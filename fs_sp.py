@@ -9,50 +9,42 @@ from tqdm import trange
 from fs_data import FinancialStatementTable, hit
 from layout import HorLayout as H
 from layout import VerLayout as V
-from layout import TextBlock
+from layout import TextBlock,FlexTable
+from post_processor.A4 import Paper
 
 from post_processor.label import log_label, show_label
-
+from post_processor.background import add_to_paper
 from table2image import table2image
 
+width=3000
+offset_p=400
+gap_width = 80
+col_width = (width-offset_p*2-gap_width)//2
+page_width = width-offset_p*2
+font_size = 40
+# table_width = col_width//font_size*2
 
-class _TableGenerator(object):
+print(col_width,page_width)
+
+class _TableGenerator(FlexTable):
     style = "striped"
-    def __init__(self, w=40):
+    def __init__(self, w=col_width,font_size=28, **kwargs):
+        super().__init__(w, font_size, **kwargs)
         random_price = lambda:'{:,}'.format(random.randint(100, 1000))
         self.fst = FinancialStatementTable("Consolidated Balance Sheet", "en",random_price)
-
         t = self.fst.metatable(auto_ratio=0, brace_ratio=0, fill_ratio=1, note_ratio=0)
-        t.max_width = 15
-        t.min_width = 4
-        t.max_table_width = w
-        t.align = "r"
-        t._align["Field 1"] = "l"
-        self._table = t
-
-    @property
-    def table(self):
-        s = random.choice([0,2,3,4,5])
-        r = random.randint(3,6)
-        return self._table[s:s+r]
-
-    @property
-    def table_width(self):
-        return self._table.table_width
-
-    @table_width.setter
-    def table_width(self, val):
-        self._table.table_width = val
-
-    def get_image(self, **kwargs):
-        return table2image(self.table,vrules=None,hrules=None,style=self.style)
+        s = random.choice([0, 2, 3, 4, 5])
+        r = random.randint(3, 6)
+        for x in t[s:s+r]._rows:
+            self.add_row(x)
+        self.align = 'r'
+        self._align['Field 1'] = 'l'
 
 
 class _TextGenerator(TextBlock):
     faker = faker.Faker()
-
-    def __init__(self, width=38):
-        super().__init__(self.faker.paragraph(8), width, indent=4)
+    def __init__(self, width=col_width,font_size=50):
+        super().__init__(self.faker.paragraph(8), width, indent=4,font_size=font_size)
 
 
 class DoubleColumnFST(object):
@@ -79,7 +71,7 @@ class DoubleColumnFST(object):
             r.append(self.text_generator())
             r.append(self.table_generator())
         # r.append(self.text_generator())
-        out = H([V(l), V(r)])
+        out = H([V(l,col_width,gaps=40), V(r,col_width,gaps=40)],col_width,gaps=80)
         return out
 
     def random_layout2(self):
@@ -88,17 +80,11 @@ class DoubleColumnFST(object):
         else:
             l = [self.table_generator(),self.text_generator()]
 
-        out = V(
-            [
-                H([self.text_generator(), self.text_generator()]),
-                self.table_generator(),
-                H(
-                    [
-                        V([self.text_generator(), self.text_generator()]),
-                        V(l),
-                    ]
-                ),
-            ]
+        out = V([H([self.text_generator(), self.text_generator()],col_width,gaps=80),
+                self.table_generator(page_width),
+                H([V([self.text_generator(), self.text_generator()],col_width,gaps=40),
+                   V(l,col_width,gaps=40)],col_width,gaps=80)],page_width,
+                gaps = 40
         )
         return out
 
@@ -113,9 +99,12 @@ class DoubleColumnFST(object):
         output_dir = "data/financial_statement_en_sp"
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
-        for i in trange(batch):
-            image_data = self.create(i % 2).get_image(offset=25)
 
+
+        for i in trange(batch):
+            image_data = self.create(i % 2).get_image()
+            paper = Paper(3000,offset_p=400)
+            image_data = show_label(add_to_paper(image_data,paper))
             fn = "0" + str(int(time.time() * 1000))[5:]
             cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn), image_data["image"])
             log_label(
@@ -125,5 +114,5 @@ class DoubleColumnFST(object):
 
 if __name__ == "__main__":
     d = DoubleColumnFST()
-    d.run(25)
+    d.run(2)
 

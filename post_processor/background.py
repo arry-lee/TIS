@@ -1,6 +1,6 @@
 import numpy as np
 
-from post_processor.deco import as_pillow, p2c
+from post_processor.deco import as_pillow, c2p, p2c
 
 
 def add_background(image,background,offset=0,mask=None):
@@ -22,4 +22,13 @@ def add_background_data(data,background,offset):
     mask = data.get('mask',None)
     data['image'] = add_background(data['image'],background,offset,mask=mask)
     data['points'] =  np.array(data['points']) + offset
+    return data
+
+
+def add_to_paper(data,paper):
+    bg = paper.image
+    xy = paper.pad[0],paper.pad[1]
+    bg.paste(c2p(data['image']),xy)
+    data['image'] = p2c(bg)
+    data['points'] = np.array(data['points']) + np.array(xy)
     return data
