@@ -19,21 +19,27 @@ texture_dir = '../static/paper/'
 
 class Paper(object):
     """纸张模拟器"""
-    def __init__(self, type='A4', texture=None, color=(255, 255, 255), dip=4, direction='v',offset=20):
+    def __init__(self, width=None,type='A4', texture=None, color=(255, 255, 255), dip=4, direction='v',offset_p=None,offset=20):
         self.type = type
         self.direction = direction
-        self.dip = dip
         self.texture =texture
         self.color = color
         self.offset = offset
+
         if self.type.upper() == 'A4':
             self.width_mm = 210
             self.height_mm = 279
         if self.direction == 'h':
             self.width_mm,self.height_mm = self.height_mm,self.width_mm
+        if not width:
+            self.dip = dip
+            self.width = self.dip * self.width_mm
+            self.height = self.dip * self.height_mm
+        else:
+            self.width = width
+            self.dip = width//self.width_mm
+            self.height = self.dip*self.height_mm
 
-        self.width = self.dip * self.width_mm
-        self.height = self.dip * self.height_mm
         self.size = (self.width,self.height)
 
         if self.texture:
@@ -44,6 +50,8 @@ class Paper(object):
             self._image = Image.new('RGB',self.size,self.color)
         #
         self._draw = ImageDraw.Draw(self._image)
+        if offset_p is not None:
+            offset = offset_p//self.dip
 
         self.pad = (offset * self.dip, offset * self.dip, offset * self.dip, offset * self.dip)
         self._box = (offset * self.dip, offset * self.dip, self.width-offset * self.dip, self.height-offset * self.dip)
@@ -53,7 +61,7 @@ class Paper(object):
 
     @property
     def image(self):
-        self._draw.rectangle(self._box)
+        # self._draw.rectangle(self._box,outline='black',width=4)
         return self._image
 
     def set_header(self,text,font,align='c',line=True):
