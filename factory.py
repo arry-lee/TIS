@@ -240,7 +240,7 @@ class FSFactory(Thread):
         #     {'func': random_rotate, 'ratio': 0.3},
         #     {'func': random_perspective, 'ratio': 0.3},
         #     {'func': random_background, 'ratio': 0.3},
-            {'func': show_label, 'ratio': 1},
+        #     {'func': show_label, 'ratio': 1},
         ]
 
         if need_proc:
@@ -339,5 +339,5 @@ if __name__ == '__main__':
     # main(sys.argv)
     # bank_factory = Factory(batch=10)
     # bank_factory.start()
-    fsfactory = FSFactory('all',25,lang='zh_CN',need_proc=False)
+    fsfactory = FSFactory('all',200,lang='zh_CN',need_proc=False)
     fsfactory.start()

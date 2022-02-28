@@ -51,13 +51,17 @@ class AbstractTable(object, metaclass=ABCMeta):
     def get_string(self):
         return NotImplemented
 
+    @property
+    def height(self):
+        return self.get_image()['image'].shape[0]
+
     @abstractmethod
     def get_image(self):
         return NotImplemented
 
-    def extend(self, obj):
+    def append(self, obj):
         if hasattr(obj, "get_image"):
-            self.layouts.extend(obj)
+            self.layouts.append(obj)
         else:
             raise ValueError("Not Layout or Table")
 
@@ -236,17 +240,22 @@ class FlexTable(AwesomeTable):
         self._min_table_width = val*2//self.font_size-1
         self._table_width = val
         self._max_table_width = val*2//self.font_size-1
-        print(val,val*2//self.font_size-1)
+        # print(val,val*2//self.font_size-1)
 
         # super(FlexTable, self).table_width(val*2//self.font_size)
+    @property
+    def height(self):
+        return self.get_image()['image'].shape[0]
 
     def get_image(self):
         return table2image(str(self),font_size=self.font_size,vrules=None,hrules=None,style='others')
 
 
 # todo 移除 get_image 中的参数
-class TextBlock(object):
-    def __init__(self, text, width=70*20, indent=0, font_path="arial.ttf", font_size=20,padding=0,**kwargs):
+class TextBlock(AbstractTable):
+    def __init__(self, text, width=70 * 20, indent=0, font_path="arial.ttf",
+                 font_size=20, padding=0, **kwargs):
+        super().__init__()
         self._text = text
         self.indent = indent
         self._table_width = width
@@ -365,7 +374,7 @@ def draw_multiline_text(xy, text, fill, font_path="arial.ttf", font_size=20):
 
 def put_text_in_box(
         text, width, fill="black", font_path="arial.ttf", font_size=20,
-        line_pad=2
+        line_pad=4
 ):
     # 不硬换行，软换行
     font = ImageFont.truetype(font_path, font_size)
@@ -380,11 +389,12 @@ def put_text_in_box(
         else:
             break
     words = text.split()
-    words[0] = " " * indent + words[0]
+    # words[0] = " " * indent + words[0]
     lines = []
     line = ""
     boxes = []
-    x, y = 0, 0
+    x, y = space_width*indent, 0
+    x0 = x
     for word in words:
         bbox = draw.textbbox((x, y), word, font)
         if bbox[2] < width:
@@ -403,8 +413,9 @@ def put_text_in_box(
                         draw.text((x, y), "-", fill, font)
                         line += "-"
                     lines.append(line)
-                    boxes.append((0,y,width,y+font_size))
+                    boxes.append((x0,y,width,y+font_size))
                     x = 0
+                    x0 = 0
                     y += font_size + line_pad
                     line = word[i:] + " "
                     draw.text((x, y), line, fill, font)

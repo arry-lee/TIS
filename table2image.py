@@ -79,7 +79,7 @@ def table2image(table,
     en_font = ImageFont.truetype('arial.ttf', font_size)
     title_font = ImageFont.truetype('ariblk.ttf', font_size + 10)
     subtitle_font = ImageFont.truetype('ariali.ttf', font_size - 2)
-    bold_font = ImageFont.truetype('arialbi.ttf', font_size)
+    bold_font = ImageFont.truetype('arialbi.ttf', font_size-4)
     text_font = ImageFont.truetype('arial.ttf', font_size)
 
     cell_boxes = set()  # 多行文字的外框是同一个，需要去重

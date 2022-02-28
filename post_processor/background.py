@@ -26,7 +26,7 @@ def add_background_data(data,background,offset):
 
 
 def add_to_paper(data,paper):
-    bg = paper.image
+    bg = paper.image.copy()
     xy = paper.pad[0],paper.pad[1]
     bg.paste(c2p(data['image']),xy)
     data['image'] = p2c(bg)
