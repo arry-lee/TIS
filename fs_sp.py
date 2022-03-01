@@ -35,6 +35,7 @@ class _TableGenerator(FlexTable):
         random_price = lambda:'{:,}'.format(random.randint(100, 1000))
         self.fst = FinancialStatementTable("Consolidated Balance Sheet", "en",random_price)
         t = self.fst.metatable(auto_ratio=0, brace_ratio=0, fill_ratio=1, note_ratio=0)
+
         s = random.choice([0, 2, 3, 4, 5])
         r = random.randint(5, 15)
         for x in t[s:s+r]._rows:
@@ -42,6 +43,13 @@ class _TableGenerator(FlexTable):
         self.align = 'r'
         self.min_width = 5
         self._align['Field 1'] = 'l'
+        self.can_complex = True
+
+    def __str__(self):
+        self._string = self.get_string()
+        if self.can_complex:
+            self._string = self.fst.build_complex_header(self._string)
+        return self._string
 
 
 class _TextGenerator(TextBlock):

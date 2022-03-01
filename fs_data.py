@@ -15,6 +15,7 @@ from toolz import partition_all
 from awesometable import (AwesomeTable, H_SYMBOLS, __c, _count_padding,
                           _str_block_width, from_list, paginate,from_str,
                           vpat, vstack, wrap)
+from prettytable import PrettyTable
 from post_processor.A4 import Paper
 from post_processor.seal import add_seal, gen_name_seal, gen_seal,add_seal_box
 from utils.ulpb import encode
@@ -210,7 +211,7 @@ class FinancialStatementTable(object):
             item = ' ' * indent + _(item)
         return item
 
-    def _build_complex_header(self, t):
+    def build_complex_header(self, t):
         lines = str(t).splitlines()
         # 移除表原来的表头
         for i in range(1,len(lines)):
@@ -246,11 +247,10 @@ class FinancialStatementTable(object):
         else:
             return t
 
-    def process_body(self, t):
+    def process_body(self, t, maxrows=30):
         """ 处理表格主体
         分别为多表,单双栏做法
         """
-        MAXROWS = 30
         if self.is_zh:
             t.align = 'c'
         else:
@@ -265,14 +265,14 @@ class FinancialStatementTable(object):
             else:
                 w = t.table_width
             for i in range(num):
-                _max = MAXROWS // num
+                _max = maxrows // num
                 step = random.randint(_max // 2, _max)
-                start = random.randint(0, MAXROWS - _max)
+                start = random.randint(0, maxrows - _max)
                 new = t[start:start + step]
                 if self.is_zh:
                     new.table_width = t.table_width
                 if hit(0.3):
-                    new = self._build_complex_header(new)
+                    new = self.build_complex_header(new)
                 out.append(new)
                 if self.is_zh:
                     random_text = wrap('    ' + random_words(), w)
@@ -295,9 +295,9 @@ class FinancialStatementTable(object):
             elif self.can_truncate:  # 截断
                 # t.sort_key = lambda x: random.random()
                 # t.sortby = 'Field 1'
-                t = t[:MAXROWS]
+                t = t[:maxrows]
             if self.can_complex:  # 表头
-                t = self._build_complex_header(t)
+                t = self.build_complex_header(t)
         self.table_width = str(t).splitlines()[0].__len__()
         return t
 
@@ -447,6 +447,7 @@ def _compute_lines_per_page(table, fontsize=40, line_pad=-5):
     return lines // 2
 
 
+# 中
 def fstable2image(table,
                   xy=None,
                   font_size=20,
