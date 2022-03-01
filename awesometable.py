@@ -1,6 +1,7 @@
 import re
 import random
 import copy
+import textwrap
 from functools import reduce
 
 import cv2
@@ -21,27 +22,29 @@ H_SYMBOLS = '═╩╦╬╝╚╗╔'
 ALL_SYMBOLS = set('║╬╦╩╣╠╗╔╝╚═╩╦╬╝╚╗╔')
 
 LINE_PAT = re.compile(r'(\n*[╔╠╚].+?[╗╣╝]\n*)')
-def paginate(table,lines_per_page=40):
+
+
+def paginate(table, lines_per_page=40):
     """分页算法
     1.保证按行分割，行内有换行不会被分开
     2.必须分割时另起一页
     3.修复分割线
     """
-    lct=0
-    lines = re.split(LINE_PAT,str(table))
+    lct = 0
+    lines = re.split(LINE_PAT, str(table))
     out = ''
     for line in lines:
-        if not line:continue
+        if not line: continue
         if line[0] == '║':
             if lct >= lines_per_page:
                 yield out
-                out = out.splitlines()[-1]+'\n'+line # 封顶
+                out = out.splitlines()[-1] + '\n' + line  # 封顶
                 lct = len(line.splitlines())
             else:
-                out+=line
+                out += line
                 lct += len(line.splitlines())
         else:
-            out+=line
+            out += line
     yield out
 
 
@@ -49,13 +52,13 @@ def clear_symbols(s):
     o = ''
     for c in s:
         if c in ALL_SYMBOLS:
-            o+=' '
+            o += ' '
         else:
-            o+=c
+            o += c
     return o
 
 
-def _align_cell(ct,align):
+def _align_cell(ct, align):
     nc = ct.strip()
     lpad = (len(ct) - len(nc)) // 2
     rpad = len(ct) - len(nc) - lpad
@@ -69,7 +72,8 @@ def _align_cell(ct,align):
         raise KeyError
     return nt
 
-def set_align(t,cno,align,rno=None):
+
+def set_align(t, cno, align, rno=None):
     # 精细调整表格列内对齐方式
     lines = str(t).splitlines()
     if rno is None:
@@ -83,34 +87,38 @@ def set_align(t,cno,align,rno=None):
                     ct = cells[cno]
                 except:
                     continue
-                nt = _align_cell(ct,align)
-                line = line.replace(ct,nt)
+                nt = _align_cell(ct, align)
+                line = line.replace(ct, nt)
                 out.append(line)
         return '\n'.join(out)
     else:
-        line = lines[2*rno+1]
+        line = lines[2 * rno + 1]
         cells = re.split(vpat, line)[1:-1]
         ct = cells[cno]
         nt = _align_cell(ct, align)
-        lines[2*rno+1] = line.replace(ct, nt)
+        lines[2 * rno + 1] = line.replace(ct, nt)
         return '\n'.join(lines)
 
-def merge(t,rno):
+
+def merge(t, rno):
     # 合并同一行的cells
     lines = str(t).splitlines()
-    rline = lines[2*rno+1]
+    rline = lines[2 * rno + 1]
 
-    nline = '║'+ rline.replace('║',' ')[1:-1]+'║'
-    lines[2*rno+1] = nline
+    nline = '║' + rline.replace('║', ' ')[1:-1] + '║'
+    lines[2 * rno + 1] = nline
     return '\n'.join(lines)
 
-def del_line(t,start=2,end=-1,keepblank=True):
+
+def del_line(t, start=2, end=-1, keepblank=True):
     lines = str(t).splitlines()
     if keepblank:
-        lines[start:end:2] = ['║'+(len(l)-2)*' '+'║' for l in lines[start:end:2]]
+        lines[start:end:2] = ['║' + (len(l) - 2) * ' ' + '║' for l in
+                              lines[start:end:2]]
     else:
         del lines[start:end:2]
     return '\n'.join(lines)
+
 
 class AwesomeTable(prettytable.PrettyTable):
     """可以在表格上下左右添加标题栏的AwesomeTable，获取结构化数据的字符串表示
@@ -120,14 +128,15 @@ class AwesomeTable(prettytable.PrettyTable):
     title_pos   标题所在位置
     max_cols    最大列数
     """
+
     def __init__(self, rows=None, field_names=None, **kwargs):
         super().__init__(field_names, kwargs=kwargs)
         if rows:
             self.add_rows(rows)
         self.set_style(prettytable.DOUBLE_BORDER)
         self.hrules = ALL
-        self._table_width = kwargs.get("table_width",None)
-        self._title_pos = kwargs.get("title_pos",'t')
+        self._table_width = kwargs.get("table_width", None)
+        self._title_pos = kwargs.get("title_pos", 't')
         self._title = kwargs.get("title", None)
 
     def __getitem__(self, index):
@@ -157,7 +166,7 @@ class AwesomeTable(prettytable.PrettyTable):
         self._title_pos = pos
 
     @property
-    def table_width(self): #字符表格宽度
+    def table_width(self):  # 字符表格宽度
         return len(str(self.get_string().split('\n')[0]))
 
     @table_width.setter
@@ -193,7 +202,7 @@ class AwesomeTable(prettytable.PrettyTable):
             return _vstack(ss, t)
 
         h = len(lines) - 2  # 实际可用的高度
-        w,_ = _get_size(title)
+        w, _ = _get_size(title)
         vtitle = self._stringify_vertical_title(title, w, h, options,
                                                 valign='m')
         if title_pos == 'l':
@@ -201,19 +210,17 @@ class AwesomeTable(prettytable.PrettyTable):
         elif title_pos == 'r':
             return _hstack(ss, vtitle)
 
-
     def _compute_table_width(self, options):
         """增加了竖线数量的统计"""
         table_width = 2 if options["vrules"] in (FRAME, ALL) else 0
         per_col_padding = sum(self._get_padding_widths(options))
         for index, fieldname in enumerate(self.field_names):
             if not options["fields"] or (
-                options["fields"] and fieldname in options["fields"]
+                    options["fields"] and fieldname in options["fields"]
             ):
                 table_width += self._widths[index] + per_col_padding
-        table_width += len(self._widths)-1 #
+        table_width += len(self._widths) - 1  #
         return table_width
-
 
     def _compute_widths(self, rows, options):
         """成倍放大宽度并不精确，应该逐个增加宽度"""
@@ -233,7 +240,8 @@ class AwesomeTable(prettytable.PrettyTable):
                 else:
                     widths[index] = max(widths[index], _get_size(value)[0])
                 if fieldname in self.min_width:
-                    widths[index] = max(widths[index], self.min_width[fieldname])
+                    widths[index] = max(widths[index],
+                                        self.min_width[fieldname])
         self._widths = widths
 
         # Are we exceeding max_table_width?
@@ -243,8 +251,8 @@ class AwesomeTable(prettytable.PrettyTable):
                 # Shrink widths in proportion
                 num = table_width - self._max_table_width
 
-                widths = [w-num//len(widths) for w in widths]
-                for w in range(num%len(widths)):
+                widths = [w - num // len(widths) for w in widths]
+                for w in range(num % len(widths)):
                     widths[w] -= 1
                 self._widths = widths
 
@@ -269,7 +277,6 @@ class AwesomeTable(prettytable.PrettyTable):
                 for w in range(num % len(widths)):
                     widths[w] += 1
                 self._widths = widths
-
 
     def _stringify_vertical_title(self, title, width, height, options,
                                   valign='m'):
@@ -337,7 +344,7 @@ class AwesomeTable(prettytable.PrettyTable):
         firstline = ''.join(firstline)
 
         endline = [options['bottom_left_junction_char']]
-        endline.extend([options["horizontal_char"]] * (width+ 2))
+        endline.extend([options["horizontal_char"]] * (width + 2))
         endline.append(options['bottom_right_junction_char'])
         endline = ''.join(endline)
 
@@ -427,12 +434,11 @@ class AwesomeTable(prettytable.PrettyTable):
 
         return "\n".join(bits)
 
-
     def __str__(self):
         return self.get_string()
 
-    def get_image(self,**kwargs):
-        return table2image(str(self),**kwargs)
+    def get_image(self, **kwargs):
+        return table2image(str(self), **kwargs)
 
     def init_attr(self):
         """
@@ -448,7 +454,8 @@ class AwesomeTable(prettytable.PrettyTable):
         rows = self._rows
         w = len(rows[0])
         h = len(rows)
-        self.text_layer = np.chararray((h, w), unicode=True,itemsize=50)  # 每个单元格的文字作为一层
+        self.text_layer = np.chararray((h, w), unicode=True,
+                                       itemsize=50)  # 每个单元格的文字作为一层
         self.char_width_layer = np.ndarray((h, w), np.int32)  # 字符串宽度层
         self.char_height_layer = np.ndarray((h, w), np.int32)  # 字符串高度层
         self.char_color_layer = np.ndarray((h, w, 3), np.uint8)  # 字符串颜色层
@@ -475,15 +482,17 @@ class AwesomeTable(prettytable.PrettyTable):
                 self.char_width_layer[i, j] = _w
                 self.char_height_layer[i, j] = _h
 
-
-        self.box_width_layer = np.multiply(self.char_width_layer,self.char_fontsize_layer // 2)\
-                               + self.padding_layer[:,:,0] + self.padding_layer[:,:,2]
-        self.box_height_layer = np.multiply(self.char_height_layer,self.char_fontsize_layer) \
-                                + self.padding_layer[:, :,1] + self.padding_layer[:,:,3]
+        self.box_width_layer = np.multiply(self.char_width_layer,
+                                           self.char_fontsize_layer // 2) \
+                               + self.padding_layer[:, :,
+                                 0] + self.padding_layer[:, :, 2]
+        self.box_height_layer = np.multiply(self.char_height_layer,
+                                            self.char_fontsize_layer) \
+                                + self.padding_layer[:, :,
+                                  1] + self.padding_layer[:, :, 3]
 
         self.box_height_layer = np.max(self.box_height_layer, axis=1)
         self.box_width_layer = np.max(self.box_width_layer, axis=0)
-
 
     def scale(self, xratio, yratio=1.0):
         self.box_width_layer = np.int32(self.box_width_layer * xratio)
@@ -495,7 +504,6 @@ class AwesomeTable(prettytable.PrettyTable):
 
         self.box_height_layer = np.int32(self.box_height_layer * yratio)
         # self.char_fontsize_layer = np.int32(self.char_fontsize_layer * yratio)
-
 
     def get_table_image(self):
         """直接从表格生成图片而不是从字符串生成，渲染成图"""
@@ -510,10 +518,12 @@ class AwesomeTable(prettytable.PrettyTable):
             for j in range(w):
                 print(i, j)
                 text = self.text_layer[i, j]
-                width, height = self.box_width_layer[j], self.box_height_layer[i]
+                width, height = self.box_width_layer[j], self.box_height_layer[
+                    i]
                 border = self.border_width_layer[i, j, 0]
 
-                bg = Image.new('RGB', (width, height),tuple(self.char_color_layer[i, j].tolist()))
+                bg = Image.new('RGB', (width, height),
+                               tuple(self.char_color_layer[i, j].tolist()))
 
                 bg_draw = ImageDraw.Draw(bg)
                 font = ImageFont.truetype(font_path,
@@ -522,7 +532,7 @@ class AwesomeTable(prettytable.PrettyTable):
                 bg_draw.multiline_text((width // 2, height // 2), text, 'black',
                                        font, anchor='mm', align='center')
                 bg_draw.line((0, 0) + (width, 0), fill='black',
-                                  width=border)
+                             width=border)
                 bg_draw.line((0, 0) + (0, height), fill='black',
                              width=border)
 
@@ -572,7 +582,6 @@ class AwesomeTable(prettytable.PrettyTable):
                 return np.hstack([table_img, title_img])
         return table_img
 
-
     def vstack(self, other):
         s = self.get_table_image()
         o = other.get_table_image()
@@ -607,15 +616,15 @@ class AwesomeTable(prettytable.PrettyTable):
         return np.hstack([o, s])
 
 
-
 class MultiTable(object):
     """多表格类"""
-    def __init__(self,tables):
+
+    def __init__(self, tables):
         self._tables = tables
         self._table_width = 0
 
-    def add_table(self,table):
-        assert isinstance(table,AwesomeTable)
+    def add_table(self, table):
+        assert isinstance(table, AwesomeTable)
         self._tables.append(table)
 
     @property
@@ -623,7 +632,7 @@ class MultiTable(object):
         return self._table_width
 
     @table_width.setter
-    def table_width(self,val):
+    def table_width(self, val):
         self._table_width = val
         for table in self._tables:
             table.table_width = val
@@ -702,7 +711,7 @@ def table2image(table,
                 bgcolor='white',
                 background=None,
                 bg_box=None,
-                font_path="simfang.ttf",  #"./static/fonts/simfang.ttf",
+                font_path="simfang.ttf",  # "./static/fonts/simfang.ttf",
                 line_pad=0,
                 line_height=None,
                 vrules='ALL',
@@ -718,37 +727,38 @@ def table2image(table,
     char_width = font_size // 2
     half_char_width = char_width // 2
 
-    w = (len(lines[0])+1) * char_width # 图片宽度
+    w = (len(lines[0]) + 1) * char_width  # 图片宽度
     if line_height is None:
         line_height = font_size + line_pad
 
     h = (len(lines)) * line_height  # 图片高度
 
     if background is not None and bg_box:
-        x1,y1,x2,y2 = bg_box
-        w0,h0 = x2-x1, y2-y1
-        if isinstance(background,str):
+        x1, y1, x2, y2 = bg_box
+        w0, h0 = x2 - x1, y2 - y1
+        if isinstance(background, str):
             background = Image.open(background)
-        elif isinstance(background,np.ndarray):
-            background = Image.fromarray(cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
+        elif isinstance(background, np.ndarray):
+            background = Image.fromarray(
+                cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
         wb, hb = background.size
         if not keep_ratio:
-            wn,hn  = int(wb*w/w0),int(hb*h/h0)
+            wn, hn = int(wb * w / w0), int(hb * h / h0)
             background = background.resize((wn, hn))
             x0, y0 = int(x1 * w / w0), int(y1 * h / h0)
         else:
-            wn, hn = int(wb * w / w0), int(hb * w / w0)# 宽度自适应，高度保持比例
-            background = background.resize((wn,hn))
-            x0,y0 = int(x1*w/w0),int(y1*w / w0)
+            wn, hn = int(wb * w / w0), int(hb * w / w0)  # 宽度自适应，高度保持比例
+            background = background.resize((wn, hn))
+            x0, y0 = int(x1 * w / w0), int(y1 * w / w0)
     else:
         background = Image.new('RGB', (w, h), bgcolor)
         x0, y0 = xy or (char_width, char_width)
 
     draw = ImageDraw.Draw(background)
-    font = ImageFont.truetype(font_path, font_size,encoding="utf-8")
+    font = ImageFont.truetype(font_path, font_size, encoding="utf-8")
 
-    cell_boxes = set()      # 多行文字的外框是同一个，需要去重
-    text_boxes = []    # 文本框
+    cell_boxes = set()  # 多行文字的外框是同一个，需要去重
+    text_boxes = []  # 文本框
     for lno, line in enumerate(lines):
         v = lno * line_height + y0
         start = half_char_width + x0
@@ -761,28 +771,31 @@ def table2image(table,
             continue
 
         for cno, cell in enumerate(cells):
-            ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1 #TODO:fix
+            ll = sum(
+                _str_block_width(c) + 1 for c in cells[:cno]) + 1  # TODO:fix
             if cell == '' or '═' in cell:
                 start += (len(cell) + 1) * char_width
             else:
-                box = draw.textbbox((start, v), cell, font=font, anchor='lm') # 左中对齐
+                box = draw.textbbox((start, v), cell, font=font,
+                                    anchor='lm')  # 左中对齐
                 if box[1] != box[3]:  # 非空单元内文字框
-                    draw.text((start, v), cell, font=font, fill='black',anchor='lm')
+                    draw.text((start, v), cell, font=font, fill='black',
+                              anchor='lm')
                     lpad, rpad = _count_padding(cell)
                     l = box[0] + lpad * char_width
                     striped_cell = cell.strip()
-                    if '  ' in striped_cell:      # 如果有多个空格分隔
+                    if '  ' in striped_cell:  # 如果有多个空格分隔
                         lt = l
                         rt = 0
-                        for text in re.split('( {2,})',striped_cell):
+                        for text in re.split('( {2,})', striped_cell):
                             if text.strip():
-                                rt = lt + _str_block_width(text)*char_width
+                                rt = lt + _str_block_width(text) * char_width
                                 text_box = (lt, box[1], rt, box[3])
                                 text_boxes.append([text_box, 'text@' + text])
                                 if debug:
                                     draw.rectangle(text_box, outline='green')
-                            else: # 此时text是空格
-                                lt = rt +_str_block_width(text)*char_width
+                            else:  # 此时text是空格
+                                lt = rt + _str_block_width(text) * char_width
                     else:
                         r = box[2] - rpad * char_width
                         text_box = (l, box[1], r, box[3])
@@ -799,48 +812,56 @@ def table2image(table,
                 bb = lno + 1
                 # 原因：_str_block_width 和 [ll]不一样,解决方法，将中文替换为2个字母
 
-                while __c(lines,tt)[ll] not in H_SYMBOLS: tt -= 1
-                while __c(lines,bb)[ll] not in H_SYMBOLS: bb += 1
-                cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
+                while __c(lines, tt)[ll] not in H_SYMBOLS: tt -= 1
+                while __c(lines, bb)[ll] not in H_SYMBOLS: bb += 1
+                cbox = (
+                left, tt * line_height + y0, right, bb * line_height + y0)
                 cell_boxes.add(cbox)
 
     # 以下处理标注
     for box in cell_boxes:
         text_boxes.append([box, 'cell@'])
-        if vrules=='ALL':
-            draw.line((box[0],box[1])+(box[0],box[3]),fill='black',width=2)
-            draw.line((box[2], box[1]) + (box[2], box[3]), fill='black', width=2)
-        if hrules=='ALL':
-            draw.line((box[0], box[1]) + (box[2], box[1]), fill='black',width=2)
-            draw.line((box[0],box[3])+(box[2],box[3]),fill='black',width=2)
+        if vrules == 'ALL':
+            draw.line((box[0], box[1]) + (box[0], box[3]), fill='black',
+                      width=2)
+            draw.line((box[2], box[1]) + (box[2], box[3]), fill='black',
+                      width=2)
+        if hrules == 'ALL':
+            draw.line((box[0], box[1]) + (box[2], box[1]), fill='black',
+                      width=2)
+            draw.line((box[0], box[3]) + (box[2], box[3]), fill='black',
+                      width=2)
         if debug:
             print(box, '@cell')
 
     points = []
-    boxes = [tb[0] for tb in text_boxes] # 单纯的boxes分不清是行列还是表格和文本
-    l,t,r,b = boxes[0] # 求表格四极
+    boxes = [tb[0] for tb in text_boxes]  # 单纯的boxes分不清是行列还是表格和文本
+    l, t, r, b = boxes[0]  # 求表格四极
     for box in boxes:
         points.append([box[0], box[1]])
         points.append([box[2], box[1]])
         points.append([box[2], box[3]])
         points.append([box[0], box[3]])
-        l = min(l,box[0])
-        t = min(t,box[1])
-        r = max(r,box[2])
-        b = max(b,box[3])
-    boxes.append([l,t,r,b])
+        l = min(l, box[0])
+        t = min(t, box[1])
+        r = max(r, box[2])
+        b = max(b, box[3])
+    boxes.append([l, t, r, b])
     points.append([l, t])
     points.append([r, t])
     points.append([r, b])
     points.append([l, b])
 
-    label = [tb[1] for tb in text_boxes]+['table@0']
+    label = [tb[1] for tb in text_boxes] + ['table@0']
 
-    return {'image': cv2.cvtColor(np.array(background, np.uint8), cv2.COLOR_RGB2BGR),
-            'boxes': boxes, #box 和 label是一一对应的
-            'label': label,
-            'points': points
-            }
+    return {
+        'image' :cv2.cvtColor(np.array(background, np.uint8),
+                              cv2.COLOR_RGB2BGR),
+        'boxes' :boxes,  # box 和 label是一一对应的
+        'label' :label,
+        'points':points
+        }
+
 
 def banktable2image(table,
                     xy=None,
@@ -860,16 +881,16 @@ def banktable2image(table,
     """
     assert font_size % 4 == 0
     origin_lines = str(table).splitlines()
-    lines = list(filter(lambda x: '<r' not in x,origin_lines)) # 过滤掉标记
+    lines = list(filter(lambda x:'<r' not in x, origin_lines))  # 过滤掉标记
 
     # 判断是不是表头换行的表格
     # multiline = is_chinese(re.split(vpat,lines[9])[1].strip()[0])
 
-    char_width = font_size // 2        # 西文字符宽度
+    char_width = font_size // 2  # 西文字符宽度
     half_char_width = char_width // 2
 
-    w = (len(lines[0])+1) * char_width # 图片宽度
-    h = (len(lines)) * font_size      # 图片高度
+    w = (len(lines[0]) + 1) * char_width  # 图片宽度
+    h = (len(lines)) * font_size  # 图片高度
 
     if line_height is None:
         line_height = font_size + line_pad
@@ -897,14 +918,14 @@ def banktable2image(table,
     titlesize = font_size + 8
     titlefont = ImageFont.truetype(font_path, titlesize, encoding="utf-8")
 
-    boxes = set()      # 多行文字的外框是同一个，需要去重
-    text_boxes = []    # 文本框
+    boxes = set()  # 多行文字的外框是同一个，需要去重
+    text_boxes = []  # 文本框
 
     is_odd_line = True
     if multiline:
-        lines_to_draw = (6,10)
+        lines_to_draw = (6, 10)
     else:
-        lines_to_draw = (6,8)
+        lines_to_draw = (6, 8)
     last = 0
     rno = 0
     max_cols = 0
@@ -915,16 +936,19 @@ def banktable2image(table,
         rowleft = x0
         cells = re.split(vpat, line)[1:-1]
 
-        if lno == 1:           # title
+        if lno == 1:  # title
             title = cells[0].strip()
-            draw.text((w//2, v), title, font=titlefont, fill='black',anchor='mm')
-            titlebox = draw.textbbox((w//2, v), title, font=titlefont,anchor='mm')
+            draw.text((w // 2, v), title, font=titlefont, fill='black',
+                      anchor='mm')
+            titlebox = draw.textbbox((w // 2, v), title, font=titlefont,
+                                     anchor='mm')
             text_boxes.append([titlebox, 'text@' + title])
             if logo_path:
                 try:
                     logo = Image.open(logo_path)
-                    xy = (titlebox[0]-logo.size[0],titlebox[1]+titlesize//2-logo.size[1]//2)
-                    background.paste(logo,xy,mask=logo)
+                    xy = (titlebox[0] - logo.size[0],
+                          titlebox[1] + titlesize // 2 - logo.size[1] // 2)
+                    background.paste(logo, xy, mask=logo)
                 except FileNotFoundError:
                     pass
             if DEBUG:
@@ -937,37 +961,41 @@ def banktable2image(table,
             last = v
 
         if '═' in line:
-            if lno in lines_to_draw:          # 用---虚线
+            if lno in lines_to_draw:  # 用---虚线
                 if dot_line:
-                    draw.text((0,v),'-'*(2*len(line)-2),fill='black')
+                    draw.text((0, v), '-' * (2 * len(line) - 2), fill='black')
                 else:
-                    draw.line((x0,v)+(w-x0,v),fill='black',width=2)
+                    draw.line((x0, v) + (w - x0, v), fill='black', width=2)
 
             if lno > 6:
                 if multiline:
                     if is_odd_line:
-                        text_boxes.append([[x0, last, w-x0, v], '行-row@%d'%rno])
+                        text_boxes.append(
+                            [[x0, last, w - x0, v], '行-row@%d' % rno])
                         is_odd_line = not is_odd_line
                         if DEBUG:
-                            draw.rectangle((x0, last) + (w-x0, v), outline='red',width=2)
-                            draw.text((x0, last), 'row@%d'%rno, fill='red')
+                            draw.rectangle((x0, last) + (w - x0, v),
+                                           outline='red', width=2)
+                            draw.text((x0, last), 'row@%d' % rno, fill='red')
                         rno += 1
                     else:
                         is_odd_line = not is_odd_line
 
                 else:
-                    text_boxes.append([[x0, last, w-x0, v], '行-row@%d'%rno])
+                    text_boxes.append([[x0, last, w - x0, v], '行-row@%d' % rno])
                     if DEBUG:
-                        draw.rectangle((x0, last) + (w-x0, v), outline='red',width=2)
-                        draw.text((x0, last),'row@%d'%rno, fill='red')
+                        draw.rectangle((x0, last) + (w - x0, v), outline='red',
+                                       width=2)
+                        draw.text((x0, last), 'row@%d' % rno, fill='red')
                     rno += 1
                 last = v
             continue
 
         # 以下内容将不会包含'═'
         for cno, cell in enumerate(cells):
-            ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1 #TODO:fix
-            if cell == '': #
+            ll = sum(
+                _str_block_width(c) + 1 for c in cells[:cno]) + 1  # TODO:fix
+            if cell == '':  #
                 start += char_width
                 continue
             if '═' not in cell:
@@ -981,15 +1009,15 @@ def banktable2image(table,
                     # 如果有多个空格分隔,例如无线表格
                     if '  ' in striped_cell:
                         lt = l
-                        for text in re.split('( {2,})',striped_cell):
+                        for text in re.split('( {2,})', striped_cell):
                             if text.strip():
-                                rt = lt + _str_block_width(text)*char_width
-                                text_box = (lt, box[1], rt, box[3]-1)
+                                rt = lt + _str_block_width(text) * char_width
+                                text_box = (lt, box[1], rt, box[3] - 1)
                                 if DEBUG:
                                     draw.rectangle(text_box, outline='green')
-                                text_boxes.append([text_box, 'text@' +text])
+                                text_boxes.append([text_box, 'text@' + text])
                             else:
-                                lt = rt +_str_block_width(text)*char_width
+                                lt = rt + _str_block_width(text) * char_width
                     else:
                         r = box[2] - rpad * char_width
                         text_box = (l, box[1], r, box[3])
@@ -1003,17 +1031,19 @@ def banktable2image(table,
                 tt = lno - 1
                 bb = lno + 1
                 # 原因：_str_block_width 和 [ll]不一样,解决方法，将中文替换为2个字母
-                while __c(lines,tt)[ll] not in H_SYMBOLS: tt -= 1
-                while __c(lines,bb)[ll] not in H_SYMBOLS: bb += 1
-                cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
+                while __c(lines, tt)[ll] not in H_SYMBOLS: tt -= 1
+                while __c(lines, bb)[ll] not in H_SYMBOLS: bb += 1
+                cbox = (
+                left, tt * line_height + y0, right, bb * line_height + y0)
                 boxes.add(cbox)
                 if not is_odd_line and cell.strip():
-                    label = '跨行列格-cell@{rno}-{rno},{cno}-{cno}'.format(rno=rno-1,cno=max_cols + cno)
-                    if [cbox,label] not in text_boxes:
-                        text_boxes.append([cbox,label])
+                    label = '跨行列格-cell@{rno}-{rno},{cno}-{cno}'.format(
+                        rno=rno - 1, cno=max_cols + cno)
+                    if [cbox, label] not in text_boxes:
+                        text_boxes.append([cbox, label])
                     if DEBUG:
-                        draw.rectangle(cbox, outline='blue',width=3)
-                        draw.text((cbox[0],cbox[1]),label,fill='blue')
+                        draw.rectangle(cbox, outline='blue', width=3)
+                        draw.text((cbox[0], cbox[1]), label, fill='blue')
             else:
                 end = start + (len(cell) + 1) * char_width
                 left = start - half_char_width
@@ -1023,36 +1053,36 @@ def banktable2image(table,
     # 找表宽
     l, t, r, b = list(boxes)[0]
     for box in boxes:
-        l = min(l,box[0])
-        t = min(t,box[1])
-        r = max(r,box[2])
-        b = max(b,box[3])
+        l = min(l, box[0])
+        t = min(t, box[1])
+        r = max(r, box[2])
+        b = max(b, box[3])
 
-    boxes = list(filter(lambda x:not(x[0]==l and x[2]==r),boxes))
+    boxes = list(filter(lambda x:not (x[0] == l and x[2] == r), boxes))
     l, t, r, b = boxes[0]
     for box in boxes:
-        l = min(l,box[0])
-        t = min(t,box[1])
-        r = max(r,box[2])
-        b = max(b,box[3])
+        l = min(l, box[0])
+        t = min(t, box[1])
+        r = max(r, box[2])
+        b = max(b, box[3])
     table = (l, t, r, b)
 
     if DEBUG:
-        draw.rectangle([l,t,r,b], outline='purple')
-        draw.text((l,t), 'table@0', fill='purple',anchor='ld')
+        draw.rectangle([l, t, r, b], outline='purple')
+        draw.text((l, t), 'table@0', fill='purple', anchor='ld')
 
     cols = []
     for box in boxes:
-        if box[3]==b:
-            col = [box[0],t,box[2],b]
+        if box[3] == b:
+            col = [box[0], t, box[2], b]
             cols.append(col)
 
     cols.sort()
-    for cno,col in enumerate(cols):
-        text_boxes.append([col, '列-column@%d'%cno]) # 最底部的就是列
+    for cno, col in enumerate(cols):
+        text_boxes.append([col, '列-column@%d' % cno])  # 最底部的就是列
         if DEBUG:
             draw.rectangle(col, outline='pink')
-            draw.text((col[0], col[1]), 'col@%d'%cno, fill='pink')
+            draw.text((col[0], col[1]), 'col@%d' % cno, fill='pink')
 
     boxes = [tb[0] for tb in text_boxes]  # 单纯的boxes分不清是行列还是表格和文本
     boxes.append([l, t, r, b])
@@ -1063,14 +1093,15 @@ def banktable2image(table,
         points.append([box[2], box[3]])
         points.append([box[0], box[3]])
 
-    label = [tb[1] for tb in text_boxes]+['表-table@1']
+    label = [tb[1] for tb in text_boxes] + ['表-table@1']
 
-    return {'image': cv2.cvtColor(np.array(background, np.uint8), cv2.COLOR_RGB2BGR),
-            'boxes': boxes, #box 和 label是一一对应的
-            'label': label,
-            'points': points
-            }
-
+    return {
+        'image' :cv2.cvtColor(np.array(background, np.uint8),
+                              cv2.COLOR_RGB2BGR),
+        'boxes' :boxes,  # box 和 label是一一对应的
+        'label' :label,
+        'points':points
+        }
 
 
 def dict2table(d, title=None, title_pos='t', n=3, has_line=True, direct='h',
@@ -1116,11 +1147,12 @@ def add_width(self, num=1):
         try:
             ch = line[-2]
             if ch == '═':
-            # newline = line[0:-1] + ch * (num) + line[-1]
+                # newline = line[0:-1] + ch * (num) + line[-1]
                 newline = line[0] + line[1:-1] + line[-2] * (num) + line[-1]
             elif '║' in line:
-                x = line.rsplit('║',2)
-                newline = x[0]+'║'+' '*(num//2)+x[1]+' '*(num-num//2)+'║'
+                x = line.rsplit('║', 2)
+                newline = x[0] + '║' + ' ' * (num // 2) + x[1] + ' ' * (
+                            num - num // 2) + '║'
             else:
                 newline = line
         except IndexError:
@@ -1149,7 +1181,7 @@ def add_newline(self, num=1):
     return '\n'.join(scale_lines)
 
 
-def _hstack(self, other, merge=True,space=0):
+def _hstack(self, other, merge=True, space=0):
     """表格字符横向拼接"""
     ss = str(self)
     so = str(other)
@@ -1186,17 +1218,17 @@ def _hstack(self, other, merge=True,space=0):
         elif e == '╝' and s == '╚':
             ret = '╩'
         else:
-            print(self,other)
+            print(self, other)
             raise Exception('Unmatch symbol %s and %s' % (e, s))
         if merge:
             new_lines.append(lss[lno][:-1] + ret + lso[lno][1:])
         else:
-            new_lines.append(lss[lno] + ' '*space + lso[lno])
+            new_lines.append(lss[lno] + ' ' * space + lso[lno])
 
     return '\n'.join(new_lines)
 
 
-def _vstack(self, other,merge=True):
+def _vstack(self, other, merge=True):
     """表格字符纵向拼接
     """
     ss = str(self)
@@ -1209,8 +1241,8 @@ def _vstack(self, other,merge=True):
         ss = add_width(ss, hso - hss)
     else:
         pass
-    if ss.splitlines()[-1][-1]!='╝' or so[0]!='╔': # 这种情况下至少有一方不是表格，直接叠加
-        return ss+'\n'+so
+    if ss.splitlines()[-1][-1] != '╝' or so[0] != '╔':  # 这种情况下至少有一方不是表格，直接叠加
+        return ss + '\n' + so
 
     if merge:
         ens = ss.splitlines()[-1]
@@ -1241,7 +1273,7 @@ def _vstack(self, other,merge=True):
         new_lines = ss.splitlines()[:-1] + [midline] + so.splitlines()[1:]
         return '\n'.join(new_lines)
     else:
-        return ss+'\n\n'+so
+        return ss + '\n\n' + so
 
 
 def hstack(tables, other=None):
@@ -1264,6 +1296,9 @@ def stack(tables):
 
 def wrap(line, width):
     """考虑了中文宽度和字母宽度不一样"""
+    if not any(is_chinese(c) for c in line): # 没有中文则保持原样
+        return textwrap.fill(line,width)
+
     lines = []
     n = ''
     for ch in line:
@@ -1279,8 +1314,6 @@ def wrap(line, width):
     if n:
         lines.append(n)
     return '\n'.join(lines)
-
-
 
 
 def from_dataframe(df, field_names=None, **kwargs):
@@ -1299,13 +1332,14 @@ def from_dataframe(df, field_names=None, **kwargs):
     return table.get_string()
 
 
-def from_str(s,w=None):
+def from_str(s, w=None):
     t = AwesomeTable(align='l')
     t.add_row([str(s)])
     if w:
         t.table_width = w
     t.min_width = 4
     return t
+
 
 def from_json(jsobj):
     """ 递归的将json转换为table
@@ -1329,16 +1363,17 @@ def from_json(jsobj):
         cols.append(col)
     return hstack(cols)
 
-def from_json_v(jsobj, t2b = True):
+
+def from_json_v(jsobj, t2b=True):
     rows = []
-    for key,value in jsobj.items():
+    for key, value in jsobj.items():
         title = from_str(key)
 
-        if isinstance(value,dict):
+        if isinstance(value, dict):
             tv = from_json(value)
 
-        elif isinstance(value,list):
-            if isinstance(value[0],dict):
+        elif isinstance(value, list):
+            if isinstance(value[0], dict):
                 tv = AwesomeTable()
                 tv.add_row(list(value[0].keys()))
                 for d in value:
@@ -1353,49 +1388,49 @@ def from_json_v(jsobj, t2b = True):
         else:
             tv = AwesomeTable()
             tv.add_row([str(value)])
-        row = _hstack(title,tv)
+        row = _hstack(title, tv)
         rows.append(row)
     return vstack(rows)
 
 
-def from_list(ls,t2b=True,w=None):
+def from_list(ls, t2b=True, w=None):
     if t2b:
         rows = []
         for value in ls:
             if isinstance(value, dict):
-                tv = from_dict(value, not t2b,w)
+                tv = from_dict(value, not t2b, w)
             elif isinstance(value, list):
-                tv = from_list(value, not t2b,w)
+                tv = from_list(value, not t2b, w)
             elif isinstance(value, AwesomeTable):
                 tv = value
             else:
-                tv = from_str(value,w)
+                tv = from_str(value, w)
             rows.append(tv)
         return vstack(rows)
     else:
         cols = []
         for value in ls:
             if isinstance(value, dict):
-                tv = from_dict(value, not t2b,w)
+                tv = from_dict(value, not t2b, w)
             elif isinstance(value, list):
-                tv = from_list(value, not t2b,w)
+                tv = from_list(value, not t2b, w)
             elif isinstance(value, AwesomeTable):
                 tv = value
             else:
-                tv = from_str(value,w)
+                tv = from_str(value, w)
             cols.append(tv)
         return hstack(cols)
 
 
-def from_dict(d, t2b=True,w=None):
+def from_dict(d, t2b=True, w=None):
     if t2b is False:
         rows = []
         for key, value in d.items():
-            title = from_str(key,w)
+            title = from_str(key, w)
             if value is None:
                 row = title
-            elif isinstance(value,int):
-                row = from_str(key,value)
+            elif isinstance(value, int):
+                row = from_str(key, value)
             else:
                 if isinstance(value, dict):
                     tv = from_dict(value, t2b, w)
@@ -1411,20 +1446,20 @@ def from_dict(d, t2b=True,w=None):
     else:
         cols = []
         for key, value in d.items():
-            title = from_str(key,w)
+            title = from_str(key, w)
             if value is None:
                 col = title
-            elif isinstance(value,int):
-                col = from_str(key,value)
+            elif isinstance(value, int):
+                col = from_str(key, value)
             else:
                 if isinstance(value, dict):
-                    tv = from_dict(value,t2b,w)
+                    tv = from_dict(value, t2b, w)
                 elif isinstance(value, list):
-                    tv = from_list(value,t2b,w)
+                    tv = from_list(value, t2b, w)
                 elif isinstance(value, AwesomeTable):
                     tv = value
                 else:
-                    tv = from_str(value,w)
+                    tv = from_str(value, w)
                 col = _vstack(title, tv)
             cols.append(col)
 
@@ -1432,9 +1467,9 @@ def from_dict(d, t2b=True,w=None):
 
 
 def convert(x):
-    if isinstance(x,list):
+    if isinstance(x, list):
         return from_list(x)
-    elif isinstance(x,dict):
+    elif isinstance(x, dict):
         return from_dict(x)
     else:
         return from_str(x)
@@ -1483,10 +1518,9 @@ class TableGrouper(object):
         return stack(self._random_sort())
 
 
-
 if __name__ == '__main__':
     s = '1234'
-    t = from_str(s,w=10)
+    t = from_str(s, w=10)
     print(t)
     # jsonobject = {'本年金额':{'归属':{'a':1,'b':2,'v':3,'d':4,'e':5,'f':6},'少数':1,'所有':2},
     #               '上年金额': {'归属':{'a':1,'b':2,'v':3,'d':4,'e':5,'f':6}, '少数': 1,
