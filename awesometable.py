@@ -1162,11 +1162,17 @@ def add_width(self, num=1):
     return '\n'.join(newlines)
 
 
-def add_newline(self, num=1):
+def add_newline(self, num=1,align='t'):
     """纵向拉伸,直接加到末尾"""
+    idx = -1
     ss = str(self)
     scale_lines = ss.splitlines()
-    end_line = scale_lines[-1]
+    if align == 't':
+        idx = -1
+    elif align == 'b':
+        idx = 0
+
+    end_line = scale_lines[idx]
     insect_line = []
     for c in end_line:
         if c == '═':
@@ -1175,13 +1181,17 @@ def add_newline(self, num=1):
             insect_line.append('║')
     insect_line = ''.join(insect_line)
 
-    for i in range(num):
-        scale_lines.insert(-1, insect_line)
+    if align == 't':
+        for i in range(num):
+            scale_lines.insert(idx, insect_line)
+    else:
+        for i in range(num):
+            scale_lines.insert(1, insect_line)
 
     return '\n'.join(scale_lines)
 
 
-def _hstack(self, other, merge=True, space=0):
+def _hstack(self, other, merge=True, space=0,align='t'):
     """表格字符横向拼接"""
     ss = str(self)
     so = str(other)
@@ -1189,9 +1199,9 @@ def _hstack(self, other, merge=True, space=0):
     hso = len(so.splitlines())
 
     if hss > hso:
-        so = add_newline(so, hss - hso)
+        so = add_newline(so, hss - hso,align)
     elif hss < hso:
-        ss = add_newline(ss, hso - hss)
+        ss = add_newline(ss, hso - hss,align)
     else:
         pass
     lss = ss.splitlines()

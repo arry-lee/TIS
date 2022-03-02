@@ -227,6 +227,7 @@ class FlexTable(AwesomeTable):
         super().__init__(**kwargs)
         self.font_size = font_size
         # self.font_path = font_path
+        # self.style = 'striped'
         if w is not None:
             self._table_width = w #像素尺寸
             self._min_table_width = w * 2 // self.font_size - 1
@@ -249,14 +250,14 @@ class FlexTable(AwesomeTable):
         return self.get_image()['image'].shape[0]
 
     def get_image(self):
-        return table2image(str(self),font_size=self.font_size,vrules=None,hrules=None,style='others')
+        return table2image(str(self),font_size=self.font_size,vrules=None,hrules=None,style=self.style)
 
 
 
 
 class TextBlock(AbstractTable):
     def __init__(self, text, width=70 * 20, indent=0, font_path="arial.ttf",
-                 font_size=20, padding=0, **kwargs):
+                 font_size=20, padding=0, fill='black',**kwargs):
         super().__init__()
         self._text = text
         self.indent = indent
@@ -266,7 +267,7 @@ class TextBlock(AbstractTable):
         self.font_size = font_size
         self.font_path = font_path
         self.padding = padding
-
+        self.fill=fill
     @property
     def text(self):
         return " " * self.indent + self._text
@@ -319,6 +320,7 @@ class TextBlock(AbstractTable):
         s, img,boxes = put_text_in_box_without_break_word(
             self.text,
             self._table_width,
+            self.fill,
             font_size=self.font_size,
             font_path=self.font_path,
             # break_word=False

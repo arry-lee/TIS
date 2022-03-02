@@ -33,13 +33,14 @@ TRANS_DICT = {'项目'     :'ITEM', '本期发生额':'AMOUNT FOR THIS PERIOD',
                '本月实际'  :'ACTUAL AMOUNT THIS MONTH',
                '本年累计'  :'TOTAL AMOUNT THIS YEAR',
                '上年同期'  :'TOTAL AMOUNT LAST YEAR',
-               '附注'    :'NOTES', '实收资本(或股本)':'PAID-IN CAPITAL OR SHARE CAPITAL',
+               '附注'    :'NOTES', '实收资本(或股本)':'PAID-IN OR SHARE CAPITAL',
                '资本公积'  :'CAPITAL RESERVE',
-               '其他综合收益':'OTHER COMPREHENSIVE INCOME', '盈余公积':'SURPLUS RESERVE',
+               '其他综合收益':'OTHER INCOME', '盈余公积':'SURPLUS RESERVE',
                '一般风险准备':'GENERAL RISK PREPARATION',
                '组合一'   :'GROUP ONE', '组合二':'GROUP TWO', '组合三':'GROUP THREE',
                '组合四'   :'GROUP FOUR', '组合五':'GROUP FIVE', '组合六':'GROUP SIX',
-              '行次'    :'No.'
+               '行次'    :'No.',
+               '其他':'Other'
               }
 words = []
 with open(r'./static/pdf/sentence.txt', encoding='utf-8') as f:
@@ -56,7 +57,7 @@ class FinancialStatementTable(object):
         if random_price:
             self.random_price = random_price
         else:
-            self.random_price = lambda:'{:,}'.format(random.randint(1000000, 1000000000))
+            self.random_price = lambda:'{:,}'.format(random.randint(100000, 10000000))
 
         if self.is_zh:
             config_path = 'config/fs_config_zh.yaml'
@@ -65,7 +66,7 @@ class FinancialStatementTable(object):
             ## 翻译组件
             def trans(x):
                 if x in TRANS_DICT.keys():
-                    return textwrap.fill(TRANS_DICT[x], 10)
+                    return '\n'.join(TRANS_DICT[x].split())#textwrap.fill(TRANS_DICT[x], 10)
                 else:
                     return encode(x).upper()
             global _
@@ -86,8 +87,13 @@ class FinancialStatementTable(object):
                            _('盈余公积'), _('一般风险准备')]
                               ]
         self._columns_generator = cycle(self._columns_list)
+        self._table_width = None
 
-    def _ops_dispatch(self):
+    def set_style(self,**kwargs):
+        self.can_hstack = kwargs.get('hstack',True)
+        self.can_complex = kwargs.get('can_complex',True)
+
+    def ops_dispatch(self):
         # 对于生成的表格根据其长度分发到不同的操作
         # cols <= 3 分割重组 hstack
         # cols > 5  复杂表头
@@ -108,7 +114,7 @@ class FinancialStatementTable(object):
             self.can_complex = hit(0.5) and c >= cmin
         else:
             self.can_hstack = hit(0.5)
-            self.can_vstack = hit(0.5) and r > rmin
+            self.can_vstack = hit(0) and r > rmin
             self.can_paginate = r >= rmax and cmin < c < cmax
             self.can_truncate = True
             self.can_complex = hit(0.9) and c >= cmin
@@ -164,6 +170,14 @@ class FinancialStatementTable(object):
     def body(self):
         return self.process_body(self.build_table())
 
+    @property
+    def table_width(self):
+        return self._table_width or str(self.body).splitlines()[0].__len__()
+
+    @table_width.setter
+    def table_width(self,val):
+        self._table_width = val
+
     def build_table(self, indent=2, fill_ratio=0.7, brace_ratio=0.3, auto_ratio=0.5,note_ratio=0.5):
         t = AwesomeTable()
         columns = self._columns[:]
@@ -211,7 +225,7 @@ class FinancialStatementTable(object):
             item = ' ' * indent + _(item)
         return item
 
-    def build_complex_header(self, t):
+    def build_complex_header(self, t,cc=None):
         lines = str(t).splitlines()
         # 移除表原来的表头
         for i in range(1,len(lines)):
@@ -219,25 +233,25 @@ class FinancialStatementTable(object):
                 break
         nt = lines[0]+'\n'+'\n'.join(lines[i+1:])
 
-
-        if self.is_zh:
-            cc = [c.strip() for c in re.split(vpat, lines[1])[1:-1]]
-        # 如果第一行有空格或者键的重复，使用默认值填充
-        else:
-            cc = []
-            i = 0
-            for c in re.split(vpat, lines[1])[1:-1]:
-                cs = c.strip()
-                if cs=='' or cs in cc:
-                    cc.append(_("组合"+CHINESE_NUM[i]))
-                    i += 1
-                else:
-                    for k in TRANS_DICT.values():
-                        if cs in k:
-                            cc.append(textwrap.fill(k,10))
-                            break
+        if not cc:
+            if self.is_zh:
+                cc = [c.strip() for c in re.split(vpat, lines[1])[1:-1]]
+            # 如果第一行有空格或者键的重复，使用默认值填充
+            else:
+                cc = []
+                i = 0
+                for c in re.split(vpat, lines[1])[1:-1]:
+                    cs = c.strip()
+                    if cs=='' or cs in cc:
+                        cc.append(_("组合"+CHINESE_NUM[i]))
+                        i += 1
                     else:
-                        cc.append(cs)
+                        for k in TRANS_DICT.values():
+                            if cs in k:
+                                cc.append(textwrap.fill(k,10))
+                                break
+                        else:
+                            cc.append(cs)
         w = [len(c) + 2 for c in re.split(vpat, lines[0])[1:-1]]
 
         assert len(w) == len(cc)
@@ -246,6 +260,14 @@ class FinancialStatementTable(object):
             return vstack(_header, nt)
         else:
             return t
+
+    def get_string(self):
+        self._base_info()
+        self.ops_dispatch()
+        return str(self.body)
+
+
+
 
     def process_body(self, t, maxrows=30):
         """ 处理表格主体
@@ -296,6 +318,10 @@ class FinancialStatementTable(object):
                 # t.sort_key = lambda x: random.random()
                 # t.sortby = 'Field 1'
                 t = t[:maxrows]
+            ##
+            if self._table_width:
+                t.table_width = self._table_width
+
             if self.can_complex:  # 表头
                 t = self.build_complex_header(t)
         self.table_width = str(t).splitlines()[0].__len__()
@@ -304,7 +330,7 @@ class FinancialStatementTable(object):
     @property
     def table(self):
         self._base_info()
-        self._ops_dispatch()
+        self.ops_dispatch()
 
         if self.can_vstack:
             return vstack([self.title, self.info, self.body])
