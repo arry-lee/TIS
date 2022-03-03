@@ -226,12 +226,12 @@ class FlexTable(AwesomeTable):
     def __init__(self, w=None,font_size=40,**kwargs):
         super().__init__(**kwargs)
         self.font_size = font_size
-        # self.font_path = font_path
-        # self.style = 'striped'
+
         if w is not None:
             self._table_width = w #像素尺寸
             self._min_table_width = w * 2 // self.font_size - 1
             self._max_table_width = w * 2 // self.font_size - 1
+
     @property
     def table_width(self): #按几何尺寸
         return self._table_width
@@ -247,7 +247,8 @@ class FlexTable(AwesomeTable):
         # super(FlexTable, self).table_width(val*2//self.font_size)
     @property
     def height(self):
-        return self.get_image()['image'].shape[0]
+        return (len(str(self).splitlines())) * (self.font_size-2)
+        # return self.get_image()['image'].shape[0] # todo 优化提速
 
     def get_image(self):
         return table2image(str(self),font_size=self.font_size,vrules=None,hrules=None,style=self.style)
@@ -323,7 +324,6 @@ class TextBlock(AbstractTable):
             self.fill,
             font_size=self.font_size,
             font_path=self.font_path,
-            # break_word=False
         )
 
         bg = Image.new("RGB", (img.width + self.padding*2, img.height + self.padding*2),
