@@ -10,7 +10,7 @@ from awesometable import (H_SYMBOLS, __c, _count_padding,
 
 ORANGE = (235,119,46)
 BLUE = (204,237,255)
-
+LINE_PAT = re.compile(r'(\n*[╔╠╚].+?[╗╣╝]\n*)')
 def table2image(table,
                      xy=None,
                      font_size=20,
@@ -23,6 +23,7 @@ def table2image(table,
                      line_height=None,
                      vrules='ALL',
                      hrules='ALL',
+                     border='tb',
                      DEBUG=False,
                      style = 'striped',
                      underline_color=ORANGE,
@@ -110,7 +111,7 @@ def table2image(table,
         start = half_char_width + x0
         cells = re.split(vpat, line)[1:-1]
 
-        if '═' in line:
+        if re.match(LINE_PAT,line):
             v += line_height
             continue
 
@@ -168,6 +169,13 @@ def table2image(table,
             if cell == '':  #
                 start += char_width
                 continue
+            if '═' in cell:
+                end = start + (len(cell) + 1) * char_width
+                left = start - half_char_width
+                right = end - half_char_width
+                start = end
+                continue
+
             box = draw.textbbox((start, v), cell, font=font, anchor='lm')
 
             # 条纹背景
@@ -267,15 +275,16 @@ def table2image(table,
     # 以下处理标注
     for cbox in table_boxes:
         text_boxes.append([cbox, 'table@'])
-
-        draw.line((cbox[0], cbox[1]) + (cbox[2], cbox[1]),
-                  fill='black', width=2)
-        draw.line((cbox[0], cbox[1] - 4) + (cbox[2], cbox[1] - 4),
-                  fill='black', width=2)
-        draw.line((cbox[0], cbox[3]) + (cbox[2], cbox[3]),
-                  fill='black', width=2)
-        draw.line((cbox[0], cbox[3] - 4) + (cbox[2], cbox[3] - 4),
-                  fill='black', width=2)
+        if 't' in border:
+            draw.line((cbox[0], cbox[1]) + (cbox[2], cbox[1]),
+                      fill='black', width=2)
+            draw.line((cbox[0], cbox[1] - 4) + (cbox[2], cbox[1] - 4),
+                      fill='black', width=2)
+        if 'b' in border:
+            draw.line((cbox[0], cbox[3]) + (cbox[2], cbox[3]),
+                      fill='black', width=2)
+            draw.line((cbox[0], cbox[3] - 4) + (cbox[2], cbox[3] - 4),
+                      fill='black', width=2)
 
     for box in cell_boxes:
         text_boxes.append([box, 'cell@'])
