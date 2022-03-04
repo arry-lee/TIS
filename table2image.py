@@ -199,10 +199,13 @@ def table2image(table,
 
                 if cno == 0:
                     draw.text((box[0], box[1]), cell.rstrip(),_color,_font,anchor='lt')
-                    text_box = draw.textbbox((box[0], box[1]), cell.rstrip(),_font, anchor='lt')
+                    _box = draw.textbbox((box[0], box[1]), cell.rstrip(),_font, anchor='lt')
+                    text_box = draw.textbbox((_box[2],_box[1]),cell.strip(),_font,anchor='rt')
                 else:
                     draw.text((box[2], box[1]), cell.lstrip(),_color,_font,anchor='rt')
-                    text_box = draw.textbbox((box[2], box[1]), cell.lstrip(),_font, anchor='rt')
+                    _box = draw.textbbox((box[2], box[1]), cell.lstrip(),_font, anchor='rt')
+                    text_box = draw.textbbox((_box[0], _box[1]), cell.strip(),_font, anchor='lt')
+
 
                 lpad, rpad = _count_padding(cell)
                 l = box[0] + lpad * char_width
