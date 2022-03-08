@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 from prettytable import ALL, FRAME
 from prettytable.prettytable import _str_block_width, _get_size
 
+from fontwrap import put_text_in_box
 from utils.cv_tools import cvshow
 from utils.ulpb import encode as _
 from utils.ulpb import is_chinese
@@ -120,6 +121,12 @@ def del_line(t, start=2, end=-1, keepblank=True):
     return '\n'.join(lines)
 
 
+def font_wrap(text,width,font_path='arial.ttf',font_size=40):
+    # width 是字符宽度
+    out,img,box = put_text_in_box(text,width*font_size//2,font_path=font_path,font_size=font_size,break_word=False,indent=0)
+    return out
+
+
 class AwesomeTable(prettytable.PrettyTable):
     """可以在表格上下左右添加标题栏的AwesomeTable，获取结构化数据的字符串表示
 
@@ -138,6 +145,7 @@ class AwesomeTable(prettytable.PrettyTable):
         self._table_width = kwargs.get("table_width", None)
         self._title_pos = kwargs.get("title_pos", 't')
         self._title = kwargs.get("title", None)
+        self.wrap_func = kwargs.get("wrap_func",wrap) #为了向后兼容使用不同字体
 
     def __getitem__(self, index):
         new = AwesomeTable()
@@ -180,11 +188,20 @@ class AwesomeTable(prettytable.PrettyTable):
     def table_height(self):
         return len(self.get_string().split('\n'))
 
+    @property
+    def widths(self):
+        return self._widths
+
+    @widths.setter
+    def widths(self,val):
+        self._widths = val
+
+
     def get_string(self, **kwargs):
         options = self._get_options(kwargs)
         title = options["title"] or self._title
         if not title:
-            return super(AwesomeTable, self).get_string(header=False)
+            return super().get_string(header=False)
 
         title_pos = self._title_pos
         if title_pos == 't':
@@ -224,7 +241,10 @@ class AwesomeTable(prettytable.PrettyTable):
 
     def _compute_widths(self, rows, options):
         """成倍放大宽度并不精确，应该逐个增加宽度"""
-        if options["header"]:
+        if self._widths:
+            widths = self._widths
+
+        elif options["header"]:
             widths = [_get_size(field)[0] for field in self._field_names]
         else:
             widths = len(self.field_names) * [0]
@@ -284,7 +304,7 @@ class AwesomeTable(prettytable.PrettyTable):
         new_lines = []
         for line in lines:
             if _str_block_width(line) > width:  # 如果元素宽度大于计算出来的宽度
-                line = wrap(line, width)  # 重新包装
+                line = self.wrap_func(line, width)  # 重新包装
             new_lines.append(line)
         lines = new_lines
         value = "\n".join(lines)
@@ -362,7 +382,7 @@ class AwesomeTable(prettytable.PrettyTable):
             new_lines = []
             for line in lines:
                 if _str_block_width(line) > width:
-                    line = wrap(line, width)
+                    line = self.wrap_func(line, width)
                 new_lines.append(line)
             lines = new_lines
             value = "\n".join(lines)
