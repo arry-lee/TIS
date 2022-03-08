@@ -214,3 +214,5 @@ def draw_multiline_text(text, fill, font_path="arial.ttf", font_size=20):
     height = y + font_size
     img = img.crop((0, 0, max_width, height))
     return img
+
+

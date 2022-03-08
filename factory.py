@@ -339,5 +339,5 @@ if __name__ == '__main__':
     # main(sys.argv)
     # bank_factory = Factory(batch=10)
     # bank_factory.start()
-    fsfactory = FSFactory('all',100,lang='en',need_proc=False)
+    fsfactory = FSFactory('all',20,lang='en',need_proc=False)
     fsfactory.start()

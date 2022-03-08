@@ -12,29 +12,29 @@ ORANGE = (235,119,46)
 BLUE = (204,237,255)
 LINE_PAT = re.compile(r'(\n*[╔╠╚].+?[╗╣╝]\n*)')
 def table2image(table,
-                     xy=None,
-                     font_size=20,
-                     bgcolor='white',
-                     offset=0,
-                     background=None,
-                     bg_box=None,
-                     font_path="./static/fonts/simfang.ttf",
-                     line_pad=-2,
-                     line_height=None,
-                     vrules='ALL',
-                     hrules='ALL',
-                     border='tb',
-                     DEBUG=False,
-                     style = 'striped',
-                     underline_color=ORANGE,
-                     striped_color=BLUE,
-                     bold_pattern=None,
-                     back_pattern=None,
-                     **kwargs):
+                xy=None,
+                font_size=20,
+                bgcolor='white',
+                offset=0,
+                background=None,
+                bg_box=None,
+                font_path="./static/fonts/simfang.ttf",
+                line_pad=-2,
+                line_height=None,
+                vrules='ALL',
+                hrules='ALL',
+                border='tb',
+                DEBUG=False,
+                style = 'striped',
+                underline_color=ORANGE,
+                striped_color=BLUE,
+                bold_pattern=None,
+                back_pattern=None,
+                align='lr', **kwargs):
     """
     将通用表格渲染成图片、
     双线表、可能有复杂表头、有多行文字、有标题框
-    风格：style 可选 striped or underline
+    风格：style 可选 striped or simple or other
 
     """
 
@@ -70,6 +70,10 @@ def table2image(table,
     if style=='striped':
         underline_color = None
         need_striped = True
+    elif style == 'simple':
+        underline_color = None
+        striped_color =None
+        need_striped = False
     else:
         striped_color = None
         need_striped = False
@@ -190,21 +194,26 @@ def table2image(table,
                 if HEADER_START_LINE_NO <= lno < HEADER_END_LINE_NO:
                     _font = bold_font
                     _color = 'black'
-                elif lno % 7 == 2 and lno > HEADER_END_LINE_NO + 1:
+                elif bold_pattern and lno % 7 == 2 and lno > HEADER_END_LINE_NO + 1:
                     _font = bold_font
                     _color = underline_color or 'black'
                 else:
                     _font = en_font
                     _color = 'black'
 
-                if cno == 0:
-                    draw.text((box[0], box[1]), cell.rstrip(),_color,_font,anchor='lt')
-                    _box = draw.textbbox((box[0], box[1]), cell.rstrip(),_font, anchor='lt')
-                    text_box = draw.textbbox((_box[2],_box[1]),cell.strip(),_font,anchor='rt')
+                if align=='lr':
+                    if cno == 0:
+                        draw.text((box[0], box[1]), cell.rstrip(),_color,_font,anchor='lt')
+                        _box = draw.textbbox((box[0], box[1]), cell.rstrip(),_font, anchor='lt')
+                        text_box = draw.textbbox((_box[2],_box[1]),cell.strip(),_font,anchor='rt')
+                    else:
+                        draw.text((box[2], box[1]), cell.lstrip(),_color,_font,anchor='rt')
+                        _box = draw.textbbox((box[2], box[1]), cell.lstrip(),_font, anchor='rt')
+                        text_box = draw.textbbox((_box[0], _box[1]), cell.strip(),_font, anchor='lt')
                 else:
-                    draw.text((box[2], box[1]), cell.lstrip(),_color,_font,anchor='rt')
-                    _box = draw.textbbox((box[2], box[1]), cell.lstrip(),_font, anchor='rt')
-                    text_box = draw.textbbox((_box[0], _box[1]), cell.strip(),_font, anchor='lt')
+                    draw.text((box[0], box[1]), cell.rstrip(), _color, _font,anchor='lt')
+                    _box = draw.textbbox((box[0], box[1]), cell.rstrip(), _font,anchor='lt')
+                    text_box = draw.textbbox((_box[2], _box[1]), cell.strip(),_font, anchor='rt')
 
 
                 lpad, rpad = _count_padding(cell)
@@ -244,7 +253,7 @@ def table2image(table,
             if HEADER_START_LINE_NO <= lno < HEADER_END_LINE_NO:
                 draw.line((cbox[0] + margin, cbox[3]) + (
                     cbox[2] - margin, cbox[3]), fill='black', width=3)
-            elif lno % 7 == 2 and lno > HEADER_END_LINE_NO + 1:
+            elif underline_color and lno % 7 == 2 and lno > HEADER_END_LINE_NO + 1:
                 draw.line((cbox[0] + margin, cbox[1]) + (
                 cbox[2] - margin, cbox[1]), fill=underline_color, width=3)
                 draw.line((cbox[0] + margin, cbox[3]) + (
