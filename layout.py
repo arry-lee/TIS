@@ -229,8 +229,8 @@ class FlexTable(AwesomeTable):
 
         if w is not None:
             self._table_width = w #像素尺寸
-            self._min_table_width = w * 2 // self.font_size - 1
-            self._max_table_width = w * 2 // self.font_size - 1
+            self.min_table_width = w * 2 // self.font_size - 1
+            self.max_table_width = w * 2 // self.font_size - 1
 
     @property
     def table_width(self): #按几何尺寸
@@ -239,10 +239,11 @@ class FlexTable(AwesomeTable):
     @table_width.setter
     def table_width(self,val):
         self._validate_option("table_width", val)
-        self._min_table_width = val*2//self.font_size-1
+        self.min_table_width = val*2//self.font_size-1
         self._table_width = val
-        self._max_table_width = val*2//self.font_size-1
-        # print(val,val*2//self.font_size-1)
+        self.max_table_width = val*2//self.font_size-1
+        # print(self._table_width,self._max_table_width)
+        # print(self._widths)
 
         # super(FlexTable, self).table_width(val*2//self.font_size)
     @property
@@ -252,8 +253,6 @@ class FlexTable(AwesomeTable):
 
     def get_image(self):
         return table2image(str(self),font_size=self.font_size,vrules=None,hrules=None,style=self.style)
-
-
 
 
 class TextBlock(AbstractTable):
@@ -343,18 +342,58 @@ class TextBlock(AbstractTable):
         }
 
 
+class TextTable(FlexTable):
+    """不再关注表格的字符串表示，用TextBlock表示单元格"""
+
+    def __init__(self,w=None,ratio=None,font_size=40,**kwargs):
+        super().__init__(w,font_size,**kwargs)
+        self.ratio = ratio
+
+    def _compute_col_widths(self):
+        w = self._table_width
+        l = self.__getattr__("colcount")
+        if self.ratio is None:
+            self.col_widths = [w//l]*l
+        else:
+            assert len(self.ratio) == l
+            total = sum(self.ratio)
+            self.col_widths = [int(r/total*w) for r in self.ratio]
+
+    def get_layouts(self):
+        out = []
+        # print(self._rows)
+        # print(self._widths)
+        self._compute_col_widths()
+        for row in self._rows:
+            r = [TextBlock(t,width=w) for t,w in zip(row,self.col_widths)]
+            out.append(HorLayout(r))
+        return VerLayout(out)
+
+    def get_image(self, **kwargs):
+        return self.get_layouts().get_image()
+#
+#
+#
 if __name__ == "__main__":
     import faker
 
     f = faker.Faker()
-    # t = TextBlock(f.paragraph(10), 400, 0)
-    #
-    # s = t.get_string()
+#     # t = TextBlock(f.paragraph(10), 400, 0)
+#     #
+#     # s = t.get_string()
+#
+#     # img = put_text_in_box_without_break_word(f.paragraph(10), 800, font_size=20)
+#     #
+#     # # print(s)
+#     # # x = draw_multiline_text(s,'black')
+#     # img.save('x.jpg')
+#     # # img = t.get_image()["image"]
+#     # # cv2.imwrite('t.jpg',img)
+    t = TextTable(w=1000,ratio=[2,8])
 
-    img = put_text_in_box_without_break_word(f.paragraph(10), 800, font_size=20)
-
-    # print(s)
-    # x = draw_multiline_text(s,'black')
-    img.save('x.jpg')
-    # img = t.get_image()["image"]
-    # cv2.imwrite('t.jpg',img)
+    t.add_row(['1',f.paragraph(3)])
+    t.add_row(['2', f.paragraph(3)])
+    t.add_row(['3', f.paragraph(3)])
+    # print(t)
+    x= t.get_image()['image']
+    cv2.imwrite('t.jpg',x)
