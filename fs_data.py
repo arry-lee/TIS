@@ -329,7 +329,7 @@ class FinancialStatementTable(object):
                 t.table_width = self._table_width
 
             if self.can_complex:  # 表头
-                t = self.build_complex_header(t)
+                t = self.build_complex_header(t,t._rows[0])
         self.table_width = str(t).splitlines()[0].__len__()
         return t
 
@@ -342,6 +342,11 @@ class FinancialStatementTable(object):
             return vstack([self.title, self.info, self.body])
         else:
             return vstack([self.title, self.info, self.body, self.footer])
+
+
+    def get_image(self):
+        return fstable2image_en(self.table,line_pad=-2,offset=10)
+
 
     def create(self, batch, page_it=False):
         if not page_it:
@@ -814,11 +819,12 @@ def fstable2image_en(table,
         background = Image.new('RGB', (w, h), bgcolor)
         x0, y0 = xy or (char_width + char_width * offset, char_width)
 
-    if hit(1):
+    if hit(0.5):
         underline_color = None
         need_striped = True
     else:
         striped_color = None
+        need_striped = False
 
     draw = ImageDraw.Draw(background)
     font = ImageFont.truetype(font_path, font_size)
@@ -939,8 +945,8 @@ def fstable2image_en(table,
 
             # 条纹背景
             if striped_color and need_striped:
-                draw.rectangle((box[0] - char_width, v - font_size // 2,
-                                box[2] + char_width, v + font_size // 2),
+                draw.rectangle((box[0] - char_width, v - font_size // 2+2,
+                                box[2] + char_width, v + font_size // 2-2),
                                fill=striped_color)
 
             striped_cell = cell.strip()

@@ -57,7 +57,7 @@ class _TableGenerator(FlexTable):
             self.add_row(row)
 
         if not rows:  # 设置行数
-            rows = random.randint(4, 10)
+            rows = random.randint(4, 5) #默认范围
         s = random.randint(1, len(t._rows) - rows)  # 随机起点
         for x in t[s:s + rows]._rows:
             if double_column:
@@ -147,13 +147,10 @@ class _LongTextTable(FlexTable):
                            hrules=None, style='simple',bold_pattern=None,border='',align=None)
 
 
-class DoubleColumnFST(object):
+class LayoutDesigner(object):
     faker = faker.Faker()
-
     def __init__(self, table_generator=None, text_generator=None):
         self.table_generator = table_generator or _TableGenerator
-        # 统一风格
-
         self.text_generator = text_generator or _TextGenerator
         self.title_generator = _TitleGenerator
         self.note_generator = _NoteGenerator
@@ -174,7 +171,7 @@ class DoubleColumnFST(object):
             else:
                 h -= t.height
                 break
-        if isinstance(col[-1],_TitleGenerator):
+        if col and isinstance(col[-1],_TitleGenerator):
             col.pop()
             _TitleGenerator.cnt-=1
 
@@ -188,7 +185,7 @@ class DoubleColumnFST(object):
                 break
         return col
 
-    def random_layout(self):
+    def random_layout0(self):
         # 双栏
         l = self.template([self.title_generator,self.text_generator,self.table_generator],self.col_height)
         r = self.template([self.title_generator,self.text_generator,self.table_generator],self.col_height)
@@ -199,7 +196,7 @@ class DoubleColumnFST(object):
     def random_layout1(self):
         # 双栏插图
         out_list = [H([self.text_generator(), self.text_generator()], col_width,gaps=80),
-                    self.table_generator(page_width,rows=5,double_column=hit(0.5),large_gap=hit(0.5),complex=hit(0.5))
+                    self.table_generator(page_width,rows=random.randint(8,15),double_column=hit(0.5),large_gap=hit(0.5),complex=hit(0.5))
                     ]
         out = V(out_list, page_width, gaps=40)
         hmax = self.col_height - out.height - 40
@@ -216,7 +213,7 @@ class DoubleColumnFST(object):
         if hit(0.5):
             l.append(self.title_generator())
         l.append(self.text_generator())
-        l.append(self.table_generator(w=page_width,rows=random.randint(5, 10),
+        l.append(self.table_generator(w=page_width,rows=random.randint(8, 15),
                                       complex=hit(0.5),
                                       large_gap=True,
                                       double_column=hit(0.5)))
@@ -230,7 +227,7 @@ class DoubleColumnFST(object):
                 hmax = hmax - 40 - t.height
             else:
                 break
-            t = self.table_generator(rows=random.randint(3, 4),
+            t = self.table_generator(rows=random.randint(4, 6),
                                      complex=hit(0),
                                      double_column=hit(0.5))
             if t.height <= hmax - 40:
@@ -246,23 +243,19 @@ class DoubleColumnFST(object):
 
     def random_layout3(self):
         x = self.ltt()
-        # out = V([x],page_width,gaps=0)
         return x
 
     def random_layout4(self):
+        # 普通单个财务报表
         title = random.choice(["CONSOLIDATED INCOME STATEMENT",
                                "Consolidated Balance Sheet",
                                "Consolidated Cash Flow Statement"])
-        t = TextBlock(title,page_width,font_path='ariblk.ttf',font_size=80)
-        d = TextBlock(self.faker.date(),page_width,font_size=40)
-        x = self.table_generator(page_width,25,True,hit(0.5),False,44)
-
-        return V([t,d,x],page_width,gaps=20)
+        return FinancialStatementTable(title,'en')
 
     def create(self, type):
         self.cnt = 0
         if type == 0:
-            return self.random_layout()
+            return self.random_layout0()
         elif type == 1:
             return self.random_layout1()
         elif type == 2:
@@ -278,36 +271,27 @@ class DoubleColumnFST(object):
         else:
             self.table_generator.style = "striped"
 
-    def run(self, batch):
-        output_dir = "data/financial_statement_en_sp"
+    def run(self, batch,output_dir="data/financial_statement_en_sp"):
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
         for i in trange(batch):
             self.toggle_style()
-            image_data = self.create(i%4).get_image()
-            image_data = add_to_paper(image_data, self.paper)
-            fn = "0" + str(int(time.time() * 1000))[5:]
-            cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn),
-                        image_data["image"])
-            log_label(
-                os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn,
-                image_data
-            )
+            try:
+                image_data = self.create(i%5).get_image()
+                if i%5!=4:
+                    image_data = add_to_paper(image_data, self.paper)
+                fn = "0" + str(int(time.time() * 1000))[5:]
+                cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn),
+                            image_data["image"])
+                log_label(
+                    os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn,
+                    image_data
+                )
+            except:
+                pass
 
 
 if __name__ == "__main__":
-    d = DoubleColumnFST()
-    d.run(2)
-
-    # x = _LongTextTable()
-    # print(x)
-    # f = faker.Faker()
-    # a = FlexTable(page_width,40)
-    # a.add_row(['Exhibit No.', 'description'])
-    # for i in range(8):
-    #     a.add_row([i, f.paragraph(3)])
-    # a.max_width = 80
-    # a.table_width = page_width
-    # print(a)
-    # print(a.table_width)
+    d = LayoutDesigner()
+    d.run(160)
