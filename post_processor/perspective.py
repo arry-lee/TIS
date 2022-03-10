@@ -53,15 +53,3 @@ def perspective_data(data,ld=0.05,rd=0.05):
     else:
         data['mask'] = mask
     return data
-
-
-if __name__ == '__main__':
-    from rotation import rotate_bound
-    from distortion import distortion
-    img = cv2.imread(r"E:\00IT\P\uniform\data\bank\006662781.jpg",1)
-    img = distortion(img,1,5)
-    img = rotate_bound(img,1)
-    o = perspective(img)
-    cv2.imshow('',o)
-    cv2.imwrite('x.jpg',o)
-    cv2.waitKey(0)
