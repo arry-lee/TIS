@@ -266,10 +266,8 @@ class LayoutDesigner(object):
             return self.random_layout4()
 
     def toggle_style(self):
-        if self.table_generator.style == "striped":
-            self.table_generator.style = "other"
-        else:
-            self.table_generator.style = "striped"
+        self.table_generator.style = random.choice(["striped","other","simple"])
+
 
     def run(self, batch,output_dir="data/financial_statement_en_sp"):
         if not os.path.exists(output_dir):
@@ -277,21 +275,20 @@ class LayoutDesigner(object):
 
         for i in trange(batch):
             self.toggle_style()
-            try:
-                image_data = self.create(i%5).get_image()
-                if i%5!=4:
-                    image_data = add_to_paper(image_data, self.paper)
-                fn = "0" + str(int(time.time() * 1000))[5:]
-                cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn),
-                            image_data["image"])
-                log_label(
-                    os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn,
-                    image_data
-                )
-            except:
-                pass
+
+            image_data = self.create(i%5).get_image()
+            if i%5!=4:
+                image_data = add_to_paper(image_data, self.paper)
+            fn = "0" + str(int(time.time() * 1000))[5:]
+            cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn),
+                        image_data["image"])
+            log_label(
+                os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn,
+                image_data
+            )
+
 
 
 if __name__ == "__main__":
     d = LayoutDesigner()
-    d.run(160)
+    d.run(5)

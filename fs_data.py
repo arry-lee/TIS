@@ -825,12 +825,18 @@ def fstable2image_en(table,
         background = Image.new('RGB', (w, h), bgcolor)
         x0, y0 = xy or (char_width + char_width * offset, char_width)
 
-    if hit(0.5):
+    if hit(0.3): # 三种风格的比例为1:1:1
         underline_color = None
-        need_striped = True
-    else:
         striped_color = None
         need_striped = False
+    else:
+        if hit(0.5):
+            underline_color = None
+            need_striped = True
+        else:
+            striped_color = None
+            need_striped = False
+
 
     draw = ImageDraw.Draw(background)
     font = ImageFont.truetype(font_path, font_size)
