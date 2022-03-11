@@ -1045,19 +1045,20 @@ def fstable2image_en(table,
                 box_dict[cbox].append(striped_cell)
 
                 if striped_cell == 'ITEM' and cno==0: # fixed issue#7
-                    x_ = random.randint(cbox[0],(cbox[2]+cbox[0])//2)
-                    y_pool = [cbox[1]]
-                    i = 1
-                    while True:
-                        if cbox[1]+i*line_height < (cbox[1]+cbox[3])//2:
-                            y_pool.append(cbox[1]+i*line_height)
-                            i += 1
-                        else:
-                            break
-                    y_ = random.choice(y_pool)
-                    draw.text((x_,y_),striped_cell,_color,_font)
-                    text_box = draw.textbbox((x_,y_),striped_cell,_font)
-                    text_boxes.append([text_box, 'text@' + striped_cell])
+                    if random.random() < 0.5:  # 0.5 的概率出现
+                        x_ = random.randint(cbox[0],(cbox[2]+cbox[0])//2)
+                        y_pool = [cbox[3]]
+                        i = 1
+                        while True:
+                            if cbox[31]+i*line_height < (cbox[1]+cbox[3])//2:
+                                y_pool.append(cbox[3]+i*line_height)
+                                i += 1
+                            else:
+                                break
+                        y_ = random.choice(y_pool)
+                        draw.text((x_,y_),striped_cell,_color,_font,anchor='lb')
+                        text_box = draw.textbbox((x_,y_),striped_cell,_font,anchor='lb')
+                        text_boxes.append([text_box, 'text@' + striped_cell])
 
         v += line_height
 
