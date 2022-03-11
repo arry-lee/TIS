@@ -35,8 +35,6 @@ font_size = 40
 # todo 财务的表格已经在FST中实现了，没有tablewidth选项导致不能兼容
 class _TableGenerator(FlexTable):
     style = "striped"
-    faker = faker.Faker()
-
     def __init__(self, w=col_width, rows=None, complex=False,
                  double_column=False,large_gap=False, font_size=44, **kwargs):
         super().__init__(w, font_size, **kwargs)
@@ -86,15 +84,14 @@ class _TableGenerator(FlexTable):
 
 
 class _TextGenerator(TextBlock):
-    faker = faker.Faker()
-
+    faker = faker.Faker(providers=['fs_provider'])
     def __init__(self, width=col_width, sentence=10, font_size=52):
         super().__init__(self.faker.paragraph(sentence), width, indent=4,
                          font_size=font_size)
 
 
 class _TitleGenerator(TextBlock):
-    faker = faker.Faker()
+    faker = faker.Faker(providers=['fs_provider'])
     cnt = 1
 
     def __init__(self, width=col_width, fill=(235, 119, 46), font_size=60,
@@ -105,7 +102,7 @@ class _TitleGenerator(TextBlock):
 
 
 class _NoteGenerator(TextBlock):
-    faker = faker.Faker()
+    faker = faker.Faker(providers=['fs_provider'])
     cnt = 1
 
     def __init__(self, width=col_width, fill=(10, 10, 10), font_size=48,
@@ -117,7 +114,7 @@ class _NoteGenerator(TextBlock):
 
 
 class _LongTextTable(FlexTable):
-    faker = faker.Faker()
+    faker = faker.Faker(providers=['fs_provider'])
     def __init__(self, w=page_width,font_size=40, **kwargs):
         super().__init__(w=w,font_size=font_size, **kwargs)
         if hit(0.5):
