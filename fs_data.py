@@ -186,13 +186,16 @@ class FinancialStatementTable(object):
         self._table_width = val
 
     def build_table(self, indent=2, fill_ratio=0.7, brace_ratio=0.3,
-                    auto_ratio=0.5, note_ratio=0.5):
+                    auto_ratio=0.5, note_ratio=0.5,sign_ratio=1):
         t = AwesomeTable()
         columns = self._columns[:]
         if hit(auto_ratio):  # 控制行号的位置以及重复
             columns.insert(1, _('行次'))
         elif hit(note_ratio):
             columns.insert(2, _('附注'))
+        elif hit(sign_ratio) and not self.is_zh:
+            columns.insert(1,"$")
+
         t.add_row(columns)
         rno = 1
         for k, v in self.index.items():
@@ -207,6 +210,9 @@ class FinancialStatementTable(object):
                     if c == _('行次'):
                         row.append(rno)
                         rno += 1
+                    elif c == "$":
+                        row.append("$")
+
                     elif c == _('附注'):
                         if hit(fill_ratio):
                             row.append(
