@@ -202,7 +202,7 @@ class FinancialStatementTable(object):
                 if self.is_zh:
                     row = [self._indent_item(indent, item)]
                 else:
-                    row = [item.title()]
+                    row = [' '*4 + item.capitalize()]
                 for c in columns[1:]:
                     if c == _('行次'):
                         row.append(rno)
