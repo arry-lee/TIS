@@ -946,8 +946,10 @@ def fstable2image_en(table,
             v += line_height
             continue
 
-        # 以下内容将不会包含'═'
-        need_striped = not need_striped
+        need_striped = not need_striped # 切换条纹
+        if lno < HEADER_END_LINE_NO:    # 表头无条纹
+            need_striped = False
+
         for cno, cell in enumerate(cells):
             ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1
             if cell == '':  #
@@ -974,20 +976,21 @@ def fstable2image_en(table,
                     _font = en_font
                     _color = 'black'
 
-                if cno == 0:
-                    draw.text((box[0], box[1]), cell.rstrip(), _color, _font,
-                              anchor='lt')
-                    _box = draw.textbbox((box[0], box[1]), cell.rstrip(), _font,
-                                         anchor='lt')
-                    text_box = draw.textbbox((_box[2], _box[1]), cell.strip(),
-                                             _font, anchor='rt')
-                else:
-                    draw.text((box[2], box[1]), cell.lstrip(), _color, _font,
-                              anchor='rt')
-                    _box = draw.textbbox((box[2], box[1]), cell.lstrip(), _font,
-                                         anchor='rt')
-                    text_box = draw.textbbox((_box[0], _box[1]), cell.strip(),
-                                             _font, anchor='lt')
+                if striped_cell!='ITEM': # fix issue7
+                    if cno == 0:
+                        draw.text((box[0], box[1]), cell.rstrip(), _color, _font,
+                                  anchor='lt')
+                        _box = draw.textbbox((box[0], box[1]), cell.rstrip(), _font,
+                                             anchor='lt')
+                        text_box = draw.textbbox((_box[2], _box[1]), cell.strip(),
+                                                 _font, anchor='rt')
+                    else:
+                        draw.text((box[2], box[1]), cell.lstrip(), _color, _font,
+                                  anchor='rt')
+                        _box = draw.textbbox((box[2], box[1]), cell.lstrip(), _font,
+                                             anchor='rt')
+                        text_box = draw.textbbox((_box[0], _box[1]), cell.strip(),
+                                                 _font, anchor='lt')
 
                 lpad, rpad = _count_padding(cell)
                 l = box[0] + lpad * char_width
@@ -1005,11 +1008,11 @@ def fstable2image_en(table,
                             lt = rt + _str_block_width(text) * char_width
                 else:
                     r = box[2] - rpad * char_width
-                    if DEBUG:
-                        draw.rectangle(text_box, outline='green')
-                    if striped_cell != '-':
-                        text_boxes.append(
-                            [text_box, 'text@' + striped_cell])
+                    if striped_cell != 'ITEM':
+                        if DEBUG:
+                            draw.rectangle(text_box, outline='green')
+                        if striped_cell != '-':
+                            text_boxes.append([text_box, 'text@' + striped_cell])
 
             left = box[0] - half_char_width
             right = box[2] + half_char_width
@@ -1040,6 +1043,22 @@ def fstable2image_en(table,
                 by = max(by, cbox[3])
 
                 box_dict[cbox].append(striped_cell)
+
+                if striped_cell == 'ITEM' and cno==0: # fixed issue#7
+                    x_ = random.randint(cbox[0],(cbox[2]+cbox[0])//2)
+                    y_pool = [cbox[1]]
+                    i = 1
+                    while True:
+                        if cbox[1]+i*line_height < (cbox[1]+cbox[3])//2:
+                            y_pool.append(cbox[1]+i*line_height)
+                            i += 1
+                        else:
+                            break
+                    y_ = random.choice(y_pool)
+                    draw.text((x_,y_),striped_cell,_color,_font)
+                    text_box = draw.textbbox((x_,y_),striped_cell,_font)
+                    text_boxes.append([text_box, 'text@' + striped_cell])
+
         v += line_height
 
     if (lx, ty, rx, by) != (w, h, 0, 0):

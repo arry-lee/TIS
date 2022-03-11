@@ -320,6 +320,7 @@ class TextBlock(AbstractTable):
         s, img,boxes = put_text_in_box_without_break_word(
             self.text,
             self._table_width,
+            self.indent,
             self.fill,
             font_size=self.font_size,
             font_path=self.font_path,

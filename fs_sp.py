@@ -272,11 +272,16 @@ class LayoutDesigner(object):
     def run(self, batch,output_dir="data/financial_statement_en_sp"):
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
-
+        err = 0
         for i in trange(batch):
             self.toggle_style()
+            try:
+                image_data = self.create(i%5).get_image()
+            except ValueError:
+                err+=1
+                print(err)
+                continue
 
-            image_data = self.create(i%5).get_image()
             if i%5!=4:
                 image_data = add_to_paper(image_data, self.paper)
             fn = "0" + str(int(time.time() * 1000))[5:]
@@ -291,4 +296,4 @@ class LayoutDesigner(object):
 
 if __name__ == "__main__":
     d = LayoutDesigner()
-    d.run(5)
+    d.run(20)

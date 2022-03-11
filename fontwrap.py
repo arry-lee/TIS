@@ -104,7 +104,7 @@ def put_text_in_box(
 
 
 def put_text_in_box_without_break_word(
-    text, width, fill="black", font_path="arial.ttf", font_size=20, line_pad=4
+    text, width, indent=0,fill="black", font_path="arial.ttf", font_size=20, line_pad=4
 ):
     """软换行而且调整空格宽度来实现两端对齐
     text: 没有换行的完整英文句子
@@ -122,11 +122,13 @@ def put_text_in_box_without_break_word(
     boxes = []
     lines = []
     line = []
-    lens = 0
+
     words = text.split()
     font = ImageFont.truetype(font_path, font_size)
     space_width = font.getsize(" ")[0]
     MAX_SPACE_DIFF = 0.1 * space_width  # 空格宽度变化百分比
+    x0 = indent*space_width
+    lens = x0
     for word in words:
         w = font.getsize(word)[0]
         if lens + w <= width:
@@ -151,7 +153,7 @@ def put_text_in_box_without_break_word(
     height = len(lines) * (font_size + line_pad)
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
-    x, y = 0, 0
+    x, y = x0, 0
     out = []
     for line in lines[:-1]:
         ex = line.pop()
