@@ -223,14 +223,14 @@ class FlexTable(AwesomeTable):
     """ 在 awesometable 基础上增加 tablewith 像素尺度
     英文字体大多都是非等宽字体，如果按行左对齐则右边参差补齐
     """
-    def __init__(self, w=None,font_size=40,**kwargs):
+    def __init__(self, width=None, font_size=40, **kwargs):
         super().__init__(**kwargs)
         self.font_size = font_size
 
-        if w is not None:
-            self._table_width = w #像素尺寸
-            self.min_table_width = w * 2 // self.font_size - 1
-            self.max_table_width = w * 2 // self.font_size - 1
+        if width is not None:
+            self._table_width = width #像素尺寸
+            self.min_table_width = width * 2 // self.font_size - 1
+            self.max_table_width = width * 2 // self.font_size - 1
 
     @property
     def table_width(self): #按几何尺寸
@@ -242,10 +242,7 @@ class FlexTable(AwesomeTable):
         self.min_table_width = val*2//self.font_size-1
         self._table_width = val
         self.max_table_width = val*2//self.font_size-1
-        # print(self._table_width,self._max_table_width)
-        # print(self._widths)
 
-        # super(FlexTable, self).table_width(val*2//self.font_size)
     @property
     def height(self):
         return (len(str(self).splitlines())) * (self.font_size-2)
@@ -326,7 +323,7 @@ class TextBlock(AbstractTable):
             font_path=self.font_path,
         )
 
-        bg = Image.new("RGB", (img.width + self.padding*2, img.height + self.padding*2),
+        bg = Image.new("RGB", (img.width + self.padding * 2, img.height + self.padding * 2),
                        "white")
         bg.paste(img, (self.padding, self.padding))
         points = []
@@ -346,8 +343,8 @@ class TextBlock(AbstractTable):
 class TextTable(FlexTable):
     """不再关注表格的字符串表示，用TextBlock表示单元格"""
 
-    def __init__(self,w=None,ratio=None,font_size=40,**kwargs):
-        super().__init__(w,font_size,**kwargs)
+    def __init__(self, width=None, ratio=None, font_size=40, **kwargs):
+        super().__init__(width, font_size, **kwargs)
         self.ratio = ratio
 
     def _compute_col_widths(self):
@@ -390,7 +387,7 @@ if __name__ == "__main__":
 #     # img.save('x.jpg')
 #     # # img = t.get_image()["image"]
 #     # # cv2.imwrite('t.jpg',img)
-    t = TextTable(w=1000,ratio=[2,8])
+    t = TextTable(width=1000, ratio=[2, 8])
 
     t.add_row(['1',f.paragraph(3)])
     t.add_row(['2', f.paragraph(3)])

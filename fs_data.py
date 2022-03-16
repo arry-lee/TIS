@@ -17,9 +17,13 @@ from post_processor.A4 import Paper
 from post_processor.seal import add_seal_box, gen_name_seal, gen_seal
 from utils.ulpb import encode
 
-# RANDOM_SEED = 42
-# random.seed(RANDOM_SEED)
-# faker.Faker.seed(RANDOM_SEED)
+from table2image import table2image
+if __debug__:
+    RANDOM_SEED = 42
+    random.seed(RANDOM_SEED)
+    faker.Faker.seed(RANDOM_SEED)
+
+
 hit = lambda r:random.random() < r
 _ = lambda x:x
 CHINESE_NUM = '一二三四五六七八九十'
@@ -54,22 +58,18 @@ class FinancialStatementTable(object):
         if random_price:
             self.random_price = random_price
         else:
-            self.random_price = lambda:'{:,}'.format(
-                random.randint(100000, 10000000))
+            self.random_price = lambda:'{:,}'.format(random.randint(100000, 10000000))
 
         if self.is_zh:
             config_path = 'config/fs_config_zh.yaml'
         else:
             config_path = 'config/fs_config_en.yaml'
-
             ## 翻译组件
             def trans(x):
                 if x in TRANS_DICT.keys():
-                    return '\n'.join(TRANS_DICT[
-                                         x].split())  # textwrap.fill(TRANS_DICT[x], 10)
+                    return '\n'.join(TRANS_DICT[x].split())
                 else:
                     return encode(x).upper()
-
             global _
             _ = trans
 
@@ -91,9 +91,6 @@ class FinancialStatementTable(object):
         self._columns_generator = cycle(self._columns_list)
         self._table_width = None
 
-    def set_style(self, **kwargs):
-        self.can_hstack = kwargs.get('hstack', True)
-        self.can_complex = kwargs.get('can_complex', True)
 
     def ops_dispatch(self):
         # 对于生成的表格根据其长度分发到不同的操作
@@ -186,7 +183,7 @@ class FinancialStatementTable(object):
         self._table_width = val
 
     def build_table(self, indent=2, fill_ratio=0.7, brace_ratio=0.3,
-                    auto_ratio=0.5, note_ratio=0.5,sign_ratio=1):
+                    auto_ratio=0.5, note_ratio=0.5,sign_ratio=0.5,title_ratio=0.3):
         t = AwesomeTable()
         columns = self._columns[:]
         if hit(auto_ratio):  # 控制行号的位置以及重复
@@ -199,13 +196,14 @@ class FinancialStatementTable(object):
         t.add_row(columns)
         rno = 1
         for k, v in self.index.items():
-            t.add_row([_(k)] + [''] * (len(columns) - 1))
+            t.add_row([_(k).split()[0]] + [''] * (len(columns) - 1))
             if v is None: continue
             for item in v:
                 if self.is_zh:
                     row = [self._indent_item(indent, item)]
                 else:
-                    row = [' '*4 + item.capitalize()]
+                    row = [item.split()[0].upper() if hit(title_ratio) else item.capitalize()]
+
                 for c in columns[1:]:
                     if c == _('行次'):
                         row.append(rno)
@@ -227,6 +225,7 @@ class FinancialStatementTable(object):
                                 row.append(self.random_price())
                         else:
                             row.append('-')
+
                 t.add_row(row)
         return t
 
@@ -351,7 +350,8 @@ class FinancialStatementTable(object):
 
 
     def get_image(self):
-        return fstable2image_en(self.table,line_pad=-2,offset=10)
+
+        return table2image(self.table,line_pad=-1,offset=10)
 
 
     def create(self, batch, page_it=False):
@@ -1050,8 +1050,8 @@ def fstable2image_en(table,
                         y_pool = [cbox[3]]
                         i = 1
                         while True:
-                            if cbox[31]+i*line_height < (cbox[1]+cbox[3])//2:
-                                y_pool.append(cbox[3]+i*line_height)
+                            if cbox[1]+i*line_height < (cbox[1]+cbox[3])//2:
+                                y_pool.append(cbox[1]+i*line_height)
                                 i += 1
                             else:
                                 break
@@ -1126,520 +1126,8 @@ def fstable2image_en(table,
 
 
 if __name__ == '__main__':
-    # t = {'H1':{'H2':{'H3':{0:None,1:None},2:None,3:None},4:None,5:None}}
-    #
-    # lt = [1,[[2,[5,[6,[8,9]],7]],3,4]]
-
-    # n = 13
-    # t = gen_header(list(range(n)),[8]*n)
-    # print(from_list(t,False))
-
-    # print(from_list(lt))
-
     f = FinancialStatementTable("Consolidated Balance Sheet", lang='en')
     t = f.table
-
-    # print(t)
-    # BOLD_PATTERN = re.compile(r'.*[其项合总年]*[中目计前额].*')
-    # BACK_PATTERN = re.compile(r'[一二三四五六七八九十]+.*')
-    # data = fstable2image_en(t,line_pad=-2, offset=10, DEBUG=False, bold_pattern=None,vrules='NONE',sealed=False,
-    #                      back_pattern=None)['image']
-    #
     data = f.get_image()
 
     cv2.imwrite('t.jpg', data)
-
-# FONT_MAP = [(re.compile(r'.*：$'), ('simhei.ttf', 40, 0)),
-#             (re.compile(r'.*表$'), ('simhei.ttf', 50, 1)),
-#             (re.compile(r'.*单位.*'), ('simfang.ttf', 36, 0)),
-#             (re.compile(r'.*[其项合总年][中目计前].*'), ('simfang.ttf', 40, 1)),
-#             (re.compile(r'.*〇'), ('static/fonts/shouxie.ttf', 60, 0)),
-#             ]
-#
-# CELL_MAP = [(lambda box: (box[2] - box[0]) / (box[3] - box[1]) > 20,  # 长格
-#              lambda img: img.convert('L').point(
-#                  lambda x: 0 if x < 100 else 150))]
-
-
-# def fstable2image(t, font_size=40, line_pad=-5, keep_ratio=True, font_map=None,
-#                   cell_map=None, seal_map=False, vrules='ALL', hrules='ALL'):
-#     """ 财务报表专用表格转图片
-#     # font_size  正文字号
-#     # line_pad   行间距
-#     # keep_ratio 是否保持纸张的比例
-#     # font_map   字体映射规则集
-#     # cell_map   单元格风格映射
-#     # seal_map   使用印章映射
-#     # vrules     竖线显示规则 'ALL' 全部显示 None 不显示
-#     # hrules     横线显示规则 'ALL' 全部显示 None 不显示
-#     """
-#     if keep_ratio:
-#         lines = t.splitlines()
-#         w = _len(lines[0]) * font_size // 2
-#         h = len(lines) * (font_size + line_pad)
-#         if h > w:
-#             paper = Paper(direction='v')
-#         else:
-#             paper = Paper(direction='h')
-#         background = paper.image
-#         bg_box = paper.box
-#     else:
-#         background = None
-#         bg_box = None
-#
-#     data = table2image(t, font_size=font_size, line_pad=line_pad,
-#                        background=background, bg_box=bg_box,
-#                        keep_ratio=keep_ratio, vrules=vrules, hrules=hrules)
-
-
-#
-# for k,v in config.items():
-#     for vk,vv in v.items():
-#         if vv:
-#             v[vk] = []
-#             for idx,item in enumerate(vv.split()):
-#                 if item[0].isdigit():
-#                     v[vk].append('  '+item)
-#                 elif item[0] == '（':
-#                     v[vk].append(' '+item)
-#                 else:
-#                     v[vk].append(item)
-#     config[k] = v
-# print(config)
-
-# d = {}
-# t = AwesomeTable()
-#
-# t.add_row(['项目','2021年前三季度（1-9月）','2020年前三季度（1-9月）'])
-# for k,v in config['合并资产负债表'].items():
-#     if k.endswith('：'):
-#         t.add_row([k,'',''])
-#
-#     if v is not None:
-#         for item in v.split():
-#             t.add_row(['  '+item,money(),money()])
-#
-# # 预处理部分
-# t.max_width = 20
-# t.table_width = 80
-# t.align = 'l'
-#
-# t = set_align(t,1,'c')
-# t = set_align(t,2,'c')
-# # t = merge(t,0,0,2)
-# nt = []
-# for line in str(t).splitlines():
-#     if line.__contains__('：') and line[2]!=' ':
-#         line = '║'+line[1:-1].replace('║',' ')+'║'
-#     nt.append(line)
-#
-# t =  '\n'.join(nt)
-#
-# header = AwesomeTable()
-# header.add_row(['合并资产负债表'])
-# header.add_row(['2020年9月30日'])
-# header.add_row(['编制单位:中芯国际集成电路制造有限公司']),
-# header.add_row(['单位：千元 币种:人民币 审计类型：未经审计'])
-# header = del_line(header)
-#
-# footer = AwesomeTable()
-# footer.add_row(['公司负责人：','李小锐〇', '主管会计工作负责人：','李小锐〇',' 会计机构负责人：','李小锐〇'])
-# footer = merge(footer,0)
-#
-# t = vstack([header,t,footer])
-# t = set_align(t,0,'l',2)
-# t = set_align(t,0,'r',3)
-
-
-# # 图片生成器
-# paper = Paper(color='white')
-# width = len(t.splitlines()[0])
-# max_lines = int(width/2/(paper.box[2]-paper.box[0])*(paper.box[3]-paper.box[1])/1.8)
-# print(max_lines)
-#
-# for pno,tab in enumerate(paginate(t,40)):
-#     print(pno)
-#     print(len(tab.splitlines()))
-#     paper = Paper(color='white')
-#     data = table2image(tab,font_size=40,line_pad=-5,background=paper.image,bg_box=paper.box,keep_ratio=True)
-#     # 后处理部分
-#     font_map = [(re.compile(r'.*：$'),('simhei.ttf',40,0)),
-#                 (re.compile(r'.*表$'),('simhei.ttf',48,0)),
-#                 (re.compile(r'.*单位.*'),('simfang.ttf',36,0)),
-#                 (re.compile(r'.*[其项合总年][中目计前].*'),('simfang.ttf',40,1)),
-#                 (re.compile(r'〇.*'),('../static/fonts/shouxie.ttf',48,0)),
-#                 ]
-#     cell_map = [
-#         (lambda box: (box[2]-box[0])/(box[3]-box[1])>15, lambda img: img.convert('L').point(lambda x:0 if x<100 else 100))
-#     ]
-#
-#     data = apply_font_map(data,font_map,40)
-#     data = apply_cell_map(data,cell_map)
-#     cv2.imwrite('page%d.jpg'%pno,data['image'])
-
-
-# class StatementType(Enum):
-#     INCOME_STATEMENT = 10    # 利润表
-#     CASH_FLOW_STATEMENT = 20   #现金流量表
-#     FINANCIAL_POSITION_STATEMENT = 30 #资产负债表
-#     STOCKHOLDERS_EQUITY_STATEMENT = 40 #所有者权益变动表
-#     CONSOLIDATED_INCOME_STATEMENT = 11 #合并利润表
-#     CONSOLIDATED_CASH_FLOW_STATEMENT = 21 #合并现金流量表
-#     CONSOLIDATED_FINANCIAL_POSITION_STATEMENT = 31 #合并资产负债表
-#
-#
-#
-# class Statement:
-#     def __init__(self,company,date):
-#         self.company = company
-#         self.date = date
-#         self.header = "报表名称 报表编号 编制单位 编制日期 计量单位"
-#         self.format = "报告式 账户式"
-#         self.body = []
-#         self.table = AwesomeTable()
-#
-#     def bulid_table(self):
-#         pass
-#
-#     def show(self):
-#         # print(self.table)
-#         img = table2image(self.table)['image']
-#         cvshow(img)
-#         cv2.imwrite('t.jpg',img)
-#
-#
-# class IncomeStatement(Statement):
-#     name = '利润表'
-#     ref_url = ''
-#
-#
-# class CashFlowStatement(Statement):
-#     name = '现金流量表'
-#     types = '一般企业 商业银行 保险公司 证券公司'.split()
-#     ref_url = 'https://wiki.mbalib.com/wiki/%E3%80%8A%E4%BC%81%E4%B8%9A%E4%BC%9A%E8%AE%A1%E5%87%86%E5%88%99%E7%AC%AC31%E5%8F%B7-%E7%8E%B0%E9%87%91%E6%B5%81%E9%87%8F%E8%A1%A8%E3%80%8B'
-#
-#
-# class FinancialPositionStatement(Statement):
-#     name = '资产负债表'
-#     desc = """资产负债表一般有表首、正表两部分。
-#         其中，表首概括地说明报表名称、编制单位、编制日期、报表编号、货币名称、计量单位等。
-#         正表是资产负债表的主体，列示了用以说明企业财务状况的各个项目。
-#         资产负债表正表的格式一般有两种：报告式资产负债表和账户式资产负债表。
-#         报告式资产负债表是上下结构，上半部列示资产，下半部列示负债所有者权益
-#         具体排列形式又有两种：一是按“资产=负债+所有者权益”的原理排列；
-#         二是按“资产-负债=所有者权益”的原理排列。
-#         账户式资产负债表是左右结构，左边列示资产，右边列示负债和所有者权益。
-#         不管采取什么格式，资产各项目的合计等于负债和所有者权益各项目的合计这一等式不变。
-#         """
-#     header_string = """<table style="width: 100%">
-#                     <caption> <b>资产负债表</b>
-#                     </caption>
-#                     <tbody><tr>
-#                     <td colspan="3" style="text-align:right;">会企01表
-#                     </td></tr>
-#                     <tr>
-#                     <td style="width: 30%"> 编制单位：××有限公司
-#                     </td><td style="width: 40%; text-align: center;"> 20×8年12月31日
-#                     </td><td style="width: 30%; text-align: right;"> 单位：元
-#                     </td></tr></tbody></table>"""
-#
-#     body_string = """<table class="wikitable" style="width:100%; font-size: 100%;">
-# <tbody><tr>
-# <th>资　　产</th><th>期末余额</th><th>年初余额
-# </th><th>负债和所有者权益<br>（或股东权益）</th><th>期末余额</th><th>年初余额
-# </th></tr>
-# <tr>
-# <td><a href="/wiki/%E6%B5%81%E5%8A%A8%E8%B5%84%E4%BA%A7" title="流动资产">流动资产</a>：</td><td></td><td>
-# </td><td><a href="/wiki/%E6%B5%81%E5%8A%A8%E8%B4%9F%E5%80%BA" title="流动负债">流动负债</a>：</td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E8%B4%A7%E5%B8%81%E8%B5%84%E9%87%91" title="货币资金">货币资金</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E7%9F%AD%E6%9C%9F%E5%80%9F%E6%AC%BE" title="短期借款">短期借款</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E4%BA%A4%E6%98%93%E6%80%A7%E9%87%91%E8%9E%8D%E8%B5%84%E4%BA%A7" title="交易性金融资产">交易性金融资产</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E4%BA%A4%E6%98%93%E6%80%A7%E9%87%91%E8%9E%8D%E8%B4%9F%E5%80%BA" title="交易性金融负债">交易性金融负债</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%BA%94%E6%94%B6%E7%A5%A8%E6%8D%AE" title="应收票据">应收票据</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%BA%94%E4%BB%98%E7%A5%A8%E6%8D%AE" title="应付票据">应付票据</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%BA%94%E6%94%B6%E8%B4%A6%E6%AC%BE" title="应收账款">应收账款</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%BA%94%E4%BB%98%E8%B4%A6%E6%AC%BE" title="应付账款">应付账款</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E9%A2%84%E4%BB%98%E6%AC%BE%E9%A1%B9" title="预付款项">预付款项</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E9%A2%84%E6%94%B6%E6%AC%BE%E9%A1%B9" title="预收款项">预收款项</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%BA%94%E6%94%B6%E5%88%A9%E6%81%AF" title="应收利息">应收利息</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%BA%94%E4%BB%98%E8%81%8C%E5%B7%A5%E8%96%AA%E9%85%AC" title="应付职工薪酬">应付职工薪酬</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%BA%94%E6%94%B6%E8%82%A1%E5%88%A9" title="应收股利">应收股利</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%BA%94%E4%BA%A4%E7%A8%8E%E8%B4%B9" title="应交税费">应交税费</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%85%B6%E4%BB%96%E5%BA%94%E6%94%B6%E6%AC%BE" title="其他应收款">其他应收款</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%BA%94%E4%BB%98%E5%88%A9%E6%81%AF" title="应付利息">应付利息</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%AD%98%E8%B4%A7" title="存货">存货</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%BA%94%E4%BB%98%E8%82%A1%E5%88%A9" title="应付股利">应付股利</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E4%B8%80%E5%B9%B4%E5%86%85%E5%88%B0%E6%9C%9F%E7%9A%84%E9%9D%9E%E6%B5%81%E5%8A%A8%E8%B5%84%E4%BA%A7" title="一年内到期的非流动资产">一年内到期的非流动资产</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%85%B6%E4%BB%96%E5%BA%94%E4%BB%98%E6%AC%BE" title="其他应付款">其他应付款</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%85%B6%E4%BB%96%E6%B5%81%E5%8A%A8%E8%B5%84%E4%BA%A7" title="其他流动资产">其他流动资产</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E4%B8%80%E5%B9%B4%E5%86%85%E5%88%B0%E6%9C%9F%E7%9A%84%E9%9D%9E%E6%B5%81%E5%8A%A8%E8%B4%9F%E5%80%BA" title="一年内到期的非流动负债">一年内到期的非流动负债</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td style="text-align:center;"><b><a href="/wiki/%E6%B5%81%E5%8A%A8%E8%B5%84%E4%BA%A7%E5%90%88%E8%AE%A1" title="流动资产合计">流动资产合计</a></b></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%85%B6%E4%BB%96%E6%B5%81%E5%8A%A8%E8%B4%9F%E5%80%BA" title="其他流动负债">其他流动负债</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td><a href="/wiki/%E9%9D%9E%E6%B5%81%E5%8A%A8%E8%B5%84%E4%BA%A7" title="非流动资产">非流动资产</a>：</td><td></td><td>
-# </td><td style="text-align:center;"><b><a href="/wiki/%E6%B5%81%E5%8A%A8%E8%B4%9F%E5%80%BA%E5%90%88%E8%AE%A1" title="流动负债合计">流动负债合计</a></b></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%8F%AF%E4%BE%9B%E5%87%BA%E5%94%AE%E9%87%91%E8%9E%8D%E8%B5%84%E4%BA%A7" title="可供出售金融资产">可供出售金融资产</a></td><td></td><td>
-# </td><td><a href="/wiki/%E9%9D%9E%E6%B5%81%E5%8A%A8%E8%B4%9F%E5%80%BA" title="非流动负债">非流动负债</a>：</td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E6%8C%81%E6%9C%89%E8%87%B3%E5%88%B0%E6%9C%9F%E6%8A%95%E8%B5%84" title="持有至到期投资">持有至到期投资</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E9%95%BF%E6%9C%9F%E5%80%9F%E6%AC%BE" title="长期借款">长期借款</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E9%95%BF%E6%9C%9F%E5%BA%94%E6%94%B6%E6%AC%BE" title="长期应收款">长期应收款</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%BA%94%E4%BB%98%E5%80%BA%E5%88%B8" title="应付债券">应付债券</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E9%95%BF%E6%9C%9F%E8%82%A1%E6%9D%83%E6%8A%95%E8%B5%84" title="长期股权投资">长期股权投资</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E9%95%BF%E6%9C%9F%E5%BA%94%E4%BB%98%E6%AC%BE" title="长期应付款">长期应付款</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E6%8A%95%E8%B5%84%E6%80%A7%E6%88%BF%E5%9C%B0%E4%BA%A7" title="投资性房地产">投资性房地产</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E4%B8%93%E9%A1%B9%E5%BA%94%E4%BB%98%E6%AC%BE" title="专项应付款">专项应付款</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%9B%BA%E5%AE%9A%E8%B5%84%E4%BA%A7" title="固定资产">固定资产</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E9%A2%84%E8%AE%A1%E8%B4%9F%E5%80%BA" title="预计负债">预计负债</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%9C%A8%E5%BB%BA%E5%B7%A5%E7%A8%8B" title="在建工程">在建工程</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E9%80%92%E5%BB%B6%E6%89%80%E5%BE%97%E7%A8%8E%E8%B4%9F%E5%80%BA" title="递延所得税负债">递延所得税负债</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%B7%A5%E7%A8%8B%E7%89%A9%E8%B5%84" title="工程物资">工程物资</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%85%B6%E4%BB%96%E9%9D%9E%E6%B5%81%E5%8A%A8%E8%B4%9F%E5%80%BA" title="其他非流动负债">其他非流动负债</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%9B%BA%E5%AE%9A%E8%B5%84%E4%BA%A7%E6%B8%85%E7%90%86" title="固定资产清理">固定资产清理</a></td><td></td><td>
-# </td><td style="text-align:center;"><b>非流动负债合计</b></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E7%94%9F%E4%BA%A7%E6%80%A7%E7%94%9F%E7%89%A9%E8%B5%84%E4%BA%A7" title="生产性生物资产">生产性生物资产</a></td><td></td><td>
-# </td><td style="text-align:center;"><b><a href="/wiki/%E8%B4%9F%E5%80%BA%E5%90%88%E8%AE%A1" title="负债合计">负债合计</a></b></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E6%B2%B9%E6%B0%94%E8%B5%84%E4%BA%A7" title="油气资产">油气资产</a></td><td></td><td>
-# </td><td><a href="/wiki/%E6%89%80%E6%9C%89%E8%80%85%E6%9D%83%E7%9B%8A" title="所有者权益">所有者权益</a>（或<a href="/wiki/%E8%82%A1%E4%B8%9C%E6%9D%83%E7%9B%8A" title="股东权益">股东权益</a>）：</td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E6%97%A0%E5%BD%A2%E8%B5%84%E4%BA%A7" title="无形资产">无形资产</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E5%AE%9E%E6%94%B6%E8%B5%84%E6%9C%AC" title="实收资本">实收资本</a>（或<a href="/wiki/%E8%82%A1%E6%9C%AC" title="股本">股本</a>）</td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%BC%80%E5%8F%91%E6%94%AF%E5%87%BA" title="开发支出">开发支出</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E8%B5%84%E6%9C%AC%E5%85%AC%E7%A7%AF" title="资本公积">资本公积</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%95%86%E8%AA%89" title="商誉">商誉</a></td><td></td><td>
-# </td><td>　减：<a href="/wiki/%E5%BA%93%E5%AD%98%E8%82%A1" title="库存股">库存股</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E9%95%BF%E6%9C%9F%E5%BE%85%E6%91%8A%E8%B4%B9%E7%94%A8" title="长期待摊费用">长期待摊费用</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E7%9B%88%E4%BD%99%E5%85%AC%E7%A7%AF" title="盈余公积">盈余公积</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E9%80%92%E5%BB%B6%E6%89%80%E5%BE%97%E7%A8%8E%E8%B5%84%E4%BA%A7" title="递延所得税资产">递延所得税资产</a></td><td></td><td>
-# </td><td>　<a href="/wiki/%E6%9C%AA%E5%88%86%E9%85%8D%E5%88%A9%E6%B6%A6" title="未分配利润">未分配利润</a></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　<a href="/wiki/%E5%85%B6%E4%BB%96%E9%9D%9E%E6%B5%81%E5%8A%A8%E8%B5%84%E4%BA%A7" title="其他非流动资产">其他非流动资产</a></td><td></td><td>
-# </td><td style="text-align:center;"><b><a href="/wiki/%E6%89%80%E6%9C%89%E8%80%85%E6%9D%83%E7%9B%8A" title="所有者权益">所有者权益</a>（或<a href="/wiki/%E8%82%A1%E4%B8%9C%E6%9D%83%E7%9B%8A" title="股东权益">股东权益</a>）合计</b></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td style="text-align:center;"><b>非流动资产合计</b></td><td></td><td>
-# </td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td style="text-align:center;"><b><a href="/wiki/%E8%B5%84%E4%BA%A7%E6%80%BB%E8%AE%A1" title="资产总计">资产总计</a></b></td><td></td><td>
-# </td><td style="text-align:center;"><b>负债和所有者权益（或股东权益）总计</b></td><td></td><td>
-# </td></tr></tbody></table>"""
-#
-#     def __init__(self,company,date,header=None,body=None):
-#         Statement.__init__(self,company,date)
-#         self.header =[ ['','','','','','会企01表'],
-#                     ['编制单位：',self.company,'',self.date,'','单位：元']]
-#
-#         self.body = pd.read_html(self.body_string)[0]
-#         # self.header = from_list(self.header)
-#         # self.body = from_dataframe(self.body)
-#         self.bulid_table()
-#         self.get_keys()
-#
-#     def get_keys(self):
-#         df = self.body
-#         keys = df['资 产']
-#         print(keys)
-#
-#     def bulid_table(self):
-#         self.table = AwesomeTable()
-#         self.table.add_rows(self.header)
-#         self.table.add_row(list(self.body.columns))
-#         self.table.add_rows([row.tolist() for row in self.body.values])
-#         self.table.title = self.name
-#         self.table.align = 'l'
-#
-#     def show(self):
-#         print(self.table)
-#
-#         img = table2image(self.table)['image']
-#         cvshow(img)
-#
-# def color_negative_red(val):
-#     color = 'red' if val == '_' else 'black'
-#     return 'color: %s' % color
-#
-# class StockholdersEquityStatement(Statement):
-#     name = '所有者权益变动表'
-#     ref_url = 'https://wiki.mbalib.com/wiki/%E6%89%80%E6%9C%89%E8%80%85%E6%9D%83%E7%9B%8A%E5%8F%98%E5%8A%A8%E8%A1%A8'
-#     wiki_table = """
-# <table class="wikitable" style="font-size: 100%; width: 100%;">
-# <tbody><tr>
-# <th rowspan="2">项目</th><th colspan="6">本年金额</th><th colspan="6">上年金额
-# </th></tr>
-# <tr>
-# <th><a href="/wiki/%E5%AE%9E%E6%94%B6%E8%B5%84%E6%9C%AC" title="实收资本">实收资本</a>（或<a href="/wiki/%E8%82%A1%E6%9C%AC" title="股本">股本</a>）</th><th><a href="/wiki/%E8%B5%84%E6%9C%AC%E5%85%AC%E7%A7%AF" title="资本公积">资本公积</a></th><th>减：<a href="/wiki/%E5%BA%93%E5%AD%98%E8%82%A1" title="库存股">库存股</a></th><th><a href="/wiki/%E7%9B%88%E4%BD%99%E5%85%AC%E7%A7%AF" title="盈余公积">盈余公积</a></th><th><a href="/wiki/%E6%9C%AA%E5%88%86%E9%85%8D%E5%88%A9%E6%B6%A6" title="未分配利润">未分配利润</a></th><th><a href="/wiki/%E6%89%80%E6%9C%89%E8%80%85%E6%9D%83%E7%9B%8A%E5%90%88%E8%AE%A1" title="所有者权益合计">所有者权益合计</a></th><th>实收资本（或股本）</th><th>资本公积</th><th>减：库存股</th><th>盈余公积</th><th>未分配利润</th><th><a href="/wiki/%E6%89%80%E6%9C%89%E8%80%85%E6%9D%83%E7%9B%8A%E5%90%88%E8%AE%A1" title="所有者权益合计">所有者权益合计</a>
-# </th></tr>
-# <tr>
-# <td>一、上年年末余额</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　　加：<a href="/wiki/%E4%BC%9A%E8%AE%A1%E6%94%BF%E7%AD%96" title="会计政策">会计政策</a>变更</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　　　　前期差错更正</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>二、本年年初余额</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>三、本年增减变动金额（减少以 - 号填列）</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>（一）<a href="/wiki/%E5%87%80%E5%88%A9%E6%B6%A6" title="净利润">净利润</a></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>（二）直接计入所有者权益的<a href="/w/index.php?title=%E5%88%A9%E5%BE%97&amp;action=edit" class="new" title="利得">利得</a>和损失</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>1.<a href="/wiki/%E5%8F%AF%E4%BE%9B%E5%87%BA%E5%94%AE%E9%87%91%E8%9E%8D%E8%B5%84%E4%BA%A7" title="可供出售金融资产">可供出售金融资产</a><a href="/wiki/%E5%85%AC%E5%85%81%E4%BB%B7%E5%80%BC" title="公允价值">公允价值</a>变动净额</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>2.<a href="/wiki/%E6%9D%83%E7%9B%8A%E6%B3%95" title="权益法">权益法</a>下被投资单位其他所有者权益变动的影响</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>3.与计入所有者权益项目相关的<a href="/wiki/%E6%89%80%E5%BE%97%E7%A8%8E" title="所得税">所得税</a>影响</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>4.其他</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>　上述（一）和（二）小计</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>（三）所有者投入和<a href="/wiki/%E5%87%8F%E5%B0%91%E8%B5%84%E6%9C%AC" title="减少资本">减少资本</a></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>1.所有者<a href="/wiki/%E6%8A%95%E5%85%A5%E8%B5%84%E6%9C%AC" title="投入资本">投入资本</a></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>2.<a href="/wiki/%E8%82%A1%E4%BB%BD%E6%94%AF%E4%BB%98" title="股份支付">股份支付</a>计入所有者权益的金额</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>3.其他</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>（四）<a href="/wiki/%E5%88%A9%E6%B6%A6%E5%88%86%E9%85%8D" title="利润分配">利润分配</a></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>1.提取盈余公积</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>2.对所有者（或股东）的分配</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>3.其他</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>（五）所有者权益内部结转</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>1.资本公积转增资本（或股本）</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>2.盈余公积转增资本（或股本）</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>3.盈余公积弥补亏损</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>4.其他</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# <tr>
-# <td>四、本年年末余额</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>
-# </td></tr>
-# </tbody></table>
-#     """
-#     template_table = pd.read_html(wiki_table)[0]
-#
-#     def __init__(self, company, date):
-#         super().__init__(company, date)
-#         self.bulid_table()
-#
-#     def get_template_from_html(self):
-#         t = pd.read_html(self.wiki_table,index_col=0)[0]
-#         # t = t.fillna()
-#         # t.index = t.index.str.pad(10)
-#         # s = t.style.highlight_null().render()
-#         print(t.shape)
-#         print(t.index)
-#         print(t.columns)
-#         t[:] = np.random.randint(1,100000,size=t.shape)
-#
-#         # t = t.applymap(lambda x: ('%.2f') % x)
-#         t = t.applymap(lambda x: format(x,',')) # 设置千分点
-#         print(t.head())
-#
-#         return t
-#
-#     def bulid_table(self):
-#         self.template_table = self.get_template_from_html()
-#         self.table = AwesomeTable()
-#
-#         self.table.add_row(['']+list(x[1] for x in self.template_table.columns))
-#         self.table.add_rows([[index] + row.tolist() for index,row in zip(self.template_table.index,self.template_table.values)])
-#         self.table.title = self.name
-#         self.table.align = 'l'
-#         # self.table.max_width = 10
-#
-
-
-# ses = StockholdersEquityStatement(company='xx公司',date='2021年12月16日')
-# # ses.get_template_from_html()
-# ses.show()

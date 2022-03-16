@@ -14,7 +14,7 @@ from awesometable import banktable2image, table2image
 from data_generator import bank_detail_generator, bank_table_generator
 from data_generator.fakekeys import read_background
 from data_generator.uniform import UniForm
-from fs_factory import fsfactory
+
 from post_processor import random as _random
 from post_processor.background import add_background_data
 from post_processor.deco import keepdata

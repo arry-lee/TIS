@@ -4,283 +4,310 @@ import time
 from itertools import cycle
 
 import cv2
-import faker
-from tqdm import trange
+from tqdm import tqdm
+from faker import Faker
 
-from fs_data import FinancialStatementTable, hit
+
 from layout import HorLayout as H
 from layout import VerLayout as V
 from layout import TextBlock, FlexTable
-from post_processor.A4 import Paper
 
-from post_processor.label import log_label, show_label
+from post_processor.label import log_label
 from post_processor.background import add_to_paper
 from table2image import table2image
 
-width = 3000
-offset_p = 400
-gap_width = 80
-col_width = (width - offset_p * 2 - gap_width) // 2
+from fs_settings import *
+from post_processor.A4 import Paper
 
-page_width = width - offset_p * 2
+COLUMN_WIDTH = (PAPER_WIDTH - PAPER_OFFSET * 2 - HOR_GAP_WIDTH) // 2
+PAGE_WIDTH = PAPER_WIDTH - PAPER_OFFSET * 2
+paper = Paper(PAPER_WIDTH, offset_p=PAPER_OFFSET)
+COL_HEIGHT = paper.height - PAPER_OFFSET * 2
 
-font_size = 40
+f = Faker(providers=['fs_provider'])
+hit = lambda r:random.random() < r
 
-
-# table_width = col_width//font_size*2
-
-
-# 这里定义业务相关的表和文本
-# KEEP DRY
-# todo 财务的表格已经在FST中实现了，没有tablewidth选项导致不能兼容
-class _TableGenerator(FlexTable):
+class FSTable(FlexTable):
     style = "striped"
-    def __init__(self, w=col_width, rows=None, complex=False,
-                 double_column=False,large_gap=False, font_size=44, **kwargs):
-        super().__init__(w, font_size, **kwargs)
-        random_price = lambda:'{:,}'.format(random.randint(100, 1000))
-        type = random.choice(("CONSOLIDATED INCOME STATEMENT","Consolidated Balance Sheet"))
-        self.fst = FinancialStatementTable(type, "en",
-                                           random_price)
-        t = self.fst.metatable(auto_ratio=0, brace_ratio=0, fill_ratio=0.9,
-                               note_ratio=0)
-        self.can_complex = complex
-        # 先取columns
-        if double_column:
-            row = t._rows[0]
-            row = row + row[1:]
-            self.add_row(row)
-        elif complex or len(t._rows[0]) <= 4:
-            row = t._rows[0]
+
+    def __init__(self, width=None, rows=None, cols=None, indent=False,
+                 complex_header=False, double_column=False, large_gap=False,
+                 font_size=40, dollar_column=False, lno_column=False, **kwargs):
+        super().__init__(width, font_size, **kwargs)
+        if rows is None:
+            rows =  random.randint(DEFAULT_ROW_MIN, DEFAULT_ROW_MAX)
+        if cols is None:
+            cols = random.randint(DEFAULT_COL_MIN, DEFAULT_COL_MAX)
+            self._max_price_width = DEFAULT_NUM_MIN
+            indent = hit(0.5)
+        else:
+            self._max_price_width = DEFAULT_NUM_MAX
+
+        self.rows = rows
+        self.cols = cols
+        indexes = f.indexes(rows)
+        columns = f.columns(cols)
+        if dollar_column:
+            columns[1] = 'USD'
+        elif lno_column:
+            columns[1] = 'No.'
+
+        self.add_row(columns)
+
+        for lno, i in enumerate(indexes):
+            row = [f.price(self._max_price_width, fix_len=True, unsigned=False) for _ in columns]
+            if indent:
+                if lno % 3 == 0:
+                    row[0] = f.subtitle().upper()
+                    row[1:] = [''] * (cols - 1)
+                else:
+                    row[0] = i.capitalize()
+            else:
+                row[0] = i.capitalize()
+            if dollar_column:
+                row[1] = '$'
+            elif lno_column:
+                row[1] = lno
+
+            if double_column:
+                if indent:
+                    if 2 * lno % 3 == 0:
+                        row[cols // 2] = f.subtitle().upper()
+                    else:
+                        row[cols // 2] = f.index().capitalize()
+                else:
+                    row[cols // 2] = f.index().capitalize()
             self.add_row(row)
 
-        if not rows:  # 设置行数
-            rows = random.randint(4, 5) #默认范围
-        s = random.randint(1, len(t._rows) - rows)  # 随机起点
-        for x in t[s:s + rows]._rows:
-            if double_column:
-                x = x + x[1:]
-            self.add_row(x)
-        self.align = 'r'  # 统一右对齐
+        self.align = 'r'
+        self._align['Field 1'] = 'l'
         self.min_width = 12
         self.max_width = 20
-        self._align['Field 1'] = 'l'  # 第一列左对齐
 
-        self.large_gap = large_gap and len(self._rows[0])<=5
+        if double_column:
+            self._align['Field %d' % (cols // 2 + 1)] = 'l'
 
+        self.large_gap = large_gap
+        self.complex_header = complex_header
 
     def __str__(self):
-        if self.large_gap: # index 与 data 距离较大
+        if self.large_gap:
             self.widths = []
-            tw = self.max_table_width-len(self._rows[0])-1
-            lens = len(self._rows[0])
-            nw = tw//10    # 按照10等份，后面的各取1份，剩下的给前面
-            self.widths = [nw]*(lens-1)
-            self.widths.insert(0,tw-nw*(lens-1))
-        _string = self.get_string()
-        if self.can_complex:
-            _string = self.fst.build_complex_header(_string, cc=self._rows[0])
-        return _string
+            tw = self._max_table_width - self.cols - 1
+            nw = max(self._max_price_width + 2,
+                     tw // 10)  # 按照10等份，后面的各取1份，剩下的给前面
+            self.widths = [nw] * (self.cols - 1)
+            self.widths.insert(0, tw - nw * (self.cols - 1))
+        s = self.get_string()
+        if self.complex_header:
+            s = f.build_complex_header(s, self._rows[0])
+        return s
 
 
-class _TextGenerator(TextBlock):
-    faker = faker.Faker(providers=['fs_provider'])
-    def __init__(self, width=col_width, sentence=10, font_size=52):
-        super().__init__(self.faker.paragraph(sentence), width, indent=4,
+class FSText(TextBlock):
+    def __init__(self, width=COLUMN_WIDTH, sentence=10, indent=4, font_size=TEXT_FONT_SIZE):
+        super().__init__(f.paragraph(sentence), width, indent,
                          font_size=font_size)
 
 
-class _TitleGenerator(TextBlock):
-    faker = faker.Faker(providers=['fs_provider'])
-    cnt = 1
+class FSTitle(TextBlock):
+    count = 1
 
-    def __init__(self, width=col_width, fill=(235, 119, 46), font_size=60,
+    def __init__(self, width=COLUMN_WIDTH, fill=TITLE_COLOR, font_size=TITLE_FONT_SIZE,
                  **kwargs):
-        super().__init__(str(self.cnt) + '. ' + self.faker.word().upper(),
-                         width, font_size=font_size, fill=fill, **kwargs)
-        _TitleGenerator.cnt += 1
+        title = str(self.count) + '. ' + f.subtitle().upper()
+        super().__init__(title, width, font_size=font_size, fill=fill, **kwargs)
+        FSTitle.count += 1
 
 
-class _NoteGenerator(TextBlock):
-    faker = faker.Faker(providers=['fs_provider'])
-    cnt = 1
-
-    def __init__(self, width=col_width, fill=(10, 10, 10), font_size=48,
-                 **kwargs):
-        super().__init__(str(self.cnt) + '. ' + self.faker.paragraph(1),
-                         width, font_size=font_size, fill=fill,
-                         font_path='simfang.ttf', **kwargs)
-        _NoteGenerator.cnt += 1
-
-
-class _LongTextTable(FlexTable):
-    faker = faker.Faker(providers=['fs_provider'])
-    def __init__(self, w=page_width,font_size=40, **kwargs):
-        super().__init__(w=w,font_size=font_size, **kwargs)
+class FSLongTextTable(FlexTable):
+    def __init__(self, width=PAGE_WIDTH, font_size=TEXT_FONT_SIZE, **kwargs):
+        super().__init__(width=width, font_size=font_size, **kwargs)
         if hit(0.5):
-            self.add_row(['Exhibit No.','DESCRIPTION'])
-            s = random.randint(100,900)
+            self.add_row(['Exhibit No.', 'DESCRIPTION'])
+            s = random.randint(100, 900)
             for i in range(18):
                 s += 1
-                d = random.randint(1,4)
+                d = random.randint(1, 4)
                 no = random.choice("abcdef")
-                x = "%d.%d%s"%(s,d,no)
-                self.add_row([x,self.faker.paragraph(random.randint(6,8))])
+                x = "%d.%d%s" % (s, d, no)
+                self.add_row([x, f.paragraph(random.randint(2, 4))])
             self.max_width = int(0.9 * self._max_table_width)
             self.align = 'l'
         else:
             self.add_row(['Item', 'Page'])
             s = random.randint(1, 200)
             for i in range(20):
-                n = random.randint(1,10)
-                s+=n
-                self.add_row([self.faker.paragraph(random.randint(1,4)),s])
+                n = random.randint(1, 10)
+                s += n
+                self.add_row([f.paragraph(random.randint(1, 4)), s])
             self.max_width = int(0.9 * self._max_table_width)
-            self._align = {"Field 1":"l","Field 2":"r"}
-        self.table_width = page_width
+            self._align = {"Field 1":"l", "Field 2":"r"}
+        self.table_width = PAGE_WIDTH
 
     def get_image(self):
         return table2image(str(self), font_size=self.font_size, vrules=None,
-                           hrules=None, style='simple',bold_pattern=None,border='',align=None)
+                           hrules=None, style='simple', bold_pattern=None,
+                           border='', align=None)
 
 
 class LayoutDesigner(object):
-    faker = faker.Faker()
-    def __init__(self, table_generator=None, text_generator=None):
-        self.table_generator = table_generator or _TableGenerator
-        self.text_generator = text_generator or _TextGenerator
-        self.title_generator = _TitleGenerator
-        self.note_generator = _NoteGenerator
-        self.paper = Paper(3000, offset_p=400)
-        self.col_height = self.paper.height - offset_p * 2
-        self.ltt = _LongTextTable
+    def __init__(self, table_generator=None, text_generator=None,
+                 title_generator=None):
+        self.ta = table_generator or FSTable
+        self.te = text_generator or FSText
+        self.ti = title_generator or FSTitle
+        self.tt = FSLongTextTable
 
     @staticmethod
-    def template(squence,hmax,gap=40):
+    def template(sequence, height, gap=VER_GAP_HEIGHT):
         col = []
         h = 0
-        for klass in cycle(squence):
+        for klass in cycle(sequence):
             t = klass()
             h += t.height
-            if h<=hmax:
+            if h <= height:
                 col.append(t)
-                h+=gap
+                h += gap
             else:
                 h -= t.height
                 break
-        if col and isinstance(col[-1],_TitleGenerator):
+        if col and isinstance(col[-1], FSTitle):
             col.pop()
-            _TitleGenerator.cnt-=1
+            FSTitle.count -= 1
 
         while True:
-            t = _TextGenerator(sentence=3)
+            t = FSText(sentence=3)
             h += t.height
-            if h <= hmax:
+            if h <= height:
                 col.append(t)
-                h+=gap
+                h += gap
             else:
                 break
         return col
 
-    def random_layout0(self):
+    def _layout0(self):
         # 双栏
-        l = self.template([self.title_generator,self.text_generator,self.table_generator],self.col_height)
-        r = self.template([self.title_generator,self.text_generator,self.table_generator],self.col_height)
-        out = H([V(l, col_width, gaps=40), V(r, col_width, gaps=40)], col_width,gaps=80)
-        self.title_generator.cnt = 1
+        l = self.template([self.ti, self.te, self.ta], COL_HEIGHT)
+        r = self.template([self.ti, self.te, self.ta], COL_HEIGHT)
+        out = H([V(l, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT), V(r, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT)],
+                COLUMN_WIDTH,
+                gaps=HOR_GAP_WIDTH)
+        self.ti.count = 1
         return out
 
-    def random_layout1(self):
+    def _layout1(self):
         # 双栏插图
-        out_list = [H([self.text_generator(), self.text_generator()], col_width,gaps=80),
-                    self.table_generator(page_width,rows=random.randint(8,15),double_column=hit(0.5),large_gap=hit(0.5),complex=hit(0.5))
+        out_list = [H([self.te(), self.te()], COLUMN_WIDTH,
+                      gaps=HOR_GAP_WIDTH),
+                    self.ta(PAGE_WIDTH,
+                            rows=random.randint(8, 13),
+                            cols=random.randint(5, 8),
+                            double_column=hit(1),
+                            indent=True,
+                            large_gap=hit(0.5),
+                            dollar_column=hit(0.5),
+                            lno_column=hit(0.5),
+                            complex_header=hit(0.5))
                     ]
-        out = V(out_list, page_width, gaps=40)
-        hmax = self.col_height - out.height - 40
+        out = V(out_list, PAGE_WIDTH, gaps=VER_GAP_HEIGHT)
+        hmax = COL_HEIGHT - out.height - VER_GAP_HEIGHT
 
-        l = self.template([self.text_generator,self.table_generator],hmax)
-        r = self.template([self.text_generator, self.table_generator], hmax)
-        h = H([V(l, col_width, gaps=40), V(r, col_width, gaps=40)], col_width,gaps=80)
+        l = self.template([self.te, self.ta], hmax)
+        r = self.template([self.te, self.ta], hmax)
+        h = H([V(l, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT), V(r, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT)],
+              COLUMN_WIDTH,
+              gaps=HOR_GAP_WIDTH)
         out_list.append(h)
-        return V(out_list, page_width, gaps=40)
+        return V(out_list, PAGE_WIDTH, gaps=VER_GAP_HEIGHT)
 
-    def random_layout2(self):
+    def _layout2(self):
         # 单栏
         l = []
         if hit(0.5):
-            l.append(self.title_generator())
-        l.append(self.text_generator())
-        l.append(self.table_generator(w=page_width,rows=random.randint(8, 15),
-                                      complex=hit(0.5),
-                                      large_gap=True,
-                                      double_column=hit(0.5)))
+            l.append(self.ti())
+        l.append(self.te())
+        l.append(self.ta(width=PAGE_WIDTH,
+                         rows=random.randint(8, 15),
+                         cols=random.randint(5, 10),
+                         complex_header=hit(0.5),
+                         large_gap=True,
+                         indent=True,
+                         double_column=hit(0.5)))
 
-        lv = V(l, page_width, gaps=40)
-        hmax = self.col_height - lv.height
+        lv = V(l, PAGE_WIDTH, gaps=VER_GAP_HEIGHT)
+        hmax = COL_HEIGHT - lv.height
         while True:
-            t = self.text_generator(sentence=random.randint(5, 10))
-            if t.height <= hmax - 40:
+            t = self.te(sentence=random.randint(5, 10))
+            if t.height <= hmax - VER_GAP_HEIGHT:
                 l.append(t)
-                hmax = hmax - 40 - t.height
+                hmax = hmax - VER_GAP_HEIGHT - t.height
             else:
                 break
-            t = self.table_generator(rows=random.randint(4, 6),
-                                     complex=hit(0),
-                                     double_column=hit(0.5))
-            if t.height <= hmax - 40:
+            t = self.ta(rows=random.randint(4, 6),
+                        cols=None,
+                        complex=hit(0),
+                        double_column=hit(0.5))
+            if t.height <= hmax - VER_GAP_HEIGHT:
                 l.append(t)
-                hmax = hmax - 40 - t.height
+                hmax = hmax - VER_GAP_HEIGHT - t.height
             else:
                 continue
-        l.append(self.text_generator(sentence=random.randint(5, 10)))
+        l.append(self.te(sentence=random.randint(5, 10)))
 
-        out = V(l, page_width, gaps=40)
-        self.title_generator.cnt = 1
+        out = V(l, PAGE_WIDTH, gaps=VER_GAP_HEIGHT)
+        self.ti.count = 1
         return out
 
-    def random_layout3(self):
-        x = self.ltt()
-        return x
+    def _layout3(self):
+        return self.tt()
 
-    def random_layout4(self):
+    def _layout4(self):
         # 普通单个财务报表
-        title = random.choice(["CONSOLIDATED INCOME STATEMENT",
-                               "Consolidated Balance Sheet",
-                               "Consolidated Cash Flow Statement"])
-        return FinancialStatementTable(title,'en')
+        return self.ta(rows=random.randint(20, 30),
+                       cols=random.randint(4, 12),
+                       double_column=hit(0.5),
+                       complex_header=hit(0.5),
+                       lno_column=hit(0.5),
+                       dollar_column=hit(0.2),
+                       large_gap=False,
+                       indent=True
+                       )
 
     def create(self, type):
-        self.cnt = 0
         if type == 0:
-            return self.random_layout0()
+            return self._layout0()
         elif type == 1:
-            return self.random_layout1()
+            return self._layout1()
         elif type == 2:
-            return self.random_layout2()
+            return self._layout2()
         elif type == 3:
-            return self.random_layout3()
+            return self._layout3()
         elif type == 4:
-            return self.random_layout4()
+            return self._layout4()
 
-    def toggle_style(self):
-        self.table_generator.style = random.choice(["striped","other","simple"])
+    def _toggle_style(self):
+        self.ta.style = random.choice(["striped", "other", "simple"])
 
-
-    def run(self, batch,output_dir="data/financial_statement_en_sp"):
+    def run(self, batch, output_dir="data/financial_statement_en_sp"):
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
         err = 0
-        for i in trange(batch):
-            self.toggle_style()
+        cnt = 0
+        pbar = tqdm(total=batch)
+        pbar.set_description("Generating")
+        while cnt<batch:
+            self._toggle_style()
             try:
-                image_data = self.create(i%5).get_image()
+                image_data = self.create(cnt%5).get_image()
             except ValueError:
-                err+=1
+                err += 1
                 print(err)
                 continue
 
-            if i%5!=4:
-                image_data = add_to_paper(image_data, self.paper)
+            if cnt % 5 != 4:
+                image_data = add_to_paper(image_data, paper)
+
             fn = "0" + str(int(time.time() * 1000))[5:]
             cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn),
                         image_data["image"])
@@ -288,9 +315,11 @@ class LayoutDesigner(object):
                 os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn,
                 image_data
             )
-
+            cnt += 1
+            pbar.update(1)
+        pbar.close()
 
 
 if __name__ == "__main__":
     d = LayoutDesigner()
-    d.run(20)
+    d.run(5)
