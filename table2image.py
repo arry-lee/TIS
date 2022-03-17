@@ -210,6 +210,7 @@ def table2image(
 
                             if need_indent:
                                 b0 = box[0] + char_width * 2
+                                _font = en_font
                             else:
                                 b0 = box[0]
                                 _font = bold_font

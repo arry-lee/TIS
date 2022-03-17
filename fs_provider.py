@@ -64,14 +64,13 @@ class Provider(BaseProvider):
 
     _word_list = list(_word_list)
 
-    def price(self, digits=None, fix_len=True, unsigned=False, empty=False):
+    def price(self, digits=None, fix_len=True, unsigned=False, empty_ratio=0):
         n = self.random_number(digits, fix_len)
         if not unsigned:
             if random.random() < 0.5:
                 n = -n
-        if empty:
-            if random.random() < 0.5:
-                return '-'
+        if random.random() < empty_ratio:
+            return '-'
         return '{:,}'.format(n)
 
     def index(self):

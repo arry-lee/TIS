@@ -26,6 +26,7 @@ COL_HEIGHT = paper.height - PAPER_OFFSET * 2
 f = Faker(providers=['fs_provider'])
 hit = lambda r:random.random() < r
 
+
 class FSTable(FlexTable):
     """财务报表
 
@@ -44,7 +45,7 @@ class FSTable(FlexTable):
     style = "striped"
 
     def __init__(self, width=None, rows=None, cols=None, indent=False,
-                 font_size=40,price_width=None,
+                 font_size=40, price_width=None,
                  complex_header=False, double_column=False, large_gap=False,
                  dollar_column=False, lno_column=False, **kwargs):
 
@@ -72,12 +73,13 @@ class FSTable(FlexTable):
         self.add_row(columns)
         _max_price_width = 0
 
-        subtitle_rows = f.subtitle_lines(rows,DEFAULT_INDENT_MIN,DEFAULT_INDENT_MAX)
+        subtitle_rows = f.subtitle_lines(rows, DEFAULT_INDENT_MIN,
+                                         DEFAULT_INDENT_MAX)
 
         for lno, i in enumerate(indexes):
             row = []
             for _ in columns:
-                p = f.price(_default_price_width, True, False)
+                p = f.price(_default_price_width, True, False, empty_ratio=0.1)
                 row.append(p)
                 _max_price_width = max(_max_price_width, len(p))
             if dollar_column:
@@ -301,7 +303,7 @@ class LayoutDesigner(object):
                        complex_header=hit(0.5),
                        lno_column=hit(0.5),
                        dollar_column=hit(0.2),
-                       price_width=8,
+                       price_width=7,
                        large_gap=False,
                        indent=True,
                        )
