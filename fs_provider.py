@@ -75,7 +75,7 @@ class Provider(BaseProvider):
         return '{:,}'.format(n)
 
     def index(self):
-        return self.random_element(self._index_list).strip()
+        return self.random_element(self._index_list).strip().capitalize()
 
     def indexes(self, nb, unique=False):
         word_list = [x.strip() for x in self._index_list]
@@ -112,7 +112,16 @@ class Provider(BaseProvider):
     def subtitle(self,max_len=1):
         assert max_len>=1
         n = random.randint(1,max_len)
-        return ' '.join(self.words(n)).title()
+        return ' '.join(self.words(n)).upper()
+
+    def subtitle_lines(self,rows, min=2, max=5):
+        i = 0
+        subtitle_rows = []
+        while i < rows - 1:
+            subtitle_rows.append(i)
+            n = random.randint(min, max)
+            i += n
+        return subtitle_rows
 
     def sentence(self):
         while True:

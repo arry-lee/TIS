@@ -12,7 +12,7 @@ import yaml
 from tqdm import tqdm
 
 from fs_data import FinancialStatementTable, fstable2image, fstable2image_en
-from fs_sp import LayoutDesigner
+from fs_designer import LayoutDesigner
 from post_processor import random as _random
 from post_processor.background import add_background_data
 from post_processor.label import log_label

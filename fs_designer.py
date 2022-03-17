@@ -7,13 +7,12 @@ import cv2
 from tqdm import tqdm
 from faker import Faker
 
-
 from layout import HorLayout as H
 from layout import VerLayout as V
 from layout import TextBlock, FlexTable
 
 from post_processor.label import log_label
-from post_processor.background import add_to_paper
+from post_processor.background import add_background_data, add_to_paper
 from table2image import table2image
 
 from fs_settings import *
@@ -28,20 +27,38 @@ f = Faker(providers=['fs_provider'])
 hit = lambda r:random.random() < r
 
 class FSTable(FlexTable):
+    """财务报表
+
+    width=None,  宽度像素
+    rows=None, 行数
+    cols=None, 列数
+    indent=False, 缩进
+    font_size=40, 字号
+    complex_header=False, 多级表头
+    double_column=False,  双栏表格
+    large_gap=False, index列与data列间距大
+    dollar_column=False,  美元符号列
+    lno_column=False  行号列
+    style 风格
+    """
     style = "striped"
 
     def __init__(self, width=None, rows=None, cols=None, indent=False,
+                 font_size=40,price_width=None,
                  complex_header=False, double_column=False, large_gap=False,
-                 font_size=40, dollar_column=False, lno_column=False, **kwargs):
+                 dollar_column=False, lno_column=False, **kwargs):
+
         super().__init__(width, font_size, **kwargs)
         if rows is None:
-            rows =  random.randint(DEFAULT_ROW_MIN, DEFAULT_ROW_MAX)
+            rows = random.randint(DEFAULT_ROW_MIN, DEFAULT_ROW_MAX)
         if cols is None:
             cols = random.randint(DEFAULT_COL_MIN, DEFAULT_COL_MAX)
-            self._max_price_width = DEFAULT_NUM_MIN
             indent = hit(0.5)
+
+        if price_width is None:
+            _default_price_width = DEFAULT_NUM_MIN
         else:
-            self._max_price_width = DEFAULT_NUM_MAX
+            _default_price_width = price_width
 
         self.rows = rows
         self.cols = cols
@@ -53,37 +70,46 @@ class FSTable(FlexTable):
             columns[1] = 'No.'
 
         self.add_row(columns)
+        _max_price_width = 0
+
+        subtitle_rows = f.subtitle_lines(rows,DEFAULT_INDENT_MIN,DEFAULT_INDENT_MAX)
 
         for lno, i in enumerate(indexes):
-            row = [f.price(self._max_price_width, fix_len=True, unsigned=False) for _ in columns]
+            row = []
+            for _ in columns:
+                p = f.price(_default_price_width, True, False)
+                row.append(p)
+                _max_price_width = max(_max_price_width, len(p))
+            if dollar_column:
+                row[1] = '$'
+
             if indent:
-                if lno % 3 == 0:
-                    row[0] = f.subtitle().upper()
+                if lno in subtitle_rows:
+                    row[0] = f.subtitle()
                     row[1:] = [''] * (cols - 1)
                 else:
                     row[0] = i.capitalize()
             else:
                 row[0] = i.capitalize()
-            if dollar_column:
-                row[1] = '$'
-            elif lno_column:
+
+            if lno_column:
                 row[1] = lno
 
             if double_column:
                 if indent:
-                    if 2 * lno % 3 == 0:
-                        row[cols // 2] = f.subtitle().upper()
+                    if lno in subtitle_rows:
+                        row[cols // 2] = f.subtitle()
                     else:
-                        row[cols // 2] = f.index().capitalize()
+                        row[cols // 2] = f.index()
                 else:
-                    row[cols // 2] = f.index().capitalize()
+                    row[cols // 2] = f.index()
             self.add_row(row)
 
         self.align = 'r'
         self._align['Field 1'] = 'l'
-        self.min_width = 12
+        self.min_width = _max_price_width
         self.max_width = 20
-
+        self._max_cell_width = _max_price_width
         if double_column:
             self._align['Field %d' % (cols // 2 + 1)] = 'l'
 
@@ -94,8 +120,8 @@ class FSTable(FlexTable):
         if self.large_gap:
             self.widths = []
             tw = self._max_table_width - self.cols - 1
-            nw = max(self._max_price_width + 2,
-                     tw // 10)  # 按照10等份，后面的各取1份，剩下的给前面
+            # 按照10等份，后面的各取1份，剩下的给前面
+            nw = max(self._max_cell_width + 2, tw // 10)
             self.widths = [nw] * (self.cols - 1)
             self.widths.insert(0, tw - nw * (self.cols - 1))
         s = self.get_string()
@@ -105,7 +131,8 @@ class FSTable(FlexTable):
 
 
 class FSText(TextBlock):
-    def __init__(self, width=COLUMN_WIDTH, sentence=10, indent=4, font_size=TEXT_FONT_SIZE):
+    def __init__(self, width=COLUMN_WIDTH, sentence=3, indent=4,
+                 font_size=TEXT_FONT_SIZE):
         super().__init__(f.paragraph(sentence), width, indent,
                          font_size=font_size)
 
@@ -113,9 +140,10 @@ class FSText(TextBlock):
 class FSTitle(TextBlock):
     count = 1
 
-    def __init__(self, width=COLUMN_WIDTH, fill=TITLE_COLOR, font_size=TITLE_FONT_SIZE,
+    def __init__(self, width=COLUMN_WIDTH, fill=TITLE_COLOR,
+                 font_size=TITLE_FONT_SIZE,
                  **kwargs):
-        title = str(self.count) + '. ' + f.subtitle().upper()
+        title = str(self.count) + '. ' + f.subtitle()
         super().__init__(title, width, font_size=font_size, fill=fill, **kwargs)
         FSTitle.count += 1
 
@@ -125,28 +153,29 @@ class FSLongTextTable(FlexTable):
         super().__init__(width=width, font_size=font_size, **kwargs)
         if hit(0.5):
             self.add_row(['Exhibit No.', 'DESCRIPTION'])
-            s = random.randint(100, 900)
-            for i in range(18):
-                s += 1
+            pno = random.randint(100, 900)
+            for i in range(10):
+                pno += 1
                 d = random.randint(1, 4)
                 no = random.choice("abcdef")
-                x = "%d.%d%s" % (s, d, no)
+                x = "%d.%d%s" % (pno, d, no)
                 self.add_row([x, f.paragraph(random.randint(2, 4))])
-            self.max_width = int(0.9 * self._max_table_width)
+            self.max_width = int(0.8 * self._max_table_width)
+            self.min_width = 11
             self.align = 'l'
         else:
             self.add_row(['Item', 'Page'])
-            s = random.randint(1, 200)
-            for i in range(20):
+            pno = random.randint(1, 200)
+            for i in range(10):
                 n = random.randint(1, 10)
-                s += n
-                self.add_row([f.paragraph(random.randint(1, 4)), s])
-            self.max_width = int(0.9 * self._max_table_width)
+                pno += n
+                self.add_row([f.paragraph(random.randint(1, 4)), pno])
+            self.max_width = int(0.8 * self._max_table_width)
             self._align = {"Field 1":"l", "Field 2":"r"}
-        self.table_width = PAGE_WIDTH
 
     def get_image(self):
-        return table2image(str(self), font_size=self.font_size, vrules=None,
+        return table2image(str(self), line_pad=4, font_size=self.font_size,
+                           vrules=None,
                            hrules=None, style='simple', bold_pattern=None,
                            border='', align=None)
 
@@ -190,7 +219,8 @@ class LayoutDesigner(object):
         # 双栏
         l = self.template([self.ti, self.te, self.ta], COL_HEIGHT)
         r = self.template([self.ti, self.te, self.ta], COL_HEIGHT)
-        out = H([V(l, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT), V(r, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT)],
+        out = H([V(l, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT),
+                 V(r, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT)],
                 COLUMN_WIDTH,
                 gaps=HOR_GAP_WIDTH)
         self.ti.count = 1
@@ -215,7 +245,8 @@ class LayoutDesigner(object):
 
         l = self.template([self.te, self.ta], hmax)
         r = self.template([self.te, self.ta], hmax)
-        h = H([V(l, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT), V(r, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT)],
+        h = H([V(l, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT),
+               V(r, COLUMN_WIDTH, gaps=VER_GAP_HEIGHT)],
               COLUMN_WIDTH,
               gaps=HOR_GAP_WIDTH)
         out_list.append(h)
@@ -270,8 +301,9 @@ class LayoutDesigner(object):
                        complex_header=hit(0.5),
                        lno_column=hit(0.5),
                        dollar_column=hit(0.2),
+                       price_width=8,
                        large_gap=False,
-                       indent=True
+                       indent=True,
                        )
 
     def create(self, type):
@@ -296,10 +328,10 @@ class LayoutDesigner(object):
         cnt = 0
         pbar = tqdm(total=batch)
         pbar.set_description("Generating")
-        while cnt<batch:
+        while cnt < batch:
             self._toggle_style()
             try:
-                image_data = self.create(cnt%5).get_image()
+                image_data = self.create(cnt % 5).get_image()
             except ValueError:
                 err += 1
                 print(err)
@@ -307,6 +339,9 @@ class LayoutDesigner(object):
 
             if cnt % 5 != 4:
                 image_data = add_to_paper(image_data, paper)
+            else:
+                image_data = add_background_data(image_data, paper.image,
+                                                 offset=100)
 
             fn = "0" + str(int(time.time() * 1000))[5:]
             cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn),

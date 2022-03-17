@@ -156,6 +156,7 @@ def put_text_in_box_without_break_word(
     x, y = x0, 0
     out = []
     for line in lines[:-1]:
+        start = x
         ex = line.pop()
         out.append(" ".join(line))
         sign = 1 if ex >= 0 else -1
@@ -171,7 +172,7 @@ def put_text_in_box_without_break_word(
         for w, word in zip(sw, line):
             draw.text((x, y), word, fill, font)
             x = draw.textbbox((x, y), word, font)[2] + w
-        boxes.append((x, y, width, y + font_size))
+        boxes.append((start, y, width, y + font_size))
         y += font_size + line_pad
         x = 0
     draw.text((x, y), " ".join(lines[-1]), fill, font)

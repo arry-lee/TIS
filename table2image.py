@@ -317,7 +317,7 @@ def table2image(
             if striped_cell == "ITEM" and cno == 0:  # fixed issue#7
                 if random.random() < 0.5:  # 0.5 的概率出现
                     x_ = random.randint(cbox[0], (cbox[2] + cbox[0]) // 2)
-                    y_ = random.randint(cbox[1],(cbox[1] + cbox[3]) // 2)
+                    y_ = random.randint(cbox[1]+half_char_width,(cbox[1] + cbox[3]) // 2)
                     draw.text((x_, y_), striped_cell, _color, _font, anchor="lt")
                     text_box = draw.textbbox((x_, y_), striped_cell, _font, anchor="lt")
                     text_boxes.append([text_box, "text@" + striped_cell])
