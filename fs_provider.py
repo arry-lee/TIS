@@ -35,7 +35,7 @@ class Provider(BaseProvider):
     """ 财务报表相关的假数据供应商
 
     """
-    _columns_list = ['ITEM', 'AMOUNT FOR THIS PERIOD', 'AMOUNT FOR LAST PERIOD',
+    _columns_list = ['AMOUNT FOR THIS PERIOD', 'AMOUNT FOR LAST PERIOD',
                      'ACTUAL AMOUNT THIS MONTH',
                      'TOTAL AMOUNT THIS YEAR',
                      'TOTAL AMOUNT LAST YEAR',

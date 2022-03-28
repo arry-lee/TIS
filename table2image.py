@@ -224,6 +224,17 @@ def table2image(
                             text_box = draw.textbbox(
                                 (_box[2], _box[1]), cell.strip(), _font, anchor="rt"
                             )
+                        # fix 表头居中对齐
+                        elif HEADER_START_LINE_NO<=lno <= HEADER_END_LINE_NO:
+                            draw.text(
+                                (box[0]//2+box[2]//2, box[1]//2+box[3]//2), cell.strip(), _color, _font,
+                                anchor="mm"
+                            )
+                            text_box = draw.textbbox(
+                                (box[0] // 2 + box[2] // 2,box[1] // 2 + box[3] // 2), cell.strip(), _font,
+                                anchor="mm"
+                            )
+
                         else:
                             draw.text(
                                 (box[2], box[1]),

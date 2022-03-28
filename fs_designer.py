@@ -109,6 +109,10 @@ class FSTable(FlexTable):
 
         self.align = 'r'
         self._align['Field 1'] = 'l'
+        if hit(0.5):
+            self.valign = 'm'
+        else:
+            self.valign = 't'
         self.min_width = _max_price_width
         self.max_width = 20
         self._max_cell_width = _max_price_width
@@ -359,4 +363,4 @@ class LayoutDesigner(object):
 
 if __name__ == "__main__":
     d = LayoutDesigner()
-    d.run(5)
+    d.run(50)
