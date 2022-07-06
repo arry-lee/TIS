@@ -11,8 +11,7 @@ def minimize_color(img_path, num=3):
     Z = img.reshape((-1, 3))
     Z = np.float32(Z)
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    ret, label, center = cv.kmeans(Z, num, None, criteria, 10,
-                                   cv.KMEANS_RANDOM_CENTERS)
+    ret, label, center = cv.kmeans(Z, num, None, criteria, 10, cv.KMEANS_RANDOM_CENTERS)
 
     # Now convert back into uint8, and make original image
     center = np.uint8(center)
@@ -25,7 +24,6 @@ def get_twocolor(img):
     Z = img.reshape((-1, 3))
     Z = np.float32(Z)
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    ret, label, center = cv.kmeans(Z, 2, None, criteria, 10,
-                                   cv.KMEANS_RANDOM_CENTERS)
+    ret, label, center = cv.kmeans(Z, 2, None, criteria, 10, cv.KMEANS_RANDOM_CENTERS)
     center = np.uint8(center)
     return center[0], center[1]

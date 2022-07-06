@@ -3,6 +3,7 @@ from rich.console import Console
 from rich.progress import track
 import time
 
+
 def do_step(step):
     time.sleep(0.1)
 
@@ -12,6 +13,5 @@ def do_step(step):
 
 import numpy as np
 
-a = np.zeros((2,3))
+a = np.zeros((2, 3))
 print(a)
-

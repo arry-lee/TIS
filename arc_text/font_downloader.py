@@ -1,6 +1,6 @@
 import os
 
-os.environ["UNRAR_LIB_PATH"] = r"C:\Program Files (x86)\UnrarDLL\x64\UnRAR64.dll"
+os.environ["UNRAR_LIB_PATH"] = r"E:\00IT\P\uniform\arc_text\UnRAR64.dll"
 import re
 
 import requests

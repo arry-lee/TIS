@@ -98,7 +98,7 @@ s = """
 
 def hello2022(signal):
     write, flush = sys.stdout.write, sys.stdout.flush
-    for num in itertools.cycle(nums.split('\n\n')):
+    for num in itertools.cycle(nums.split("\n\n")):
         write(num)
         subprocess.run("cls", shell=True)
         if not signal.go:
@@ -109,26 +109,27 @@ def hello2022(signal):
 class Signal:
     go = True
 
+
 def counter_down(t):
     write, flush = sys.stdout.write, sys.stdout.flush
     for char in itertools.cycle(range(t)):
         l = write(str(char))
         flush()
-        write('\x08'*l)
-        time.sleep(.1)
+        write("\x08" * l)
+        time.sleep(0.1)
 
 
-def spin(msg,signal):
-    write,flush = sys.stdout.write,sys.stdout.flush
-    for char in itertools.cycle('|/-\\'):
-        status = char+' '+msg
+def spin(msg, signal):
+    write, flush = sys.stdout.write, sys.stdout.flush
+    for char in itertools.cycle("|/-\\"):
+        status = char + " " + msg
         write(status)
         flush()
-        write('\x08'*len(status))
-        time.sleep(.1)
+        write("\x08" * len(status))
+        time.sleep(0.1)
         if not signal.go:
             break
-    write(' '*len(status)+'\x08'*len(status))
+    write(" " * len(status) + "\x08" * len(status))
 
 
 def slow_function():
@@ -138,17 +139,18 @@ def slow_function():
 
 def supervisor():
     signal = Signal()
-    spinner = threading.Thread(target=spin,args=(signal,))
+    spinner = threading.Thread(target=spin, args=(signal,))
     spinner.start()
     result = slow_function()
     signal.go = False
     spinner.join()
     return result
 
+
 def main():
     result = supervisor()
-    print('Answer:',result)
+    print("Answer:", result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

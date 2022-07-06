@@ -1,8 +1,10 @@
 # 给图片增加水印（污染，签名等）
 import random
-from PIL import Image,ImageDraw,ImageFont
-from post_processor.deco import as_pillow,as_cv
+
+from PIL import Image, ImageDraw, ImageFont
+
 from post_processor.color_reducer import minimize_color
+from post_processor.deco import as_cv, as_pillow
 from post_processor.rotation import rotate_bound
 
 

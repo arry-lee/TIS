@@ -32,14 +32,16 @@ def as_cv(img):
 
 def imageit(func):
     """将输入图片包装成cv格式"""
+
     def wrap(img, *args, **kwargs):
         res = func(as_cv(img), *args, **kwargs)
         return res
+
     return wrap
 
 
 def keepdata(func):
-    """ 将处理器函数包装成可以处理字典的,
+    """将处理器函数包装成可以处理字典的,
     任何输入图像的输入转换为cv,输出为cv
     """
 
@@ -49,7 +51,7 @@ def keepdata(func):
         elif isinstance(img, Image.Image):
             oimg = p2c(img)
         elif isinstance(img, dict):
-            oimg = img['image']
+            oimg = img["image"]
         else:
             oimg = img
 
@@ -57,14 +59,14 @@ def keepdata(func):
 
         if isinstance(img, dict):
             if isinstance(res, Image.Image):
-                img['image'] = p2c(res)
+                img["image"] = p2c(res)
             else:
-                img['image'] = res
+                img["image"] = res
             return img
         else:
             if isinstance(res, Image.Image):
-                img['image'] = p2c(res)
+                img["image"] = p2c(res)
             else:
-                img['image'] = res
+                img["image"] = res
 
     return wrap

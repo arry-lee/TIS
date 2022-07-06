@@ -104,7 +104,7 @@ def put_text_in_box(
 
 
 def put_text_in_box_without_break_word(
-    text, width, indent=0,fill="black", font_path="arial.ttf", font_size=20, line_pad=5
+    text, width, indent=0, fill="black", font_path="arial.ttf", font_size=20, line_pad=5
 ):
     """软换行而且调整空格宽度来实现两端对齐
     text: 没有换行的完整英文句子
@@ -127,7 +127,7 @@ def put_text_in_box_without_break_word(
     font = ImageFont.truetype(font_path, font_size)
     space_width = font.getsize(" ")[0]
     MAX_SPACE_DIFF = 0.1 * space_width  # 空格宽度变化百分比
-    x0 = indent*space_width
+    x0 = indent * space_width
     lens = x0
     for word in words:
         w = font.getsize(word)[0]
@@ -149,13 +149,20 @@ def put_text_in_box_without_break_word(
                 line = [word]
                 lens = w + space_width
 
-    lines.append(line)
-    height = len(lines) * (font_size + line_pad)
+    end_line = None
+    if line and not isinstance(line[-1], int):
+        end_line = " ".join(line)
+
+    if end_line is None:
+        height = len(lines) * (font_size + line_pad)
+    else:
+        height = (len(lines) + 1) * (font_size + line_pad)
+
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
     x, y = x0, 0
     out = []
-    for line in lines[:-1]:
+    for line in lines:
         start = x
         ex = line.pop()
         out.append(" ".join(line))
@@ -175,9 +182,11 @@ def put_text_in_box_without_break_word(
         boxes.append((start, y, width, y + font_size))
         y += font_size + line_pad
         x = 0
-    draw.text((x, y), " ".join(lines[-1]), fill, font)
-    boxes.append(draw.textbbox((x, y), " ".join(lines[-1]), font))
-    out.append(" ".join(lines[-1]))
+
+    if end_line:
+        draw.text((x, y), end_line, fill, font)
+        boxes.append(draw.textbbox((x, y), end_line, font))
+        out.append(end_line)
     return "\n".join(out), img, boxes
 
 
@@ -219,3 +228,14 @@ def draw_multiline_text(text, fill, font_path="arial.ttf", font_size=20):
     return img
 
 
+def font_wrap(text, width, font_path="arial.ttf", font_size=40):
+    # width 是字符宽度
+    out, img, box = put_text_in_box(
+        text,
+        width * font_size // 2,
+        font_path=font_path,
+        font_size=font_size,
+        break_word=False,
+        indent=0,
+    )
+    return out

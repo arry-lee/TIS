@@ -6,7 +6,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from awesometable import H_SYMBOLS, __c, _count_padding, _str_block_width, vpat
+from awesometable.awesometable import H_SYMBOLS, _str_block_width, V_LINE_PATTERN
+from awesometable.image import _count_padding, replace_chinese_to_dunder
 
 ORANGE = (235, 119, 46)
 BLUE = (204, 237, 255)
@@ -21,7 +22,7 @@ def table2image(
     offset=0,  # 字数偏移
     background=None,
     bg_box=None,
-    font_path="./static/fonts/simfang.ttf",
+    font_path="simfang.ttf",
     line_pad=0,
     line_height=None,
     vrules="ALL",
@@ -44,7 +45,6 @@ def table2image(
     """
 
     assert font_size % 4 == 0
-
     char_width = font_size // 2  # 西文字符宽度
     half_char_width = char_width // 2
     if line_height is None:
@@ -69,6 +69,7 @@ def table2image(
         background = Image.new("RGB", (w, h), bg_color)
         x0, y0 = xy or (char_width + char_width * offset, char_width)
     draw = ImageDraw.Draw(background)
+
     # 风格选择
     if style == "striped":
         underline_color = None
@@ -119,7 +120,7 @@ def table2image(
             continue
 
         x = half_char_width + x0  # 记录坐标
-        cells = re.split(vpat, line)[1:-1]
+        cells = re.split(V_LINE_PATTERN, line)[1:-1]
         # 处理多表中间大段文字，单一表格不会访问
         if not cells:
             draw.text((x, y), line, "black", text_font, anchor="lm")
@@ -200,7 +201,9 @@ def table2image(
             if box[1] != box[3]:  # 非空判断
                 if striped_cell != "ITEM":
                     if align == "lr":
-                        if lno>HEADER_END_LINE_NO and (cno == 0 or cno==len(cells)//2):
+                        if lno > HEADER_END_LINE_NO and (
+                            cno == 0 or cno == len(cells) // 2
+                        ):
                             # 处理缩进的逻辑,用全大写字母代表标题
                             if striped_cell.isupper():
                                 need_indent = False
@@ -225,14 +228,19 @@ def table2image(
                                 (_box[2], _box[1]), cell.strip(), _font, anchor="rt"
                             )
                         # fix 表头居中对齐
-                        elif HEADER_START_LINE_NO<=lno <= HEADER_END_LINE_NO:
+                        elif HEADER_START_LINE_NO <= lno <= HEADER_END_LINE_NO:
                             draw.text(
-                                (box[0]//2+box[2]//2, box[1]//2+box[3]//2), cell.strip(), _color, _font,
-                                anchor="mm"
+                                (box[0] // 2 + box[2] // 2, box[1] // 2 + box[3] // 2),
+                                cell.strip(),
+                                _color,
+                                _font,
+                                anchor="mm",
                             )
                             text_box = draw.textbbox(
-                                (box[0] // 2 + box[2] // 2,box[1] // 2 + box[3] // 2), cell.strip(), _font,
-                                anchor="mm"
+                                (box[0] // 2 + box[2] // 2, box[1] // 2 + box[3] // 2),
+                                cell.strip(),
+                                _font,
+                                anchor="mm",
                             )
 
                         else:
@@ -286,9 +294,9 @@ def table2image(
             tt = lno - 1
             bb = lno + 1
             # 上下查找边框
-            while __c(lines, tt)[ll] not in H_SYMBOLS:
+            while replace_chinese_to_dunder(lines, tt)[ll] not in H_SYMBOLS:
                 tt -= 1
-            while __c(lines, bb)[ll] not in H_SYMBOLS:
+            while replace_chinese_to_dunder(lines, bb)[ll] not in H_SYMBOLS:
                 bb += 1
 
             cbox = (
@@ -329,7 +337,9 @@ def table2image(
             if striped_cell == "ITEM" and cno == 0:  # fixed issue#7
                 if random.random() < 0.5:  # 0.5 的概率出现
                     x_ = random.randint(cbox[0], (cbox[2] + cbox[0]) // 2)
-                    y_ = random.randint(cbox[1]+half_char_width,(cbox[1] + cbox[3]) // 2)
+                    y_ = random.randint(
+                        cbox[1] + half_char_width, (cbox[1] + cbox[3]) // 2
+                    )
                     draw.text((x_, y_), striped_cell, _color, _font, anchor="lt")
                     text_box = draw.textbbox((x_, y_), striped_cell, _font, anchor="lt")
                     text_boxes.append([text_box, "text@" + striped_cell])

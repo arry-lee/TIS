@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 from PIL import Image,ImageDraw,ImageFont
 
-import fs_settings
 from post_processor.deco import as_pillow, c2p, as_cv
 from post_processor.rotation import rotate_bound
 
@@ -118,11 +117,11 @@ def add_seal_box(img, seal_p='./static/seal/seal.jpg', xy=None, angle=None,arc_s
     h, w = seal_p.shape[:2]
     if arc_seal:
         x,y = xy
-        x += (fs_settings.PAPER_WIDTH - w) // 2
+        x += (seal.width - w) // 2
         y += (seal.height-h)//2
         x2, y2 = x + w, y + h
     else:
         x,y=xy
-        x2, y2 = x + fs_settings.PAPER_WIDTH, y + seal.height
+        x2, y2 = x + seal.width, y + seal.height
 
     return img,(x,y,x2,y2)
