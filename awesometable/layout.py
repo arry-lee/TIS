@@ -8,11 +8,11 @@ from abc import ABCMeta, abstractmethod
 import cv2
 import numpy as np
 import prettytable
-from PIL import Image
+from PIL import Image, ImageFont
 
 from awesometable.awesometable import AwesomeTable
 from awesometable.fontwrap import put_text_in_box, put_text_in_box_without_break_word
-from awesometable.table2image import table2image
+from awesometable.table2image import Text, table2image
 
 
 def modify_text(text,xy):
@@ -382,11 +382,16 @@ class TextBlock(AbstractTable):
             points.append([box[2] + self.padding, box[3] + self.padding])
             points.append([box[0] + self.padding, box[3] + self.padding])
 
+        ts = [Text((b[0], b[1]), text,
+              ImageFont.truetype(self.font_path, self.font_size), 'lt',
+              self.fill, b) for b, text in zip(boxes, s)]
+        for t in ts:
+            modify_text(t,(self.padding,self.padding))
         return {
             "image": cv2.cvtColor(np.asarray(bg, np.uint8), cv2.COLOR_RGB2BGR),
             "points": points,
             "label": ["text@" + l for l in s.splitlines()],
-            'text':[],
+            'text':ts,
             'line':[]
         }
 
