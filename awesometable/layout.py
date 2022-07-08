@@ -15,6 +15,21 @@ from awesometable.fontwrap import put_text_in_box, put_text_in_box_without_break
 from awesometable.table2image import table2image
 
 
+def modify_text(text,xy):
+    x0,y0 = xy
+    x1,y1,x2,y2 = text.box
+    x3,y3 = text.xy
+    text.box = x1+x0,y1+y0,x2+x0,y2+y0
+    text.xy = x3+x0,y3+y0
+
+def modify_line(line,xy):
+    x0,y0 = xy
+    x1,y1 = line.start
+    x2,y2 = line.end
+    line.start = x1+x0,y1+y0
+    line.end = x2+x0,y2+y0
+
+
 class LayoutTable(AwesomeTable):
     """布局文字布局管理"""
 
@@ -67,7 +82,6 @@ class AbstractTable(object, metaclass=ABCMeta):
             raise ValueError("Not Layout or Table")
 
 
-# todo 移除布局类的offset，布局不应该有offset，只有gap
 class HorLayout(AbstractTable):
     """水平方向布局的抽象
     任何实现了 get_image 方法和 table_width 属性的类表格，
@@ -139,12 +153,19 @@ class HorLayout(AbstractTable):
             h, w = data["image"].shape[:2]
             img[y : y + h, x : x + w] = data["image"]
             data["points"] = (np.array(data["points"]) + (x, y)).tolist()
+            for t in data["text"]:
+                modify_text(t,(x,y))
+            for l in data["line"]:
+                modify_line(l,(x,y))
+
             if not out:
                 out = data
             else:
                 out["image"] = img
                 out["label"].extend(data["label"])
                 out["points"].extend(data["points"])
+                out["text"].extend(data["text"])
+                out["line"].extend(data["line"])
             x += w + gap
         return out
 
@@ -210,12 +231,18 @@ class VerLayout(AbstractTable):
             h, w = data["image"].shape[:2]
             img[y : y + h, x : x + w] = data["image"]
             data["points"] = (np.array(data["points"]) + (x, y)).tolist()
+            for t in data["text"]:
+                modify_text(t,(x,y))
+            for l in data["line"]:
+                modify_line(l,(x,y))
             if not out:
                 out = data
             else:
                 out["image"] = img
                 out["label"].extend(data["label"])
                 out["points"].extend(data["points"])
+                out["text"].extend(data["text"])
+                out["line"].extend(data["line"])
             y += h + gap
         return out
 
@@ -359,6 +386,8 @@ class TextBlock(AbstractTable):
             "image": cv2.cvtColor(np.asarray(bg, np.uint8), cv2.COLOR_RGB2BGR),
             "points": points,
             "label": ["text@" + l for l in s.splitlines()],
+            'text':[],
+            'line':[]
         }
 
 
@@ -393,9 +422,7 @@ class TextTable(FlexTable):
         return self.get_layouts().get_image()
 
 
-#
-#
-#
+
 if __name__ == "__main__":
     import faker
 

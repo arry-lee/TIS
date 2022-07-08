@@ -10,6 +10,7 @@ from faker import Faker
 from awesometable.layout import HorLayout as H
 from awesometable.layout import VerLayout as V
 from awesometable.layout import TextBlock, FlexTable
+from awesometable.table2pdf import render_pdf
 
 from post_processor.label import log_label
 from post_processor.background import add_background_data, add_to_paper
@@ -384,6 +385,7 @@ class LayoutDesigner(object):
 
             fn = "0" + str(int(time.time() * 1000))[5:]
             cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn), image_data["image"])
+            render_pdf(image_data,os.path.join(output_dir, "%s.pdf" % fn))
             log_label(
                 os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn, image_data
             )

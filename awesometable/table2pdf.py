@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QFile, QIODevice, QMarginsF, QSizeF, Qt
-from PyQt5.QtGui import QFont, QPainter, QPdfWriter, QPen
+from PyQt5.QtGui import QColor, QFont, QPainter, QPdfWriter, QPen
 from PyQt5.QtWidgets import QApplication, QWidget
 
 # 1 pix = 1 mm
@@ -16,6 +16,12 @@ MM = 1 / DPM
 
 # location,label,color,font,size
 
+def imagefont_to_qtfont(font):
+    ft = QFont()
+    ft.setFamily(font.path)
+    ft.setPixelSize(font.size)
+    return ft
+
 
 class PdfWriter(QWidget):
     def __init__(self, *arg):
@@ -23,8 +29,10 @@ class PdfWriter(QWidget):
 
     def render_pdf(self, data, outfile):
         image = data["image"]
-        labels = data["label"]
-        boxes = data["boxes"]
+        # labels = data["label"]
+        # boxes = data["boxes"]
+        text_list = data["text"]
+        line_list = data["line"]
         h, w = image.shape[:2]
         print(h, w)
         pdfFile = QFile(outfile)
@@ -34,23 +42,32 @@ class PdfWriter(QWidget):
         pw.setResolution(DPI)
         pw.setPageMargins(QMarginsF(0, 0, 0, 0))
         painter = QPainter(pw)
-        _font = QFont()
-        _font.setFamily("simfang.ttf")
-        _font.setPixelSize(20)
-        painter.setFont(_font)
+        # _font = QFont()
+        # _font.setFamily("simfang.ttf")
+        # _font.setPixelSize(20)
+        # painter.setFont(_font)
         painter.setPen(QPen(Qt.black, 2, Qt.SolidLine))
 
-        for label, box in zip(labels, boxes):
-            print(label, box)
-            if label == "cell@":
-                painter.drawLine(box[0], box[1], box[0], box[3])
-                painter.drawLine(box[2], box[1], box[2], box[3])
-                painter.drawLine(box[0], box[1], box[2], box[1])
-                painter.drawLine(box[0], box[3], box[2], box[3])
-            elif label == "table@0":
-                continue
-            else:
-                painter.drawText(box[0], box[3], label[5:])
+        for t in text_list:
+            painter.setFont(imagefont_to_qtfont(t.font))
+            # painter.setPen(QColor(t.color))
+            painter.drawText(t.box[0],t.box[3],t.text)
+
+        for l in line_list:
+            painter.setPen(QPen(Qt.black, l.width, Qt.SolidLine))
+            painter.drawLine(l.start[0],l.start[1],l.end[0],l.end[1])
+
+        # for label, box in zip(labels, boxes):
+        #     print(label, box)
+        #     if label == "cell@":
+        #         painter.drawLine(box[0], box[1], box[0], box[3])
+        #         painter.drawLine(box[2], box[1], box[2], box[3])
+        #         painter.drawLine(box[0], box[1], box[2], box[1])
+        #         painter.drawLine(box[0], box[3], box[2], box[3])
+        #     elif label == "table@0":
+        #         continue
+        #     else:
+        #         painter.drawText(box[0], box[3], label[5:])
 
         painter.end()
         pdfFile.close()

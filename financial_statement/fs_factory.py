@@ -1,6 +1,7 @@
 import os
 import random
 import re
+import sys
 import time
 from functools import partial
 from itertools import cycle
@@ -10,7 +11,7 @@ import cv2
 import numpy as np
 import yaml
 from tqdm import tqdm
-
+sys.path.append('E:\\00IT\\P\\uniform')
 from awesometable.table2pdf import render_pdf
 from fs_data import FinancialStatementTable, fstable2image, fstable2image_en
 from fs_designer import LayoutDesigner
@@ -99,6 +100,8 @@ class FSFactory(Thread):
         pbar = tqdm(total=self.batch)
         pbar.set_description("FsFactory")
         count = 0
+
+        print(self.save_mid)
         for table_generator in cycle(self.table_machines):
             for t in table_generator.create(5, page_it=False):
                 fn = "0" + str(int(time.time() * 1000))[5:]
@@ -125,7 +128,7 @@ class FSFactory(Thread):
                     bold_pattern=self.BOLD_PATTERN,
                     back_pattern=back_pattern,
                 )
-
+                print(image_data.keys())
                 if self.save_mid:
                     cv2.imwrite(
                         os.path.join(output_dir, "%s.jpg" % fn),
@@ -173,8 +176,9 @@ class FSFactory(Thread):
                         image_data["image"]
                     )
                     # 生成pdf
-                    render_pdf(image_data,
-                               os.path.join(output_dir, "%s.pdf" % fn))
+
+                    # render_pdf(image_data,
+                    #            os.path.join(output_dir, "%s.pdf" % fn))
 
                     log_label(
                         os.path.join(output_dir, "%s.txt" % fn),
@@ -185,6 +189,7 @@ class FSFactory(Thread):
                         return
                     else:
                         count += 1
+
                 pbar.update(1)
         pbar.close()
 

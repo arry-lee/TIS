@@ -1,12 +1,15 @@
 import random
 import re
 from collections import defaultdict
+from dataclasses import dataclass
+from typing import Any
 
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from awesometable.awesometable import H_SYMBOLS, _str_block_width, V_LINE_PATTERN
+from awesometable.awesometable import (H_SYMBOLS, V_LINE_PATTERN,
+                                       _str_block_width)
 from awesometable.image import _count_padding, replace_chinese_to_dunder
 
 ORANGE = (235, 119, 46)
@@ -14,28 +17,81 @@ BLUE = (204, 237, 255)
 LINE_PAT = re.compile(r"(\n*[╔╠╚].+?[╗╣╝]\n*)")
 
 
+@dataclass
+class Font:
+    font_path: str
+    font_size: int
+
+
+@dataclass
+class Text:
+    xy: tuple[int, int]
+    text: str
+    font: Any
+    anchor: str = 'lt'
+    color: Any = 'black'
+    box: tuple[int, int, int, int] = None
+
+
+@dataclass
+class Line:
+    start: tuple[int, int]
+    end: tuple[int, int]
+    width: int
+    color: Any = 'black'
+
+
+def draw_text(xy, txt, color, font, anchor='lt'):
+    """ 将任何锚点的字符串转化成 lt 锚点，并且去除前后空格
+
+    返回 Text 对象以用于延迟绘制
+    """
+    x, y = xy
+    im = Image.new('RGB', (x + 1000, y + 1000), 'white')
+    draw = ImageDraw.Draw(im)
+    box = draw.textbbox(xy, txt, font, anchor)
+    xy = box[0], box[1]
+    anchor = 'lt'
+    if txt != txt.rstrip():
+        txt = txt.rstrip()
+        box = draw.textbbox(xy, txt, font, anchor)
+        xy = box[2], box[1]
+        anchor = 'rt'
+    if txt != txt.lstrip():
+        txt = txt.lstrip()
+        box = draw.textbbox(xy, txt, font, anchor)
+        xy = box[0], box[1]
+        anchor = 'lt'
+    del im, draw
+    return Text(xy, txt, font, anchor, color, box)
+
+
+def draw_line(p1, p2, color, width):
+    return Line(p1, p2, width, color)
+
+
 def table2image(
-    table,
-    xy=None,
-    font_size=20,
-    bg_color="white",
-    offset=0,  # 字数偏移
-    background=None,
-    bg_box=None,
-    font_path="simfang.ttf",
-    line_pad=0,
-    line_height=None,
-    vrules="ALL",
-    hrules="ALL",
-    border="tb",
-    debug=False,
-    style="striped",
-    underline_color=ORANGE,
-    striped_color=BLUE,
-    bold_pattern=None,
-    back_pattern=None,
-    align="lr",
-    **kwargs
+        table,
+        xy=None,
+        font_size=20,
+        bg_color="white",
+        offset=0,  # 字数偏移
+        background=None,
+        bg_box=None,
+        font_path="simfang.ttf",
+        line_pad=0,
+        line_height=None,
+        vrules="ALL",
+        hrules="ALL",
+        border="tb",
+        debug=False,
+        style="striped",
+        underline_color=ORANGE,
+        striped_color=BLUE,
+        bold_pattern=None,
+        back_pattern=None,
+        align="lr",
+        **kwargs
 ):
     """
     将通用表格渲染成图片、
@@ -60,7 +116,8 @@ def table2image(
         if isinstance(background, str):
             background = Image.open(background)
         elif isinstance(background, np.ndarray):
-            background = Image.fromarray(cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
+            background = Image.fromarray(
+                cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
         wb, hb = background.size
         wn, hn = int(wb * w / w0), int(hb * h / h0)
         background = background.resize((wn, hn))
@@ -99,6 +156,8 @@ def table2image(
     y = y0  # 起始行 y 坐标
     sum_diff = 0  # 累积误差
 
+    text_list = []
+    line_list = []
     # 行号
     TITLE_LINE_NO = kwargs.get("title_line", None)
     SUBTITLE_LINE_NO = kwargs.get("subtitle_line", None)
@@ -123,9 +182,7 @@ def table2image(
         cells = re.split(V_LINE_PATTERN, line)[1:-1]
         # 处理多表中间大段文字，单一表格不会访问
         if not cells:
-            draw.text((x, y), line, "black", text_font, anchor="lm")
-            text_box = draw.textbbox((x, y), line, text_font, anchor="lm")
-            text_boxes.append([text_box, "text@" + line])
+            text_list.append(draw_text((x, y), line, "black", text_font, anchor="lm"))
             # 遇到文字说明表格结束，记录并重置
             if (lx, ty, rx, by) != (w, h, 0, 0):
                 table_boxes.append([lx, ty, rx, by])
@@ -136,26 +193,20 @@ def table2image(
             continue
         # 处理标题行
         if TITLE_LINE_NO and lno == TITLE_LINE_NO:
-            text = cells[0].strip()
-            draw.text((x, y), text, "black", title_font, anchor="lm")
-            bbox = draw.textbbox((x, y), text, title_font, anchor="lm")
-            text_boxes.append([bbox, "text@" + text])
+            text_list.append(draw_text((x, y), cells[0].strip(), "black", title_font,
+                          anchor="lm"))
             y += line_height
             continue
         # 处理副标题行
         if SUBTITLE_LINE_NO and lno == SUBTITLE_LINE_NO:
-            text = cells[0].strip()
-            draw.text((x, y), text, "black", subtitle_font, anchor="lm")
-            bbox = draw.textbbox((x, y), text, subtitle_font, anchor="lm")
-            text_boxes.append([bbox, "text@" + text])
+            text_list.append(draw.text((x, y), cells[0].strip(), "black", subtitle_font,
+                          anchor="lm"))
             y += line_height
             continue
         # 处理信息行
         if INFO_LINE_NO and lno == INFO_LINE_NO:
-            text = cells[0].strip()
-            draw.text((x, y), text, "black", subtitle_font, anchor="lm")
-            bbox = draw.textbbox((x, y), text, subtitle_font, anchor="lm")
-            text_boxes.append([bbox, "text@" + text])
+            text_list.append(draw_text((x, y), cells[0].strip(), "black", subtitle_font,
+                          anchor="lm"))
             y += line_height
             continue
 
@@ -168,7 +219,6 @@ def table2image(
             _font = bold_font
             _color = "black"
         elif bold_pattern and need_indent:
-            # todo fix this
             _font = bold_font
             _color = underline_color or "black"
         else:
@@ -185,7 +235,7 @@ def table2image(
 
             box = draw.textbbox((x, y), cell, font=font, anchor="lm")
 
-            # 条纹背景  # todo fix this
+            # 条纹背景
             if striped_color and need_striped:
                 draw.rectangle(
                     (
@@ -202,7 +252,7 @@ def table2image(
                 if striped_cell != "ITEM":
                     if align == "lr":
                         if lno > HEADER_END_LINE_NO and (
-                            cno == 0 or cno == len(cells) // 2
+                                cno == 0 or cno == len(cells) // 2
                         ):
                             # 处理缩进的逻辑,用全大写字母代表标题
                             if striped_cell.isupper():
@@ -218,55 +268,34 @@ def table2image(
                                 b0 = box[0]
                                 _font = bold_font
 
-                            draw.text(
-                                (b0, box[1]), cell.rstrip(), _color, _font, anchor="lt"
-                            )
-                            _box = draw.textbbox(
-                                (b0, box[1]), cell.rstrip(), _font, anchor="lt"
-                            )
-                            text_box = draw.textbbox(
-                                (_box[2], _box[1]), cell.strip(), _font, anchor="rt"
-                            )
+                            text_list.append(draw_text(
+                                (b0, box[1]), cell.rstrip(), _color, _font,
+                                anchor="lt"
+                            ))
+
                         # fix 表头居中对齐
                         elif HEADER_START_LINE_NO <= lno <= HEADER_END_LINE_NO:
-                            draw.text(
-                                (box[0] // 2 + box[2] // 2, box[1] // 2 + box[3] // 2),
+                            text_list.append(draw_text(
+                                (box[0] // 2 + box[2] // 2,
+                                 box[1] // 2 + box[3] // 2),
                                 cell.strip(),
                                 _color,
                                 _font,
                                 anchor="mm",
-                            )
-                            text_box = draw.textbbox(
-                                (box[0] // 2 + box[2] // 2, box[1] // 2 + box[3] // 2),
-                                cell.strip(),
-                                _font,
-                                anchor="mm",
-                            )
-
+                            ))
                         else:
-                            draw.text(
+                            text_list.append(draw_text(
                                 (box[2], box[1]),
                                 cell.lstrip(),
                                 _color,
                                 _font,
                                 anchor="rt",
-                            )
-                            _box = draw.textbbox(
-                                (box[2], box[1]), cell.lstrip(), _font, anchor="rt"
-                            )
-                            text_box = draw.textbbox(
-                                (_box[0], _box[1]), cell.strip(), _font, anchor="lt"
-                            )
+                            ))
                     else:
-                        draw.text(
-                            (box[0], box[1]), cell.rstrip(), _color, _font, anchor="lt"
-                        )
-                        _box = draw.textbbox(
-                            (box[0], box[1]), cell.rstrip(), _font, anchor="lt"
-                        )
-                        text_box = draw.textbbox(
-                            (_box[2], _box[1]), cell.strip(), _font, anchor="rt"
-                        )
+                        text_list.append(draw_text(
+                            (box[0], box[1]), cell.rstrip(), _color, _font,
+                            anchor="lt"
+                        ))
                 # 此处统计左右空格数
                 lpad, rpad = _count_padding(cell)
                 l = box[0] + lpad * char_width
@@ -276,17 +305,12 @@ def table2image(
                     for text in re.split("( {2,})", striped_cell):
                         if text.strip():
                             rt = lt + _str_block_width(text) * char_width
-                            text_box = (lt, box[1], rt, box[3] - 1)
-                            text_boxes.append([text_box, "text@" + text])
-                            if debug:
-                                draw.rectangle(text_box, outline="green")
+                            text_list.append(draw_text((lt, box[1]),text.strip(),'black',_font))
                         else:
                             lt = rt + _str_block_width(text) * char_width
-                else:
-                    if striped_cell != "-" and striped_cell != "ITEM":
-                        text_boxes.append([text_box, "text@" + striped_cell])
-                        if debug:
-                            draw.rectangle(text_box, outline="green")
+                # else:
+                #     if striped_cell != "-" and striped_cell != "ITEM":
+                #         text_boxes.append([text_box, "text@" + striped_cell])
 
             left = box[0] - half_char_width
             right = box[2] + half_char_width
@@ -309,22 +333,22 @@ def table2image(
 
             margin = char_width
             if HEADER_START_LINE_NO <= lno < HEADER_END_LINE_NO:
-                draw.line(
-                    (cbox[0] + margin, cbox[3]) + (cbox[2] - margin, cbox[3]),
-                    fill="black",
+                line_list.append(draw_line(
+                    (cbox[0] + margin, cbox[3]), (cbox[2] - margin, cbox[3]),
+                    "black",
                     width=3,
-                )
+                ))
             elif underline_color and lno % 7 == 2 and lno > HEADER_END_LINE_NO + 1:
-                draw.line(
-                    (cbox[0] + margin, cbox[1]) + (cbox[2] - margin, cbox[1]),
-                    fill=underline_color,
+                line_list.append(draw_line(
+                    (cbox[0] + margin, cbox[1]), (cbox[2] - margin, cbox[1]),
+                    underline_color,
                     width=3,
-                )
-                draw.line(
-                    (cbox[0] + margin, cbox[3]) + (cbox[2] - margin, cbox[3]),
-                    fill=underline_color,
+                ))
+                line_list.append(draw_line(
+                    (cbox[0] + margin, cbox[3]), (cbox[2] - margin, cbox[3]),
+                    underline_color,
                     width=3,
-                )
+                ))
 
             # 记录当前的表格坐标
             lx = min(lx, cbox[0])
@@ -340,9 +364,10 @@ def table2image(
                     y_ = random.randint(
                         cbox[1] + half_char_width, (cbox[1] + cbox[3]) // 2
                     )
-                    draw.text((x_, y_), striped_cell, _color, _font, anchor="lt")
-                    text_box = draw.textbbox((x_, y_), striped_cell, _font, anchor="lt")
-                    text_boxes.append([text_box, "text@" + striped_cell])
+                    text_list.append(
+                        draw_text((x_, y_), striped_cell, _color, _font,
+                                  anchor="lt"))
+
         y += line_height
 
     if (lx, ty, rx, by) != (w, h, 0, 0):
@@ -354,34 +379,50 @@ def table2image(
             for s in ls:
                 if re.match(back_pattern, s):
                     im = Image.new(
-                        "RGBA", (box[2] - box[0], box[3] - box[1]), (50, 50, 50, 100)
+                        "RGBA", (box[2] - box[0], box[3] - box[1]),
+                        (50, 50, 50, 100)
                     )
                     background.paste(im, box, mask=im)
                     break
 
+    text_boxes = [[t.box,"text@"+t.text] for t in text_list]
     # 以下处理标注
     for cbox in table_boxes:
         text_boxes.append([cbox, "table@"])
         if "t" in border:
-            draw.line((cbox[0], cbox[1]) + (cbox[2], cbox[1]), fill="black", width=2)
-            draw.line(
-                (cbox[0], cbox[1] - 4) + (cbox[2], cbox[1] - 4), fill="black", width=2
-            )
+            line_list.append(
+                draw_line((cbox[0], cbox[1]), (cbox[2], cbox[1]), "black",
+                          width=2))
+            line_list.append(draw_line(
+                (cbox[0], cbox[1] - 4), (cbox[2], cbox[1] - 4), "black",
+                width=2
+            ))
         if "b" in border:
-            draw.line((cbox[0], cbox[3]) + (cbox[2], cbox[3]), fill="black", width=2)
-            draw.line(
-                (cbox[0], cbox[3] - 4) + (cbox[2], cbox[3] - 4), fill="black", width=2
-            )
+            line_list.append(
+                draw_line((cbox[0], cbox[3]), (cbox[2], cbox[3]), "black",
+                          width=2))
+            line_list.append(draw_line(
+                (cbox[0], cbox[3] - 4), (cbox[2], cbox[3] - 4), "black",
+                width=2
+            ))
 
     cell_boxes = list(cell_boxes)
     for box in cell_boxes:
         text_boxes.append([box, "cell@"])
         if vrules == "ALL":
-            draw.line((box[0], box[1]) + (box[0], box[3]), fill="black", width=2)
-            draw.line((box[2], box[1]) + (box[2], box[3]), fill="black", width=2)
+            line_list.append(
+                draw_line((box[0], box[1]), (box[0], box[3]), "black",
+                          width=2))
+            line_list.append(
+                draw_line((box[2], box[1]), (box[2], box[3]), "black",
+                          width=2))
         if hrules == "ALL":
-            draw.line((box[0], box[1]) + (box[2], box[1]), fill="black", width=2)
-            draw.line((box[0], box[3]) + (box[2], box[3]), fill="black", width=2)
+            line_list.append(
+                draw_line((box[0], box[1]), (box[2], box[1]), "black",
+                          width=2))
+            line_list.append(
+                draw_line((box[0], box[3]), (box[2], box[3]), "black",
+                          width=2))
 
     points = []
     cell_boxes = [tb[0] for tb in text_boxes]  # 单纯的boxes分不清是行列还是表格和文本
@@ -391,9 +432,24 @@ def table2image(
         points.append([box[2], box[1]])
         points.append([box[2], box[3]])
         points.append([box[0], box[3]])
+
+    render_image(draw,text_list,line_list)
+
     return {
-        "image": cv2.cvtColor(np.array(background, np.uint8), cv2.COLOR_RGB2BGR),
-        "boxes": cell_boxes,  # box 和 label是一一对应的
-        "label": label,
-        "points": points,
+        "image" :cv2.cvtColor(np.array(background, np.uint8),
+                              cv2.COLOR_RGB2BGR),
+        "boxes" :cell_boxes,  # box 和 label是一一对应的
+        "label" :label,
+        "points":points,
+        "text":text_list,
+        "line":line_list
     }
+
+
+def render_image(draw,text_list,line_list):
+    for t in text_list:
+        draw.text(t.xy,t.text,t.color,t.font,t.anchor)
+    for l in line_list:
+        draw.line(l.start+l.end,l.color,l.width)
+
+    return draw

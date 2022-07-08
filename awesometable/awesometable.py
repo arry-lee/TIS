@@ -8,7 +8,6 @@ from PIL import Image, ImageDraw, ImageFont
 from prettytable import ALL, FRAME
 from prettytable.prettytable import _get_size, _str_block_width
 
-
 from utils.ulpb import is_chinese
 
 V_LINE_PATTERN = re.compile("[║╬╦╩╣╠╗╔╝╚]")
@@ -414,7 +413,6 @@ class AwesomeTable(prettytable.PrettyTable):
         )
 
         self.box_height_layer = np.int32(self.box_height_layer * yratio)
-        # self.char_fontsize_layer = np.int32(self.char_fontsize_layer * yratio)
 
     def get_table_image(self):
         """直接从表格生成图片而不是从字符串生成，渲染成图"""
@@ -459,9 +457,6 @@ class AwesomeTable(prettytable.PrettyTable):
         for row in arrays:
             row_imgs.append(np.hstack(row))
         table_img = np.vstack(row_imgs)
-
-        # self.table_image_width = np.sum(self.box_width_layer)
-        # self.table_image_height = np.sum(self.box_height_layer)
 
         if self.title:
             text = self.title
@@ -856,14 +851,16 @@ if __name__ == "__main__":
     #                        '所有': 2},}
     from awesometable.table2pdf import render_pdf
     from image import table2image
+
     test = [
         "项目",
         ["本年金额", [["gv", [2, 3, 4, [2, [3, 4]], 6, 7]], "少数", "所有者"]],
     ]
     from converter import from_list
+
     tab = from_list(test, False)
 
-    data = render_pdf(table2image(tab),'x.pdf')
+    data = render_pdf(table2image(tab), 'x.pdf')
 
     # cv2.imwrite('tmp.jpg',data['image'])
 
