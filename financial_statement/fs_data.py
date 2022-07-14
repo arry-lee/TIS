@@ -15,24 +15,18 @@ sys.path.append('E:\\00IT\\P\\uniform')
 from awesometable.awesometable import (
     AwesomeTable,
     H_SYMBOLS,
-    _str_block_width,
+    count_padding, replace_chinese_to_dunder, str_block_width,
     paginate,
     V_LINE_PATTERN,
     vstack,
     wrap,
 )
-from awesometable.image import _count_padding, replace_chinese_to_dunder
 from awesometable.converter import from_list
 from post_processor.paper import Paper
 from post_processor.seal import add_seal_box, gen_name_seal, gen_seal
 from utils.ulpb import encode
 
 from awesometable.table2image import table2image
-
-if __debug__:
-    RANDOM_SEED = 42
-    random.seed(RANDOM_SEED)
-    faker.Faker.seed(RANDOM_SEED)
 
 
 hit = lambda r: random.random() < r
@@ -682,7 +676,7 @@ def gen_header(c, w, h=tuple(range(5))):
 
 def _compute_lines_per_page(table, fontsize=40, line_pad=-5):
     lines = str(table).splitlines()
-    w = _str_block_width(lines[0]) * fontsize // 2
+    w = str_block_width(lines[0]) * fontsize // 2
     h = len(lines) * (fontsize + line_pad)
     if h > w:
         paper = Paper(direction="v")
@@ -840,7 +834,7 @@ def fstable2image(
 
         # 以下内容将不会包含'═'
         for cno, cell in enumerate(cells):
-            ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1
+            ll = sum(str_block_width(c) + 1 for c in cells[:cno]) + 1
             if cell == "":  #
                 start += char_width
                 continue
@@ -874,20 +868,20 @@ def fstable2image(
                         draw.text(
                             (start, v), cell, font=font, fill="black", anchor="lm"
                         )
-                    lpad, rpad = _count_padding(cell)
+                    lpad, rpad = count_padding(cell)
                     l = box[0] + lpad * char_width
                     # 如果有多个空格分隔,例如无线表格
                     if "  " in striped_cell:
                         lt = l
                         for text in re.split("( {2,})", striped_cell):
                             if text.strip():
-                                rt = lt + _str_block_width(text) * char_width
+                                rt = lt + str_block_width(text) * char_width
                                 text_box = (lt, box[1], rt, box[3] - 1)
                                 if DEBUG:
                                     draw.rectangle(text_box, outline="green")
                                 text_boxes.append([text_box, "text@" + text])
                             else:
-                                lt = rt + _str_block_width(text) * char_width
+                                lt = rt + str_block_width(text) * char_width
                     else:
                         r = box[2] - rpad * char_width
                         text_box = (l, box[1], r, box[3])
@@ -1175,7 +1169,7 @@ def fstable2image_en(
             need_striped = False
 
         for cno, cell in enumerate(cells):
-            ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1
+            ll = sum(str_block_width(c) + 1 for c in cells[:cno]) + 1
             if cell == "":  #
                 start += char_width
                 continue
@@ -1228,20 +1222,20 @@ def fstable2image_en(
                             (_box[0], _box[1]), cell.strip(), _font, anchor="lt"
                         )
 
-                lpad, rpad = _count_padding(cell)
+                lpad, rpad = count_padding(cell)
                 l = box[0] + lpad * char_width
                 # 如果有多个空格分隔,例如无线表格
                 if "  " in striped_cell:
                     lt = l
                     for text in re.split("( {2,})", striped_cell):
                         if text.strip():
-                            rt = lt + _str_block_width(text) * char_width
+                            rt = lt + str_block_width(text) * char_width
                             text_box = (lt, box[1], rt, box[3] - 1)
                             if DEBUG:
                                 draw.rectangle(text_box, outline="green")
                             text_boxes.append([text_box, "text@" + text])
                         else:
-                            lt = rt + _str_block_width(text) * char_width
+                            lt = rt + str_block_width(text) * char_width
                 else:
                     r = box[2] - rpad * char_width
                     if striped_cell != "ITEM":

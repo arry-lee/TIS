@@ -17,7 +17,6 @@ def key_value_generator(basedir, key_thresh_hold=None):
     key_thresh_hold 视为键的数量阈值
     """
     texts = glob.glob(os.path.join(basedir, "*.txt"))
-    # print(texts)
     counter = Counter()
     for text in texts:
         with open(text, "r", encoding="gbk", errors="ignore") as f:
@@ -29,7 +28,6 @@ def key_value_generator(basedir, key_thresh_hold=None):
     keys = []
     values = []
     text = []
-    # print(counter)
     if key_thresh_hold is None:
         key_thresh_hold = counter.most_common(1)[0][1] // 2
 

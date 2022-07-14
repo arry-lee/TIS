@@ -12,9 +12,9 @@ from mimesis.schema import Field, Schema
 from prettytable import PrettyTable, FRAME
 from prettytable.prettytable import _str_block_width
 
-from awesometable.awesometable import (H_SYMBOLS, V_LINE_PATTERN, vstack,
+from awesometable.awesometable import (H_SYMBOLS, V_LINE_PATTERN, count_padding,
+                                       replace_chinese_to_dunder, vstack,
                                        AwesomeTable)
-from awesometable.image import _count_padding, replace_chinese_to_dunder
 from static.logo import bank_list
 
 # label_dir = ''
@@ -411,7 +411,7 @@ def banktable2image(
                 if box[1] != box[3]:  # 非空单元内文字框
                     draw.text((start, v), cell, font=font, fill="black",
                               anchor="lm")
-                    lpad, rpad = _count_padding(cell)
+                    lpad, rpad = count_padding(cell)
                     l = box[0] + lpad * char_width
                     striped_cell = cell.strip()
                     # 如果有多个空格分隔,例如无线表格

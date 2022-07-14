@@ -1,7 +1,7 @@
 # 进行各种数据结构和表示方法向AwesomeTable转换
 import prettytable
 
-from awesometable.awesometable import AwesomeTable, _hstack, _vstack, hstack, vstack
+from .awesometable import AwesomeTable, hstack, vstack
 
 
 def dict2table(
@@ -25,7 +25,6 @@ def dict2table(
         table.add_row([k for k in d.keys()])
         table.add_row([str(k) for k in d.values()])
         table.header = True
-        # table.title = d
     if title:
         table.title = title
         table.title_pos = title_pos
@@ -36,7 +35,6 @@ def dict2table(
     else:
         table.vrules = prettytable.FRAME
         table.hrules = prettytable.ALL
-    # print(table)
     return table
 
 
@@ -82,7 +80,7 @@ def from_json(jsobj):
         else:
             tv = AwesomeTable()
             tv.add_row([str(value)])
-        col = _vstack(a, tv)
+        col = vstack(a, tv)
         cols.append(col)
     return hstack(cols)
 
@@ -111,7 +109,7 @@ def from_json_v(jsobj):
         else:
             tv = AwesomeTable()
             tv.add_row([str(value)])
-        row = _hstack(title, tv)
+        row = hstack(title, tv)
         rows.append(row)
     return vstack(rows)
 
@@ -163,7 +161,7 @@ def from_dict(d, t2b=True, w=None):
                     tv = value
                 else:
                     tv = from_str(value, w)
-                row = _hstack(title, tv)
+                row = hstack(title, tv)
             rows.append(row)
         return vstack(rows)
     else:
@@ -183,7 +181,7 @@ def from_dict(d, t2b=True, w=None):
                     tv = value
                 else:
                     tv = from_str(value, w)
-                col = _vstack(title, tv)
+                col = vstack(title, tv)
             cols.append(col)
 
         return hstack(cols)

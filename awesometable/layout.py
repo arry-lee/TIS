@@ -275,7 +275,6 @@ class FlexTable(AwesomeTable):
     @property
     def height(self):
         return (len(str(self).splitlines())) * (self.font_size - 2)
-        # return self.get_image()['image'].shape[0] # todo 优化提速
 
     def get_image(self):
         return table2image(
@@ -384,7 +383,7 @@ class TextBlock(AbstractTable):
 
         ts = [Text((b[0], b[1]), text,
               ImageFont.truetype(self.font_path, self.font_size), 'lt',
-              self.fill, b) for b, text in zip(boxes, s)]
+              self.fill, b) for b, text in zip(boxes, s.splitlines())]
         for t in ts:
             modify_text(t,(self.padding,self.padding))
         return {

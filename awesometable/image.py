@@ -5,7 +5,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from prettytable.prettytable import _str_block_width
 
-from awesometable.awesometable import (H_SYMBOLS, V_LINE_PATTERN)
+from .awesometable import (H_SYMBOLS, V_LINE_PATTERN, count_padding,
+                           replace_chinese_to_dunder)
 
 
 def table2image(
@@ -86,7 +87,7 @@ def table2image(
                 if box[1] != box[3]:  # 非空单元内文字框
                     draw.text((start, v), cell, font=font, fill="black",
                               anchor="lm")
-                    lpad, rpad = _count_padding(cell)
+                    lpad, rpad = count_padding(cell)
                     l = box[0] + lpad * char_width
                     striped_cell = cell.strip()
                     if "  " in striped_cell:  # 如果有多个空格分隔
@@ -162,35 +163,10 @@ def table2image(
     label = [tb[1] for tb in text_boxes] + ["table@0"]
 
     return {
-        "image" :cv2.cvtColor(np.array(background, np.uint8),
-                              cv2.COLOR_RGB2BGR),
+        "image" :cv2.cvtColor(np.array(background, np.uint8),cv2.COLOR_RGB2BGR),
         "boxes" :boxes,  # box 和 label是一一对应的
         "label" :label,
         "points":points,
     }
 
 
-def _count_padding(text):
-    lpad, rpad = 0, 0
-    for i in text:
-        if i == " ":
-            lpad += 1
-        else:
-            break
-
-    for i in text[::-1]:
-        if i == " ":
-            rpad += 1
-        else:
-            break
-    return lpad, rpad
-
-
-def replace_chinese_to_dunder(lines, tt):
-    l = []
-    for x in lines[tt]:
-        if _str_block_width(x) == 2:
-            l.append("__")
-        else:
-            l.append(x)
-    return "".join(l)

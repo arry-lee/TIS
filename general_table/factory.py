@@ -10,12 +10,7 @@ import numpy as np
 import yaml
 from tqdm import tqdm
 
-from awesometable.image import table2image
-from data_generator.bank_data_generator import (bank_detail_generator,
-                                                bank_table_generator)
-from data_generator.bank_data_generator import banktable2image
-from data_generator.fakekeys import read_background
-from data_generator.uniform import UniForm
+from awesometable.table2image import table2image
 from post_processor import random as _random
 from post_processor.background import add_background_data
 from post_processor.deco import keepdata
@@ -27,6 +22,10 @@ from post_processor.random import (random_background, random_distortion,
 from post_processor.seal import add_seal, gen_seal
 from static.logo import get_logo_path
 from utils.ulpb import encode
+from .bank_data_generator import (bank_detail_generator, bank_table_generator)
+from .bank_data_generator import banktable2image
+from .fakekeys import read_background
+from .uniform import UniForm
 
 
 class Factory(Thread):
@@ -39,15 +38,15 @@ class Factory(Thread):
         self.table_generator = bank_table_generator  # data > table
         self.image_compositor = banktable2image  # table > image
         self.post_processor = [
-            {"func":random_seal, "ratio":0.4},
-            {"func":random_pollution, "ratio":0},
-            {"func":random_fold, "ratio":0.5},
-            {"func":random_noise, "ratio":0.5},
-            {"func":random_distortion, "ratio":1},
-            {"func":random_rotate, "ratio":0.3},
-            {"func":random_perspective, "ratio":0.3},
-            {"func":random_background, "ratio":0.3},
-            {"func":show_label, "ratio":1},
+            {"func": random_seal, "ratio": 0.4},
+            {"func": random_pollution, "ratio": 0},
+            {"func": random_fold, "ratio": 0.5},
+            {"func": random_noise, "ratio": 0.5},
+            {"func": random_distortion, "ratio": 1},
+            {"func": random_rotate, "ratio": 0.3},
+            {"func": random_perspective, "ratio": 0.3},
+            {"func": random_background, "ratio": 0.3},
+            {"func": show_label, "ratio": 1},
         ]
 
         with open("../config/post_processor_config.yaml", "r",
@@ -57,7 +56,7 @@ class Factory(Thread):
         for k, v in self.post_processor_config.items():
             ratio = v.pop("ratio")
             func = partial(getattr(_random, k), **v)
-            self.post_processor.append({"func":func, "ratio":ratio})
+            self.post_processor.append({"func": func, "ratio": ratio})
 
         self.output_dir = "../data/bank/"
         self.save_mid = False
@@ -148,7 +147,7 @@ class UniFactory(Thread):
         for k, v in post_processor_config.items():
             ratio = v.pop("ratio")
             func = partial(getattr(_random, k), **v)
-            self.post_processor.append({"func":func, "ratio":ratio})
+            self.post_processor.append({"func": func, "ratio": ratio})
 
         self._type = self.config["base"]["type"]
 
@@ -171,7 +170,7 @@ class UniFactory(Thread):
 
             fn = "0" + str(int(time.time() * 1000))[5:]
             image_data = table2image(
-                t, (0, 0), font_size=20, line_pad=0, bg_box=bg_box,
+                t, xy=(0, 0), font_size=20, line_pad=0, bg_box=bg_box,
                 background=bg
             )
 
