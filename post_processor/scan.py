@@ -15,24 +15,40 @@
 　１１）然后，滤镜->模糊->模糊。
 　１２）酌情调整色相/饱和度，完成。
 """
-import random
-
 import cv2
 import numpy as np
 
 
 def scan(img, offset=1, ksize=(3, 3)):
+    """
+    扫描扩散滤镜
+    :param img: np.ndarray 原图
+    :param offset: int 表示偏移值 越大越模糊
+    :param ksize: tuple[int,int] 高斯模糊核 (3,3),(5,5),(7,7)
+    :return: np.ndarray
+    """
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    out = np.zeros_like(img)
+    _, img = cv2.threshold(img, 125, 200, cv2.THRESH_BINARY)
+    out = spread(img, offset)
+    return cv2.cvtColor(cv2.blur(out, ksize), cv2.COLOR_GRAY2BGR)
+
+
+def spread(img, offset=1):
+    """
+    扩散滤镜
+    :param img: np.ndarray 原图
+    :param offset: int 表示扩散偏移量 越大越模糊 一般取 1
+    :return: np.ndarray
+    """
     rows, cols = img.shape[:2]
-    for i in range(rows):
-        offU = i - offset if i - offset >= 0 else 0
-        offD = i + offset if i + offset <= rows - 1 else rows - 1
-        for j in range(cols):
-            offL = j - offset if j - offset >= 0 else 0
-            offR = j + offset if j + offset <= cols else cols - 1
-            idxX = int(random.uniform(offL, offR))
-            idxY = int(random.uniform(offU, offD))
-            out[i, j] = img[idxY, idxX]
-    o = cv2.blur(out, ksize)
-    return o
+    map_y = np.array([list(range(rows)) for _ in range(cols)],
+                     np.float32).T
+    map_x = np.array([list(range(cols)) for _ in range(rows)],
+                     np.float32)
+    map_e = np.random.randint(-offset, offset, (rows, cols))
+    map_x = map_x + map_e
+    map_y = map_y + map_e
+    map_x = np.clip(map_x, 0, cols - 1).astype(np.float32)
+    map_y = np.clip(map_y, 0, rows - 1).astype(np.float32)
+    out = cv2.remap(img, map_x, map_y, interpolation=cv2.INTER_LINEAR)
+    return out
