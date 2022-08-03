@@ -23,16 +23,17 @@ class Paper:
     """
     纸张模拟类
     """
+
     def __init__(
-            self,
-            width=None,
-            mode="A4",
-            texture=None,
-            color=(255, 255, 255),
-            dip=4,
-            direction="v",
-            offset_p=None,
-            offset=20,
+        self,
+        width=None,
+        mode="A4",
+        texture=None,
+        color=(255, 255, 255),
+        dip=4,
+        direction="v",
+        offset_p=None,
+        offset=20,
     ):
         self.mode = mode
         self.direction = direction
@@ -73,15 +74,14 @@ class Paper:
             self.height - offset * self.dip,
         )
         self.header_box = (0, 0, self.width, offset * self.dip)
-        self.footer_box = (
-            0, self.height - offset * self.dip, self.width, self.height)
-    
+        self.footer_box = (0, self.height - offset * self.dip, self.width, self.height)
+
     @property
     def image(self):
         """纸张图像"""
         # self._draw.rectangle(self._box,outline='black',width=4)
         return self._image
-    
+
     def set_header(self, text, font):
         """
         设置页眉
@@ -90,15 +90,14 @@ class Paper:
         :return: None
         """
         pos = self.width // 2, self.header_box[3] // 2
-        self._draw.line((0, 10 * DIP) + (self.width, 10 * DIP), fill=(0, 0, 0),
-                        width=2)
+        self._draw.line((0, 10 * DIP) + (self.width, 10 * DIP), fill=(0, 0, 0), width=2)
         self._draw.text(pos, text, fill="black", font=font, anchor="mm")
-    
+
     @property
     def box(self):
-        """ 页面边框"""
+        """页面边框"""
         return self._box
-    
+
     @box.setter
     def box(self, value):
         if isinstance(value, (tuple, list)) and len(value) == 4:
@@ -146,8 +145,8 @@ def add_corner(image, mode="fold"):
         corner = cv2.imread("../static/paper/corner_fd.jpg")
     else:
         corner = cv2.imread("../static/paper/corner_br.jpg")
-        
+
     out = print_on_a4(image)
     height, width = corner.shape[:2]
-    out[HEIGHT - height:, WIDTH - width:] = corner
+    out[HEIGHT - height :, WIDTH - width :] = corner
     return out

@@ -1,3 +1,6 @@
+"""
+通用表格工厂函数
+"""
 import os
 import random
 import time
@@ -15,20 +18,26 @@ from post_processor import random as _random
 from post_processor.background import add_background_data
 from post_processor.deco import keepdata
 from post_processor.label import log_label, show_label
-from post_processor.random import (random_background, random_distortion,
-                                   random_fold, random_noise,
-                                   random_perspective, random_pollution,
-                                   random_rotate, random_seal)
+from post_processor.random import (
+    random_background,
+    random_distortion,
+    random_fold,
+    random_noise,
+    random_perspective,
+    random_pollution,
+    random_rotate,
+    random_seal,
+)
 from post_processor.seal import add_seal, gen_seal
 from static.logo import get_logo_path
 from utils.ulpb import encode
-from .bank_data_generator import (bank_detail_generator, bank_table_generator)
+from .bank_data_generator import bank_detail_generator, bank_table_generator
 from .bank_data_generator import banktable2image
 from .fakekeys import read_background
 from .uniform import UniForm
 
 
-class Factory(Thread):
+class BackTableFactory(Thread):
     """工厂模式"""
 
     def __init__(self, batch):
@@ -49,24 +58,25 @@ class Factory(Thread):
             {"func": show_label, "ratio": 1},
         ]
 
-        with open("../config/post_processor_config.yaml", "r",
-                  encoding="utf-8") as f:
-            self.post_processor_config = yaml.load(f, Loader=yaml.SafeLoader)
+        with open("config/post_processor_config.yaml", "r", encoding="utf-8") as cfg:
+            self.post_processor_config = yaml.load(cfg, Loader=yaml.SafeLoader)
         self.post_processor = []
-        for k, v in self.post_processor_config.items():
-            ratio = v.pop("ratio")
-            func = partial(getattr(_random, k), **v)
+        for key, val in self.post_processor_config.items():
+            ratio = val.pop("ratio")
+            func = partial(getattr(_random, key), **val)
             self.post_processor.append({"func": func, "ratio": ratio})
 
         self.output_dir = "../data/bank/"
         self.save_mid = False
 
-    def _save_and_log(self, image_data, fn):
-        cv2.imwrite(os.path.join(self.output_dir, "%s.jpg" % fn),
-                    image_data["image"])
+    def _save_and_log(self, image_data, fname):
+        cv2.imwrite(
+            os.path.join(self.output_dir, "%s.jpg" % fname), image_data["image"]
+        )
         log_label(
-            os.path.join(self.output_dir, "%s.txt" % fn), "%s.jpg" % fn,
-            image_data
+            os.path.join(self.output_dir, "%s.txt" % fname),
+            "%s.jpg" % fname,
+            image_data,
         )
 
     def run(self):
@@ -74,15 +84,14 @@ class Factory(Thread):
         pbar.set_description("Factory")
         print("start")
         sealdir = self.post_processor_config["random_seal"]["seal_dir"]
-        bg_dir = self.post_processor_config["random_background"]["bg_dir"]
         for data in self.data_generator.create(iterations=self.batch):
             bankname = data["银行"]
             align = random.choice("lcr")
             table, multi = self.table_generator(data, align=align)
-            c = random.randint(230, 255)
+            white_val = random.randint(230, 255)
             image_data = self.image_compositor(
                 table,
-                bgcolor=(c, c, c),
+                bgcolor=(white_val, white_val, white_val),
                 line_pad=-2,
                 logo_path=get_logo_path(bankname),
                 watermark=False,
@@ -91,51 +100,51 @@ class Factory(Thread):
             )
 
             if self.save_mid:
-                fn = "0" + str(int(time.time() * 1000))[5:]
-                self._save_and_log(image_data, fn)
+                fname = "0" + str(int(time.time() * 1000))[5:]
+                self._save_and_log(image_data, fname)
 
-            sealname = os.path.join(sealdir, encode(bankname) + ".jpg")
-            if not os.path.exists(sealname):
-                print(sealname)
+            seal_name = os.path.join(sealdir, encode(bankname) + ".jpg")
+            if not os.path.exists(seal_name):
                 seal = gen_seal(bankname + "南京市分行")
-                cv2.imwrite(sealname, seal)
+                cv2.imwrite(seal_name, seal)
 
             # 银行印章不随机
             self.post_processor[0]["func"] = keepdata(
-                partial(add_seal, seal_p=sealname)
+                partial(add_seal, seal_p=seal_name)
             )
-
-            for fno, fd in enumerate(self.post_processor, start=1):
-                if random.random() < fd["ratio"]:
-                    func = fd.get("func")
-                    print(func)
+            func = None
+            for fno, proc in enumerate(self.post_processor, start=1):
+                if random.random() < proc["ratio"]:
+                    func = proc.get("func")
                     image_data = func(image_data)  # 默认参数就是随机的
                     if self.save_mid:
-                        fn = str(fno) + fn[1:]
-                        self._save_and_log(image_data, fn)
-            else:
-                if not func is self.post_processor[-1]["func"]:
-                    white = np.ones_like(image_data["image"]) * 255
-                    image_data = add_background_data(image_data, white, 0)
+                        fname = str(fno) + fname[1:]
+                        self._save_and_log(image_data, fname)
+
+            if not func is self.post_processor[-1]["func"]:
+                white = np.ones_like(image_data["image"]) * 255
+                image_data = add_background_data(image_data, white, 0)
 
             if not self.save_mid:
-                fn = "0" + str(int(time.time() * 1000))[5:]
-                self._save_and_log(image_data, fn)
-
+                fname = "0" + str(int(time.time() * 1000))[5:]
+                self._save_and_log(image_data, fname)
                 pbar.update(1)
         pbar.close()
 
 
-class UniFactory(Thread):
+class GeneralTableFactory(Thread):
+    """通用表格工厂"""
+
     def __init__(self, config, batch):
         super().__init__()
+        self.save_mid = self.config["base"].get("save_mid", False)
         self.batch = batch
 
         if isinstance(config, dict):
             self.config = config
         elif isinstance(config, str):
-            with open(config, "r", encoding="utf-8") as f:
-                self.config = yaml.load(f, Loader=yaml.SafeLoader)
+            with open(config, "r", encoding="utf-8") as cfg:
+                self.config = yaml.load(cfg, Loader=yaml.SafeLoader)
 
         self.table_generator = UniForm(self.config)
         bg_dir = self.config["base"]["bg_dir"]
@@ -144,9 +153,9 @@ class UniFactory(Thread):
 
         post_processor_config = self.config["post_processor"]
         self.post_processor = []
-        for k, v in post_processor_config.items():
-            ratio = v.pop("ratio")
-            func = partial(getattr(_random, k), **v)
+        for key, val in post_processor_config.items():
+            ratio = val.pop("ratio")
+            func = partial(getattr(_random, key), **val)
             self.post_processor.append({"func": func, "ratio": ratio})
 
         self._type = self.config["base"]["type"]
@@ -155,76 +164,84 @@ class UniFactory(Thread):
         pbar = tqdm(total=self.batch)
         pbar.set_description("Threading %s" % self._type)
         output_dir = self.config["base"]["output_dir"]
-        bg_dir = self.config["post_processor"]["random_background"]["bg_dir"]
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
-        self.save_mid = self.config["base"].get("save_mid", False)
 
-        for t in self.table_generator.create(self.batch):
+        for tab in self.table_generator.create(self.batch):
 
             if self.background_generator is None:
-                bg = None
+                background = None
                 bg_box = None
             else:
-                bg, bg_box = self.background_generator.__next__()
+                background, bg_box = self.background_generator.__next__()
 
-            fn = "0" + str(int(time.time() * 1000))[5:]
+            fname = "0" + str(int(time.time() * 1000))[5:]
             image_data = table2image(
-                t, xy=(0, 0), font_size=20, line_pad=0, bg_box=bg_box,
-                background=bg
+                tab,
+                xy=(0, 0),
+                font_size=20,
+                line_pad=0,
+                bg_box=bg_box,
+                background=background,
             )
 
             if self.save_mid:
                 cv2.imwrite(
-                    os.path.join(output_dir, "%s.jpg" % fn), image_data["image"]
+                    os.path.join(output_dir, "%s.jpg" % fname), image_data["image"]
                 )
                 log_label(
-                    os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn,
-                    image_data
+                    os.path.join(output_dir, "%s.txt" % fname),
+                    "%s.jpg" % fname,
+                    image_data,
                 )
-
+            func = None
             if self.post_processor:
-                for fno, fd in enumerate(self.post_processor, start=1):
-                    if random.random() < fd["ratio"]:
-                        func = fd.get("func")
+                for fno, proc in enumerate(self.post_processor, start=1):
+                    if random.random() < proc["ratio"]:
+                        func = proc.get("func")
                         image_data = func(image_data)  # 默认参数就是随机的
                         if self.save_mid:
-                            fn = str(fno) + fn[1:]
+                            fname = str(fno) + fname[1:]
                             cv2.imwrite(
-                                os.path.join(output_dir, "%s.jpg" % fn),
+                                os.path.join(output_dir, "%s.jpg" % fname),
                                 image_data["image"],
                             )
                             log_label(
-                                os.path.join(output_dir, "%s.txt" % fn),
-                                "%s.jpg" % fn,
+                                os.path.join(output_dir, "%s.txt" % fname),
+                                "%s.jpg" % fname,
                                 image_data,
                             )
-                else:  # 如果最后没有使用到 背景，就无偏的增加白底
-                    if not func is self.post_processor[-1]["func"]:
-                        white = np.ones_like(image_data["image"]) * 255
-                        image_data = add_background_data(image_data, white, 0)
+                # 如果最后没有使用到 背景，就无偏的增加白底
+                if not func is self.post_processor[-1]["func"]:
+                    white = np.ones_like(image_data["image"]) * 255
+                    image_data = add_background_data(image_data, white, 0)
 
             if not self.save_mid:
                 cv2.imwrite(
-                    os.path.join(output_dir, "%s.jpg" % fn), image_data["image"]
+                    os.path.join(output_dir, "%s.jpg" % fname), image_data["image"]
                 )
                 log_label(
-                    os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn,
-                    image_data
+                    os.path.join(output_dir, "%s.txt" % fname),
+                    "%s.jpg" % fname,
+                    image_data,
                 )
             pbar.update(1)
         pbar.close()
 
 
 def main(argv):
-    type = argv[1]
+    """
+    :param argv: mode 'bank' or other config
+    :return: None
+    """
+    mode = argv[1]
     batch = int(argv[2])
-    if type == "bank":
-        f = Factory(batch)
+    if mode == "bank":
+        factory = BackTableFactory(batch)
     else:
-        config = "config/%s.yaml" % type
-        f = UniFactory(config=config, batch=batch)
-    f.start()
+        config = "config/%s.yaml" % mode
+        factory = GeneralTableFactory(config=config, batch=batch)
+    factory.start()
 
 
 if __name__ == "__main__":

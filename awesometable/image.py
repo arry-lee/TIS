@@ -5,24 +5,28 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from prettytable.prettytable import _str_block_width
 
-from .awesometable import (H_SYMBOLS, V_LINE_PATTERN, count_padding,
-                           replace_chinese_to_dunder)
+from .awesometable import (
+    H_SYMBOLS,
+    V_LINE_PATTERN,
+    count_padding,
+    replace_chinese_to_dunder,
+)
 
 
 def table2image(
-        table,
-        xy=None,
-        font_size=20,
-        bgcolor="white",
-        background=None,
-        bg_box=None,
-        font_path="simfang.ttf",
-        line_pad=0,
-        line_height=None,
-        vrules="ALL",
-        hrules="ALL",
-        keep_ratio=False,
-        debug=False,
+    table,
+    xy=None,
+    font_size=20,
+    bgcolor="white",
+    background=None,
+    bg_box=None,
+    font_path="simfang.ttf",
+    line_pad=0,
+    line_height=None,
+    vrules="ALL",
+    hrules="ALL",
+    keep_ratio=False,
+    debug=False,
 ):
     """
     将PrettyTable 字符串对象化为表格图片
@@ -45,8 +49,7 @@ def table2image(
         if isinstance(background, str):
             background = Image.open(background)
         elif isinstance(background, np.ndarray):
-            background = Image.fromarray(
-                cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
+            background = Image.fromarray(cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
         wb, hb = background.size
         if not keep_ratio:
             wn, hn = int(wb * w / w0), int(hb * h / h0)
@@ -77,16 +80,13 @@ def table2image(
             continue
 
         for cno, cell in enumerate(cells):
-            ll = sum(
-                _str_block_width(c) + 1 for c in cells[:cno]) + 1
+            ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1
             if cell == "" or "═" in cell:
                 start += (len(cell) + 1) * char_width
             else:
-                box = draw.textbbox((start, v), cell, font=font,
-                                    anchor="lm")  # 左中对齐
+                box = draw.textbbox((start, v), cell, font=font, anchor="lm")  # 左中对齐
                 if box[1] != box[3]:  # 非空单元内文字框
-                    draw.text((start, v), cell, font=font, fill="black",
-                              anchor="lm")
+                    draw.text((start, v), cell, font=font, fill="black", anchor="lm")
                     lpad, rpad = count_padding(cell)
                     l = box[0] + lpad * char_width
                     striped_cell = cell.strip()
@@ -122,23 +122,18 @@ def table2image(
                     tt -= 1
                 while replace_chinese_to_dunder(lines, bb)[ll] not in H_SYMBOLS:
                     bb += 1
-                cbox = (
-                    left, tt * line_height + y0, right, bb * line_height + y0)
+                cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
                 cell_boxes.add(cbox)
 
     # 以下处理标注
     for box in cell_boxes:
         text_boxes.append([box, "cell@"])
         if vrules == "ALL":
-            draw.line((box[0], box[1]) + (box[0], box[3]), fill="black",
-                      width=2)
-            draw.line((box[2], box[1]) + (box[2], box[3]), fill="black",
-                      width=2)
+            draw.line((box[0], box[1]) + (box[0], box[3]), fill="black", width=2)
+            draw.line((box[2], box[1]) + (box[2], box[3]), fill="black", width=2)
         if hrules == "ALL":
-            draw.line((box[0], box[1]) + (box[2], box[1]), fill="black",
-                      width=2)
-            draw.line((box[0], box[3]) + (box[2], box[3]), fill="black",
-                      width=2)
+            draw.line((box[0], box[1]) + (box[2], box[1]), fill="black", width=2)
+            draw.line((box[0], box[3]) + (box[2], box[3]), fill="black", width=2)
         if debug:
             print(box, "@cell")
 
@@ -163,10 +158,8 @@ def table2image(
     label = [tb[1] for tb in text_boxes] + ["table@0"]
 
     return {
-        "image" :cv2.cvtColor(np.array(background, np.uint8),cv2.COLOR_RGB2BGR),
-        "boxes" :boxes,  # box 和 label是一一对应的
-        "label" :label,
-        "points":points,
+        "image": cv2.cvtColor(np.array(background, np.uint8), cv2.COLOR_RGB2BGR),
+        "boxes": boxes,  # box 和 label是一一对应的
+        "label": label,
+        "points": points,
     }
-
-

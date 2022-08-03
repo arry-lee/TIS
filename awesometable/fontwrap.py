@@ -1,5 +1,7 @@
+"""
 # __author__: arry_lee<arry_lee@qq.com>
 # 解决英文多行文本的排版问题
+"""
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -7,15 +9,15 @@ from PIL import Image, ImageDraw, ImageFont
 def multiline(text, fill, font_path, fontsize, mode="-"):
     if mode == "-":
         return put_text_in_box(text, fill, font_path, fontsize, break_word=True)
-    elif mode == "":
+    if mode == "":
         return put_text_in_box(text, fill, font_path, fontsize, break_word=False)
-    elif mode == " ":
+    if mode == " ":
         return put_text_in_box_without_break_word(text, fill, font_path, fontsize)
 
 
 def put_text_in_box(
     text,
-    width,
+    width=None,
     fill="black",
     font_path="arial.ttf",
     font_size=20,
@@ -23,20 +25,24 @@ def put_text_in_box(
     break_word=True,
     indent=0,
 ):
-    """软换行但是不调整空格宽度
-    text: 没有换行的完整英文句子
-    width: 最大可用宽度
-    fill: 颜色
-    font_path: 字体文件路径
-    font_size: 字体大小
-    line_pad: 行距
-    indent: 是否缩进
-    break_word: 是否在单词中间打断并加上连字符'-'
+    """
+    软换行但是不调整空格宽度
+    :param text: 没有换行的完整英文句子
+    :param width: 最大可用宽度 如果为None 则排成一行
+    :param fill: 颜色
+    :param font_path: 字体文件路径
+    :param font_size: 字体大小
+    :param line_pad: 行距
+    :param break_word: 是否在单词中间打断并加上连字符'-'
+    :param indent: 是否缩进
+    :return: tuple[str,PIL.Image,list]
     """
     font = ImageFont.truetype(font_path, font_size)
+    if not width:
+        width = font.getsize(text)[0]
     img = Image.new("RGB", (width, width), "white")
     draw = ImageDraw.Draw(img)
-
+    
     space_width = font.getsize(" ")[0]
 
     for i in text:
@@ -104,29 +110,35 @@ def put_text_in_box(
 
 
 def put_text_in_box_without_break_word(
-    text, width, indent=0, fill="black", font_path="arial.ttf", font_size=20, line_pad=5
+    text, width=None, indent=0, fill="black", font_path="arial.ttf", font_size=20, line_pad=5
 ):
-    """软换行而且调整空格宽度来实现两端对齐
-    text: 没有换行的完整英文句子
-    width: 最大可用宽度
-    fill: 颜色
-    font_path: 字体文件路径
-    font_size: 字体大小
-    line_pad: 行距
-    indent: 是否缩进
-    break_word: 是否在单词中间打断并加上连字符'-'
     """
+    软换行而且调整空格宽度来实现两端对齐
+    :param text: str 没有换行的完整英文句子
+    :param width: int 最大可用宽度
+    :param indent: bool 是否缩进
+    :param fill: tuple|str 颜色
+    :param font_path: str|path 字体文件路径
+    :param font_size: int 字体大小
+    :param line_pad: int 行间距
+    :return: tuple[str,PIL.Image,list]
+    :algorithm:
     # 试图不打破单词进行换行，text 是个段落
-    # 用栈存放单词，判断入栈条件，放不下的单词溢出的长度如果小等于栈中单词的数量，则可减少空格宽度并放入该词
+    # 用栈存放单词，判断入栈条件，放不下的单词溢出的长度如果小等于栈中单词的数量，
+    # 则可减少空格宽度并放入该词
     # 如果大于栈中单词数量则放弃，放入下一行
+    """
     boxes = []
     lines = []
     line = []
-
+    
     words = text.split()
     font = ImageFont.truetype(font_path, font_size)
+    if not width:
+        width = font.getsize(text)[0]
+        
     space_width = font.getsize(" ")[0]
-    MAX_SPACE_DIFF = 0.1 * space_width  # 空格宽度变化百分比
+    max_space_diff = 0.1 * space_width  # 空格宽度变化百分比
     x0 = indent * space_width
     lens = x0
     for word in words:
@@ -136,7 +148,7 @@ def put_text_in_box_without_break_word(
             line.append(word)
         else:
             ex = lens + w - width  # 压缩量
-            if ex <= len(line) * MAX_SPACE_DIFF:
+            if ex <= len(line) * max_space_diff:
                 line.append(word)
                 line.append(-ex)
                 lines.append(line)
@@ -191,11 +203,13 @@ def put_text_in_box_without_break_word(
 
 
 def draw_multiline_text(text, fill, font_path="arial.ttf", font_size=20):
-    """通过像素偏移实现两端对齐
-    text：已经换好行的英文文本
-    fill: 字体颜色
-    font_path: 字体文件路径
-    font_size: 字体大小
+    """
+    通过像素偏移实现两端对齐
+    :param text: str 已经换好行的英文文本
+    :param fill: tuple|str 字体颜色
+    :param font_path: str|path 字体文件路径
+    :param font_size: int 字体大小
+    :return: PIL.Image
     """
     text_list = text.splitlines()
     font = ImageFont.truetype(font_path, font_size)
@@ -229,8 +243,15 @@ def draw_multiline_text(text, fill, font_path="arial.ttf", font_size=20):
 
 
 def font_wrap(text, width, font_path="arial.ttf", font_size=40):
-    # width 是字符宽度
-    out, img, box = put_text_in_box(
+    """
+    返回在某一字体字号下重新换行打包的字符串
+    :param text: str 文本
+    :param width: int 字符宽度
+    :param font_path: str 字体路径
+    :param font_size: int 字体尺寸
+    :return: str
+    """
+    out, _, __ = put_text_in_box(
         text,
         width * font_size // 2,
         font_path=font_path,

@@ -1,3 +1,6 @@
+"""
+财务报表工厂
+"""
 import os
 import random
 import re
@@ -11,7 +14,8 @@ import cv2
 import numpy as np
 import yaml
 from tqdm import tqdm
-sys.path.append('E:\\00IT\\P\\uniform')
+
+sys.path.append("E:\\00IT\\P\\uniform")
 from awesometable.table2pdf import render_pdf
 from fs_data import FinancialStatementTable, fstable2image, fstable2image_en
 from fs_designer import LayoutDesigner
@@ -41,8 +45,7 @@ class FSFactory(Thread):
         else:
             names = [n for n in config.keys() if type in n]
 
-        self.table_machines = [FinancialStatementTable(name, lang) for name in
-                               names]
+        self.table_machines = [FinancialStatementTable(name, lang) for name in names]
         self.fst = None
         if lang == "zh_CN":
             self.image_compositor = fstable2image  # table > image
@@ -68,26 +71,24 @@ class FSFactory(Thread):
         ]
 
         if need_proc:
-            with open("./config/post_processor_config.yaml", "r",
-                      encoding="utf-8") as f:
-                self.post_processor_config = yaml.load(f,
-                                                       Loader=yaml.SafeLoader)
+            with open(
+                "./config/post_processor_config.yaml", "r", encoding="utf-8"
+            ) as f:
+                self.post_processor_config = yaml.load(f, Loader=yaml.SafeLoader)
             self.post_processor = []
             for k, v in self.post_processor_config.items():
                 ratio = v.pop("ratio")
                 func = partial(getattr(_random, k), **v)
-                self.post_processor.append({"func":func, "ratio":ratio})
+                self.post_processor.append({"func": func, "ratio": ratio})
 
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
         self.save_mid = False
 
     def _save_and_log(self, image_data, fn):
-        cv2.imwrite(os.path.join(self.output_dir, "%s.jpg" % fn),
-                    image_data["image"])
+        cv2.imwrite(os.path.join(self.output_dir, "%s.jpg" % fn), image_data["image"])
         log_label(
-            os.path.join(self.output_dir, "%s.txt" % fn), "%s.jpg" % fn,
-            image_data
+            os.path.join(self.output_dir, "%s.txt" % fn), "%s.jpg" % fn, image_data
         )
 
     def run(self):
@@ -131,8 +132,7 @@ class FSFactory(Thread):
                 print(image_data.keys())
                 if self.save_mid:
                     cv2.imwrite(
-                        os.path.join(output_dir, "%s.jpg" % fn),
-                        image_data["image"]
+                        os.path.join(output_dir, "%s.jpg" % fn), image_data["image"]
                     )
                     log_label(
                         os.path.join(output_dir, "%s.txt" % fn),
@@ -167,13 +167,11 @@ class FSFactory(Thread):
                     else:  # 如果最后没有使用到 背景，就无偏的增加白底
                         if not func is self.post_processor[-1]["func"]:
                             white = np.ones_like(image_data["image"]) * 255
-                            image_data = add_background_data(image_data, white,
-                                                             0)
+                            image_data = add_background_data(image_data, white, 0)
 
                 if not self.save_mid:
                     cv2.imwrite(
-                        os.path.join(output_dir, "%s.jpg" % fn),
-                        image_data["image"]
+                        os.path.join(output_dir, "%s.jpg" % fn), image_data["image"]
                     )
                     # 生成pdf
 
@@ -198,13 +196,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="中英文财务报表图片合成工具")
-    parser.add_argument("type", type=str, choices=["all", "sp"],
-                        help="sp only for en")
-    parser.add_argument("lang", type=str, choices=["zh_CN", "en"],
-                        help="zh_CN or en")
+    parser.add_argument("type", type=str, choices=["all", "sp"], help="sp only for en")
+    parser.add_argument("lang", type=str, choices=["zh_CN", "en"], help="zh_CN or en")
     parser.add_argument("batch", type=int, help="总量")
     parser.add_argument("-p", "--post_process", action="store_true")
     args = parser.parse_args()
-    ff = FSFactory(args.type, args.batch, args.lang,
-                   need_proc=args.post_process)
+    ff = FSFactory(args.type, args.batch, args.lang, need_proc=args.post_process)
     ff.run()

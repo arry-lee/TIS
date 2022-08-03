@@ -20,21 +20,20 @@ def add_watermark(img, watermark, pos=None, angle=None):
     img = as_pillow(img)
     width, height = img.size
     if pos is None:
-        pos = random.randint(0, 3 * width // 4), random.randint(0,
-                                                                3 * height // 4)
+        pos = random.randint(0, 3 * width // 4), random.randint(0, 3 * height // 4)
     if angle is None:
         angle = random.randint(0, 45)
-    
+
     watermark = as_cv(watermark)
     watermark = rotate_bound(watermark, angle)
     watermark = reduce_color(watermark, 2)
     watermark = as_pillow(watermark)
-    mask = watermark.convert('L').point(lambda x: 0 if x > 200 else x)
+    mask = watermark.convert("L").point(lambda x: 0 if x > 200 else x)
     img.paste(watermark, pos, mask=mask)
     return img
 
 
-def signature(text, font_path='static/fonts/shouxie.ttf', size=45):
+def signature(text, font_path="static/fonts/shouxie.ttf", size=45):
     """
     生成手写签名图片
     :param text: str 名字
@@ -42,10 +41,10 @@ def signature(text, font_path='static/fonts/shouxie.ttf', size=45):
     :param size: int 字体大小
     :return: PIL.Image
     """
-    font = ImageFont.truetype(font_path, size, encoding='utf-8')
-    img = Image.new('RGB', font.getsize(text), 'white')
+    font = ImageFont.truetype(font_path, size, encoding="utf-8")
+    img = Image.new("RGB", font.getsize(text), "white")
     draw = ImageDraw.Draw(img)
-    draw.text((0, 0), text, fill='black', font=font)
+    draw.text((0, 0), text, fill="black", font=font)
     return img
 
 

@@ -41,10 +41,8 @@ def spread(img, offset=1):
     :return: np.ndarray
     """
     rows, cols = img.shape[:2]
-    map_y = np.array([list(range(rows)) for _ in range(cols)],
-                     np.float32).T
-    map_x = np.array([list(range(cols)) for _ in range(rows)],
-                     np.float32)
+    map_y = np.array([list(range(rows)) for _ in range(cols)], np.float32).T
+    map_x = np.array([list(range(cols)) for _ in range(rows)], np.float32)
     map_e = np.random.randint(-offset, offset, (rows, cols))
     map_x = map_x + map_e
     map_y = map_y + map_e

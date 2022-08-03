@@ -5,8 +5,14 @@ import cv2
 import numpy as np
 
 
-def perspective(img, left_offset=0.02, right_offset=0.02,
-                border_value=(0, 0, 0), mask=False, matrix=False):
+def perspective(
+    img,
+    left_offset=0.02,
+    right_offset=0.02,
+    border_value=(0, 0, 0),
+    mask=False,
+    matrix=False,
+):
     """
     透视变换并且填充背景
     假定下面两点是不动的,左上边点向右偏移 ld，右上点向左偏移 rd；
@@ -21,11 +27,15 @@ def perspective(img, left_offset=0.02, right_offset=0.02,
     height, width = img.shape[:2]
     src = np.float32([(0, 0), (width, 0), (0, height), (width, height)])
     dst = np.float32(
-        [(width * left_offset, 0), (width - width * right_offset, 0),
-         (0, height), (width, height)])
+        [
+            (width * left_offset, 0),
+            (width - width * right_offset, 0),
+            (0, height),
+            (width, height),
+        ]
+    )
     mat = cv2.getPerspectiveTransform(src, dst)
-    out = cv2.warpPerspective(img, mat, [width, height],
-                              borderValue=border_value)
+    out = cv2.warpPerspective(img, mat, [width, height], borderValue=border_value)
     if not mask and not matrix:
         return out
     if mask is True:
@@ -62,8 +72,7 @@ def perspective_points(points, matrix):
     return points
 
 
-def perspective_data(data, left_offset=0.05, right_offset=0.05,
-                     border_value=(0, 0, 0)):
+def perspective_data(data, left_offset=0.05, right_offset=0.05, border_value=(0, 0, 0)):
     """
     透视变换标注字典，变换图像的同时更新标注信息
     :param data: dict标注字典
@@ -73,8 +82,7 @@ def perspective_data(data, left_offset=0.05, right_offset=0.05,
     :return: dict 标注字典
     """
     data["image"], mask, mat = perspective(
-        data["image"], left_offset, right_offset, border_value, mask=True,
-        matrix=True
+        data["image"], left_offset, right_offset, border_value, mask=True, matrix=True
     )
     data["points"] = perspective_points(data["points"], mat)
     if data.get("mask", None) is not None:

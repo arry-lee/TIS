@@ -17,10 +17,16 @@ def log_label(out_file, img, data):
     points = data["points"]
     with open(out_file, "w", encoding="utf-8") as file:
         for lno, label in enumerate(labels):
-            pts = (int(points[lno * 4][0]), int(points[lno * 4][1]),
-                   int(points[lno * 4 + 1][0]), int(points[lno * 4 + 1][1]),
-                   int(points[lno * 4 + 2][0]), int(points[lno * 4 + 2][1]),
-                   int(points[lno * 4 + 3][0]), int(points[lno * 4 + 3][1]))
+            pts = (
+                int(points[lno * 4][0]),
+                int(points[lno * 4][1]),
+                int(points[lno * 4 + 1][0]),
+                int(points[lno * 4 + 1][1]),
+                int(points[lno * 4 + 2][0]),
+                int(points[lno * 4 + 2][1]),
+                int(points[lno * 4 + 3][0]),
+                int(points[lno * 4 + 3][1]),
+            )
             line = ";".join(map(str, [img, *pts, label]))
             file.write(line + "\n")
 
@@ -35,10 +41,12 @@ def show_label(data):
     points = data["points"]
     img = data["image"]
     for lno, _ in enumerate(labels):
-        pts = [[int(points[lno * 4][0]), int(points[lno * 4][1])],
-               [int(points[lno * 4 + 1][0]), int(points[lno * 4 + 1][1])],
-               [int(points[lno * 4 + 2][0]), int(points[lno * 4 + 2][1])],
-               [int(points[lno * 4 + 3][0]), int(points[lno * 4 + 3][1])]]
+        pts = [
+            [int(points[lno * 4][0]), int(points[lno * 4][1])],
+            [int(points[lno * 4 + 1][0]), int(points[lno * 4 + 1][1])],
+            [int(points[lno * 4 + 2][0]), int(points[lno * 4 + 2][1])],
+            [int(points[lno * 4 + 3][0]), int(points[lno * 4 + 3][1])],
+        ]
         pts = np.array(pts, np.int32)
         pts = pts.reshape((-1, 1, 2))
         cv2.polylines(img, [pts], isClosed=True, color=(0, 255, 0))

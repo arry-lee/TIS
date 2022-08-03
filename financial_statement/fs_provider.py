@@ -1,3 +1,6 @@
+"""
+财务报表假数据供应商
+"""
 import glob
 import linecache
 import os

@@ -1,4 +1,8 @@
+"""
+AwesomeTable 转 pdf 模块，使用了pyqt的 QPdfWriter
+"""
 import os
+import sys
 
 from PyQt5.QtCore import QFile, QIODevice, QMarginsF, QSizeF, Qt
 from PyQt5.QtGui import QColor, QFont, QPainter, QPdfWriter, QPen
@@ -13,67 +17,84 @@ MM = 1 / DPM
 
 
 def get_font(font):
-    """ 将 ImageFont 转化为QtFont"""
-    ft = QFont()
-    ft.setFamily(os.path.split(font.path)[1].removesuffix('.ttf'))
-    ft.setPixelSize(font.size)
-    return ft
+    """将 ImageFont 转化为QtFont"""
+    fnt = QFont()
+    name = os.path.split(font.path)[1].removesuffix(".ttf")
+    if name.startswith("a"):
+        fnt.setFamily("Arial")
+    elif name.startswith("sim"):
+        fnt.setFamily("仿宋")
+    fnt.setPixelSize(font.size)
+    return fnt
 
 
-def get_color(c):
-    color = QColor()
-    if isinstance(c, tuple):
-        color.setRgb(*c)
-    elif isinstance(c, str):
-        color.setNamedColor(c)
+def get_color(color):
+    """将 pil color 转化为 qt color"""
+    clr = QColor()
+    if isinstance(color, tuple):
+        clr.setRgb(*color)
+    elif isinstance(color, str):
+        clr.setNamedColor(color)
     else:
-        raise KeyError('No such color')
-    return color
+        raise KeyError("No such color")
+    return clr
 
 
 class PdfWriter(QWidget):
+    """
+    写入 pdf
+    """
+
     def __init__(self, *arg):
-        super(PdfWriter, self).__init__(*arg)
+        super().__init__(*arg)
 
     def render_pdf(self, data, outfile):
+        """
+        渲染 pdf
+        :param data: 数据字典
+        :param outfile: 输出文件名
+        :return: None
+        """
         image = data["image"]
-        # labels = data["label"]
-        # boxes = data["boxes"]
         text_list = data["text"]
         line_list = data["line"]
-        h, w = image.shape[:2]
+        height, width = image.shape[:2]
 
-        pdfFile = QFile(outfile)
-        pdfFile.open(QIODevice.WriteOnly)
-        pw = QPdfWriter(pdfFile)
-        pw.setPageSizeMM(QSizeF(w * MM, h * MM))
-        pw.setResolution(DPI)
-        pw.setPageMargins(QMarginsF(0, 0, 0, 0))
-        painter = QPainter(pw)
+        pdf_file = QFile(outfile)
+        pdf_file.open(QIODevice.WriteOnly)
+        pdf_writer = QPdfWriter(pdf_file)
+        pdf_writer.setPageSizeMM(QSizeF(width * MM, height * MM))
+        pdf_writer.setResolution(DPI)
+        pdf_writer.setPageMargins(QMarginsF(0, 0, 0, 0))
+        painter = QPainter(pdf_writer)
         _font = QFont()
         _font.setFamily("Arial")
         _font.setPixelSize(40)
         painter.setFont(_font)
         painter.setPen(QPen(Qt.black, 2, Qt.SolidLine))
 
-        for t in text_list:
-            _font.setPixelSize(t.font.size)
-            painter.setFont(_font)
-            painter.setPen(get_color(t.color))
-            painter.drawText(t.box[0], t.box[3], t.text)
+        for text in text_list:
+            painter.setFont(get_font(text.font))
+            painter.setPen(get_color(text.color))
+            painter.drawText(text.box[0], text.box[3], text.text)
 
-        for l in line_list:
-            painter.setPen(QPen(Qt.black, l.width, Qt.SolidLine))
-            painter.drawLine(l.start[0], l.start[1], l.end[0], l.end[1])
+        for line in line_list:
+            painter.setPen(QPen(Qt.black, line.width, Qt.SolidLine))
+            painter.drawLine(line.start[0], line.start[1], line.end[0], line.end[1])
 
         painter.end()
-        pdfFile.close()
+        pdf_file.close()
 
 
 def render_pdf(data, outfile):
-    import sys
+    """
+    渲染 pdf
+    :param data: dict 字典数据
+    :param outfile: 输出文件
+    :return:
+    """
     app = QApplication(sys.argv)
-    pWrite = PdfWriter()
-    pWrite.render_pdf(data, outfile)
-    pWrite.close()
+    writer = PdfWriter()
+    writer.render_pdf(data, outfile)
+    writer.close()
     app.quit()

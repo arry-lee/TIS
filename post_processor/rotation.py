@@ -5,8 +5,7 @@ import cv2
 import numpy as np
 
 
-def rotate_bound(image, angle, border_value=(0, 0, 0), mask=False,
-                 matrix=False):
+def rotate_bound(image, angle, border_value=(0, 0, 0), mask=False, matrix=False):
     """
     旋转图片，扩展边界
     :param image: np.ndarray
@@ -64,13 +63,13 @@ def rotate_data(data, angle=0, border_value=(0, 0, 0)):
     :return: dict 新的标注字典
     """
     data["image"], mask, mat = rotate_bound(
-        data["image"], angle=angle, border_value=border_value, mask=True,
-        matrix=True
+        data["image"], angle=angle, border_value=border_value, mask=True, matrix=True
     )
     data["points"] = rotate_points(data["points"], mat)
     if data.get("mask", None):
-        data["mask"] = rotate_bound(data["mask"], angle=angle,
-                                    border_value=border_value)
+        data["mask"] = rotate_bound(
+            data["mask"], angle=angle, border_value=border_value
+        )
     else:
         data["mask"] = mask
     return data

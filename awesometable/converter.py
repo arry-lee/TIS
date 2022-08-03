@@ -5,8 +5,7 @@ from .awesometable import AwesomeTable, hstack, vstack
 
 
 def dict2table(
-        d, title=None, title_pos="t", n=3, has_line=True, direct="h",
-        table_width=None
+    d, title=None, title_pos="t", n=3, has_line=True, direct="h", table_width=None
 ):
     """将字典转为table"""
     table = AwesomeTable()

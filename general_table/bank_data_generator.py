@@ -1,3 +1,6 @@
+"""
+银行流水生成器
+"""
 import random
 import re
 from math import ceil
@@ -12,9 +15,14 @@ from mimesis.schema import Field, Schema
 from prettytable import PrettyTable, FRAME
 from prettytable.prettytable import _str_block_width
 
-from awesometable.awesometable import (H_SYMBOLS, V_LINE_PATTERN, count_padding,
-                                       replace_chinese_to_dunder, vstack,
-                                       AwesomeTable)
+from awesometable.awesometable import (
+    H_SYMBOLS,
+    V_LINE_PATTERN,
+    count_padding,
+    replace_chinese_to_dunder,
+    vstack,
+    AwesomeTable,
+)
 from static.logo import bank_list
 
 # label_dir = ''
@@ -101,19 +109,19 @@ def _alias(key):
     return random.choice(field_dict[key] + [key])
 
 
-class BankDetailProvider(object):
+class BankDetailProvider:
     """银行流水单据生成器"""
 
     _banks = bank_list
 
     def __init__(self):
-        self.fk = Faker("zh_CN")
+        self.faker = Faker("zh_CN")
 
     def __call__(self, *args, **kwargs):
-        self.name = self.fk.name()
+        self.name = self.faker.name()
         self.bank = random.choice(self._banks)
-        self.cardnumber = self.fk.credit_card_number()
-        self.start = self.fk.date_this_decade()
+        self.cardnumber = self.faker.credit_card_number()
+        self.start = self.faker.date_this_decade()
         self.money = random.randint(10000, 100000)
         nums = _("integer_number", start=10, end=20)
 
@@ -266,27 +274,27 @@ def bank_table_generator(bank_detail, max_width=16, align="l"):
 
 
 def banktable2image(
-        table,
-        xy=None,
-        font_size=20,
-        bgcolor="white",
-        background=None,
-        bg_box=None,
-        font_path="simfang.ttf",
-        line_pad=0,
-        line_height=None,
-        logo_path=None,
-        watermark=True,
-        dot_line=False,
-        multiline=False,
-        debug=False
+    table,
+    xy=None,
+    font_size=20,
+    bgcolor="white",
+    background=None,
+    bg_box=None,
+    font_path="simfang.ttf",
+    line_pad=0,
+    line_height=None,
+    logo_path=None,
+    watermark=True,
+    dot_line=False,
+    multiline=False,
+    debug=False,
 ):
     """
     将银行流水单渲染成图片
     """
     assert font_size % 4 == 0
     origin_lines = str(table).splitlines()
-    lines = list(filter(lambda x:"<r" not in x, origin_lines))  # 过滤掉标记
+    lines = list(filter(lambda x: "<r" not in x, origin_lines))  # 过滤掉标记
 
     # 判断是不是表头换行的表格
     # multiline = is_chinese(re.split(vpat,lines[9])[1].strip()[0])
@@ -343,10 +351,8 @@ def banktable2image(
 
         if lno == 1:  # title
             title = cells[0].strip()
-            draw.text((w // 2, v), title, font=titlefont, fill="black",
-                      anchor="mm")
-            titlebox = draw.textbbox((w // 2, v), title, font=titlefont,
-                                     anchor="mm")
+            draw.text((w // 2, v), title, font=titlefont, fill="black", anchor="mm")
+            titlebox = draw.textbbox((w // 2, v), title, font=titlefont, anchor="mm")
             text_boxes.append([titlebox, "text@" + title])
             if logo_path:
                 try:
@@ -377,8 +383,7 @@ def banktable2image(
             if lno > 6:
                 if multiline:
                     if is_odd_line:
-                        text_boxes.append(
-                            [[x0, last, w - x0, v], "行-row@%d" % rno])
+                        text_boxes.append([[x0, last, w - x0, v], "行-row@%d" % rno])
                         is_odd_line = not is_odd_line
                         if debug:
                             draw.rectangle(
@@ -392,8 +397,7 @@ def banktable2image(
                 else:
                     text_boxes.append([[x0, last, w - x0, v], "行-row@%d" % rno])
                     if debug:
-                        draw.rectangle((x0, last) + (w - x0, v), outline="red",
-                                       width=2)
+                        draw.rectangle((x0, last) + (w - x0, v), outline="red", width=2)
                         draw.text((x0, last), "row@%d" % rno, fill="red")
                     rno += 1
                 last = v
@@ -401,22 +405,20 @@ def banktable2image(
 
         # 以下内容将不会包含'═'
         for cno, cell in enumerate(cells):
-            ll = sum(
-                _str_block_width(c) + 1 for c in cells[:cno]) + 1
+            ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1
             if cell == "":  #
                 start += char_width
                 continue
             if "═" not in cell:
                 box = draw.textbbox((start, v), cell, font=font, anchor="lm")
                 if box[1] != box[3]:  # 非空单元内文字框
-                    draw.text((start, v), cell, font=font, fill="black",
-                              anchor="lm")
+                    draw.text((start, v), cell, font=font, fill="black", anchor="lm")
                     lpad, rpad = count_padding(cell)
                     l = box[0] + lpad * char_width
                     striped_cell = cell.strip()
                     # 如果有多个空格分隔,例如无线表格
                     if "  " in striped_cell:
-                        lt,rt = l,l
+                        lt, rt = l, l
                         for text in re.split("( {2,})", striped_cell):
                             if text.strip():
                                 rt = lt + _str_block_width(text) * char_width
@@ -443,8 +445,7 @@ def banktable2image(
                     tt -= 1
                 while replace_chinese_to_dunder(lines, bb)[ll] not in H_SYMBOLS:
                     bb += 1
-                cbox = (
-                    left, tt * line_height + y0, right, bb * line_height + y0)
+                cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
                 boxes.add(cbox)
                 if not is_odd_line and cell.strip():
                     label = "跨行列格-cell@{rno}-{rno},{cno}-{cno}".format(
@@ -469,7 +470,7 @@ def banktable2image(
         r = max(r, box[2])
         b = max(b, box[3])
 
-    boxes = list(filter(lambda x:not (x[0] == l and x[2] == r), boxes))
+    boxes = list(filter(lambda x: not (x[0] == l and x[2] == r), boxes))
     l, t, r, b = boxes[0]
     for box in boxes:
         l = min(l, box[0])
@@ -507,20 +508,8 @@ def banktable2image(
     label = [tb[1] for tb in text_boxes] + ["表-table@1"]
 
     return {
-        "image" :cv2.cvtColor(np.array(background, np.uint8),
-                              cv2.COLOR_RGB2BGR),
-        "boxes" :boxes,  # box 和 label是一一对应的
-        "label" :label,
-        "points":points,
+        "image": cv2.cvtColor(np.array(background, np.uint8), cv2.COLOR_RGB2BGR),
+        "boxes": boxes,  # box 和 label是一一对应的
+        "label": label,
+        "points": points,
     }
-
-
-if __name__ == "__main__":
-    t = bank_table_generator(bank_detail_generator.create(1)[0])
-    print(t)
-
-    data = banktable2image(t[0], line_pad=-2,multiline=t[1])
-    from utils.cv_tools import cvshow
-    from awesometable.table2pdf import render_pdf
-    # render_pdf(data,'x.pdf')
-    cvshow(data["image"])

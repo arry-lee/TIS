@@ -1,3 +1,6 @@
+"""
+财报数据生成
+"""
 import random
 import re
 import sys
@@ -11,11 +14,13 @@ import numpy as np
 import yaml
 from PIL import Image, ImageDraw, ImageFont
 
-sys.path.append('E:\\00IT\\P\\uniform')
+sys.path.append("E:\\00IT\\P\\uniform")
 from awesometable.awesometable import (
     AwesomeTable,
     H_SYMBOLS,
-    count_padding, replace_chinese_to_dunder, str_block_width,
+    count_padding,
+    replace_chinese_to_dunder,
+    str_block_width,
     paginate,
     V_LINE_PATTERN,
     vstack,
@@ -78,11 +83,10 @@ class FinancialStatementTable(object):
         else:
             config_path = "./financial_statement/config/fs_config_en.yaml"
             ## 翻译组件
-            def trans(x):
-                if x in TRANS_DICT.keys():
-                    return "\n".join(TRANS_DICT[x].split())
-                else:
-                    return encode(x).upper()
+            def trans(chr):
+                if chr in TRANS_DICT.keys():
+                    return "\n".join(TRANS_DICT[chr].split())
+                return encode(chr).upper()
 
             global _
             _ = trans
@@ -104,11 +108,13 @@ class FinancialStatementTable(object):
         self._table_width = None
 
     def ops_dispatch(self):
+        """
         # 对于生成的表格根据其长度分发到不同的操作
         # cols <= 3 分割重组 hstack
         # cols > 5  复杂表头
         # rows > max_perpage 截断或分页
         # rows < half_max_perpage vstack 多表
+        """
         c = len(self._columns)
         r = sum(len(v) + 1 for v in self.index.values() if v)
         rmax = 30  # 单页最大行数
@@ -160,18 +166,22 @@ class FinancialStatementTable(object):
 
     @property
     def columns(self):
+        """列名"""
         return self._columns
 
     @property
     def title(self):
+        """标题"""
         return self._title
 
     @property
     def info(self):
+        """信息"""
         return self._info
 
     @property
     def footer(self, name_mark="〇"):
+        """脚注"""
         _footer = AwesomeTable()
         if self.is_zh:
             _footer.add_row(
@@ -193,15 +203,18 @@ class FinancialStatementTable(object):
         return _footer
 
     def metatable(self, **kwargs):
+        """元表"""
         self._base_info()
         return self.build_table(**kwargs)
 
     @property
     def body(self):
+        """主体"""
         return self.process_body(self.build_table())
 
     @property
     def table_width(self):
+        """表宽"""
         return self._table_width or str(self.body).splitlines()[0].__len__()
 
     @table_width.setter
@@ -218,6 +231,17 @@ class FinancialStatementTable(object):
         sign_ratio=0.5,
         title_ratio=0.3,
     ):
+        """
+        建立表格
+        :param indent: int
+        :param fill_ratio: float
+        :param brace_ratio: float
+        :param auto_ratio: float
+        :param note_ratio: float
+        :param sign_ratio: float
+        :param title_ratio: float
+        :return: str
+        """
         t = AwesomeTable()
         columns = self._columns[:]
         if hit(auto_ratio):  # 控制行号的位置以及重复
@@ -277,8 +301,14 @@ class FinancialStatementTable(object):
             item = " " * indent + _(item)
         return item
 
-    def build_complex_header(self, t, cc=None):
-        lines = str(t).splitlines()
+    def build_complex_header(self, table, cc=None):
+        """
+        增加复杂表头
+        :param table: str|AwesomeTable
+        :param cc:
+        :return: str
+        """
+        lines = str(table).splitlines()
         # 移除表原来的表头
         for i in range(1, len(lines)):
             if lines[i][0] == "╠":
@@ -311,7 +341,7 @@ class FinancialStatementTable(object):
             _header = from_list(gen_header(cc, w, self._cpx_headers), False)
             return vstack(_header, nt)
         else:
-            return t
+            return table
 
     def get_string(self):
         self._base_info()
@@ -323,7 +353,7 @@ class FinancialStatementTable(object):
         分别为多表,单双栏做法
         """
         if self.is_zh:
-            t.align = "c"
+            t.align = "color"
         else:
             t.align = "r"
         t._align["Field 1"] = "l"  # 破坏了封装 左对齐

@@ -12,10 +12,11 @@ def two_points(pos, first_point, second_point):
     :return: numpy array; a point.
     """
     if not isinstance(first_point, np.ndarray) or not isinstance(
-            second_point, np.ndarray):
-        raise TypeError('Points must be an instance of the numpy.ndarray!')
+        second_point, np.ndarray
+    ):
+        raise TypeError("Points must be an instance of the numpy.ndarray!")
     if not isinstance(pos, (int, float)):
-        raise TypeError('Parameter t must be an int or float!')
+        raise TypeError("Parameter t must be an int or float!")
     return (1 - pos) * first_point + pos * second_point
 
 
@@ -51,15 +52,18 @@ def curve(t_values, pts):
     :param pts: list of numpy arrays; points.
     :return: list of numpy arrays; points. curve
     """
-    if not hasattr(t_values, '__iter__'):
+    if not hasattr(t_values, "__iter__"):
         raise TypeError(
-            "`t_values` Must be an iterable of integers or floats, of length greater than 0 .")
+            "`t_values` Must be an iterable of integers or floats, of length greater than 0 ."
+        )
     if len(t_values) < 1:
         raise TypeError(
-            "`t_values` Must be an iterable of integers or floats, of length greater than 0 .")
+            "`t_values` Must be an iterable of integers or floats, of length greater than 0 ."
+        )
     if not isinstance(t_values[0], (int, float)):
         raise TypeError(
-            "`t_values` Must be an iterable of integers or floats, of length greater than 0 .")
+            "`t_values` Must be an iterable of integers or floats, of length greater than 0 ."
+        )
     curs = np.array([[0.0] * len(pts[0])])
     for i in t_values:
         curs = np.append(curs, [point(i, pts)], axis=0)

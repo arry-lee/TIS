@@ -10,3 +10,7 @@
 /static/pdf/
 /static/seal/
 /static/texture/
+!/test/
+!/.gitignore
+!/data/
+/post_processor/tests/

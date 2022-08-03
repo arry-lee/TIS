@@ -56,6 +56,7 @@ def imageit(func):
     :param func: 被装饰函数
     :return: 装饰器
     """
+
     def wrap(img, *args, **kwargs):
         res = func(as_cv(img), *args, **kwargs)
         return res
@@ -69,6 +70,7 @@ def keepdata(func):
     :param func: 被装饰函数
     :return: 装饰器
     """
+
     def wrap(img, *args, **kwargs):
         if isinstance(img, str):
             oimg = cv2.imread(img, cv2.IMREAD_COLOR)

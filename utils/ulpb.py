@@ -4,7 +4,7 @@ XIAOHE = {
     "ai": "d",
     "an": "j",
     "ang": "h",
-    "ao": "c",
+    "ao": "color",
     "ch": "i",
     "ei": "w",
     "en": "f",

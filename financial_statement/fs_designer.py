@@ -1,3 +1,6 @@
+"""
+财报设计模块
+"""
 import os.path
 import random
 import time
@@ -149,6 +152,8 @@ class FSTable(FlexTable):
 
 
 class FSText(TextBlock):
+    """财报文本"""
+
     def __init__(
         self, width=COLUMN_WIDTH, sentence=3, indent=4, font_size=TEXT_FONT_SIZE
     ):
@@ -156,6 +161,8 @@ class FSText(TextBlock):
 
 
 class FSTitle(TextBlock):
+    """财报标题"""
+
     count = 1
 
     def __init__(
@@ -167,6 +174,8 @@ class FSTitle(TextBlock):
 
 
 class FSLongTextTable(FlexTable):
+    """财报长文本"""
+
     def __init__(self, width=PAGE_WIDTH, font_size=TEXT_FONT_SIZE, **kwargs):
         super().__init__(width=width, font_size=font_size, **kwargs)
         if hit(0.5):
@@ -206,6 +215,8 @@ class FSLongTextTable(FlexTable):
 
 
 class LayoutDesigner(object):
+    """布局设计者"""
+
     def __init__(self, table_generator=None, text_generator=None, title_generator=None):
         self.ta = table_generator or FSTable
         self.te = text_generator or FSText
@@ -347,22 +358,29 @@ class LayoutDesigner(object):
             indent=True,
         )
 
-    def create(self, type):
-        if type == 0:
+    def create(self, mode):
+        if mode == 0:
             return self._layout0()
-        elif type == 1:
+        if mode == 1:
             return self._layout1()
-        elif type == 2:
+        if mode == 2:
             return self._layout2()
-        elif type == 3:
+        if mode == 3:
             return self._layout3()
-        elif type == 4:
+        if mode == 4:
             return self._layout4()
+        raise ValueError("mode 0-4 valuable")
 
     def _toggle_style(self):
         self.ta.style = random.choice(["striped", "other", "simple"])
 
     def run(self, batch, output_dir="data/financial_statement_en_sp"):
+        """
+        循环生成
+        :param batch: int 批量
+        :param output_dir: str 目录
+        :return: None
+        """
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
         err = 0
@@ -385,7 +403,7 @@ class LayoutDesigner(object):
 
             fn = "0" + str(int(time.time() * 1000))[5:]
             cv2.imwrite(os.path.join(output_dir, "%s.jpg" % fn), image_data["image"])
-            render_pdf(image_data,os.path.join(output_dir, "%s.pdf" % fn))
+            render_pdf(image_data, os.path.join(output_dir, "%s.pdf" % fn))
             log_label(
                 os.path.join(output_dir, "%s.txt" % fn), "%s.jpg" % fn, image_data
             )

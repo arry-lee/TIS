@@ -1,3 +1,7 @@
+"""
+财报配置常量
+"""
+
 DEFAULT_COL_MAX = 4
 DEFAULT_COL_MIN = 4
 DEFAULT_ROW_MAX = 5

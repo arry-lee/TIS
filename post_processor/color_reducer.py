@@ -17,7 +17,9 @@ def reduce_color(img, num=3):
     img = as_cv(img)
     flat = np.float32(img.reshape((-1, 3)))
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    _, label, center = cv.kmeans(flat, num, None, criteria, 10, cv.KMEANS_RANDOM_CENTERS)
+    _, label, center = cv.kmeans(
+        flat, num, None, criteria, 10, cv.KMEANS_RANDOM_CENTERS
+    )
     # Now convert back into uint8, and make original image
     center = np.uint8(center)
     res = center[label.flatten()]

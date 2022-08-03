@@ -21,7 +21,7 @@ def add_background(image, background, offset=0, mask=None):
     width += offset * 2
     back = as_pillow(background).resize((width, height))
     if mask is not None:
-        mask = as_pillow(mask).convert('L')
+        mask = as_pillow(mask).convert("L")
     back.paste(img, (offset, offset), mask=mask)
     return p2c(back)
 
@@ -51,12 +51,12 @@ def add_background_data(data, background, offset):
     :return: dict 新标注字典
     """
     assert isinstance(data, dict)
-    mask = data.get('mask', None)
-    data['image'] = add_background(data['image'], background, offset, mask=mask)
-    data['points'] = np.array(data['points']) + offset
-    for text in data['text']:
+    mask = data.get("mask", None)
+    data["image"] = add_background(data["image"], background, offset, mask=mask)
+    data["points"] = np.array(data["points"]) + offset
+    for text in data["text"]:
         _modify_text(text, (offset, offset))
-    for line in data['line']:
+    for line in data["line"]:
         _modify_line(line, (offset, offset))
     return data
 
@@ -70,11 +70,11 @@ def add_to_paper(data, paper):
     """
     img = paper.image.copy()
     pos = paper.pad[0], paper.pad[1]
-    img.paste(c2p(data['image']), pos)
-    data['image'] = p2c(img)
-    data['points'] = np.array(data['points']) + np.array(pos)
-    for text in data['text']:
+    img.paste(c2p(data["image"]), pos)
+    data["image"] = p2c(img)
+    data["points"] = np.array(data["points"]) + np.array(pos)
+    for text in data["text"]:
         _modify_text(text, pos)
-    for line in data['line']:
+    for line in data["line"]:
         _modify_line(line, pos)
     return data

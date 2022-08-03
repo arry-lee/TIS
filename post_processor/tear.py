@@ -18,13 +18,13 @@ def random_tear_curve(width, slope=0):
     :return: list
     """
     if not -0.5 <= slope <= 0.5:
-        raise ValueError('-0.5<= slope <= 0.5')
+        raise ValueError("-0.5<= slope <= 0.5")
     offset = int(width * slope)
     ones = offset // 2 + width // 3
     none = -offset // 2 + width // 3  # >0
     zeros = [0] * width
     zeros[:ones] = [1] * ones
-    zeros[ones:ones + none] = [-1] * none
+    zeros[ones : ones + none] = [-1] * none
     random.shuffle(zeros)
     return zeros
 
@@ -38,7 +38,7 @@ def random_tear_image(width, height, slope=0):
     :return: np.ndarray
     """
     mid = height // 2
-    img = Image.new('RGB', (width, height), 'black')
+    img = Image.new("RGB", (width, height), "black")
     zeros = random_tear_curve(width, slope)
     for i in range(width):
         mid = mid + zeros[i]
@@ -61,13 +61,13 @@ def tear_image(img, pos, gap=20, slope=0):
     """
     img = as_pillow(img)
     zeros = random_tear_curve(img.width, slope)
-    out = Image.new('RGB', (img.width, img.height + gap), 'black')
+    out = Image.new("RGB", (img.width, img.height + gap), "black")
     mid = pos
     for i in range(img.width):
         mid = mid + zeros[i]
         for j in range(mid):
             out.putpixel((i, j), img.getpixel((i, j)))
-        
+
         for j in range(mid, mid + THICKNESS):
             img.putpixel((i, j), (255, 255, 255))
         img.putpixel((i, mid), (100, 100, 100))

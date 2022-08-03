@@ -36,7 +36,7 @@ def gauss_noise(image, mean=0, var=0.001):
     :return: np.ndarray
     """
     image = np.array(image / 255, dtype=float)
-    noise = np.random.normal(mean, var ** 0.5, image.shape)
+    noise = np.random.normal(mean, var**0.5, image.shape)
     out = image + noise
     if out.min() < 0:
         low_clip = -1.0
