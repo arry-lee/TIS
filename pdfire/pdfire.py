@@ -28,15 +28,15 @@ import sys
 
 from PIL import Image, ImageDraw
 from pdfminer.converter import PDFConverter
-from pdfminer.layout import LAParams, LTCurve, LTPage
-from pdfminer.layout import LTChar, LTFigure, LTImage, LTLine, LTTextLine
+from pdfminer.layout import LAParams, LTCurve, LTPage, LTTextLineHorizontal
+from pdfminer.layout import LTChar, LTFigure, LTImage, LTLine
 from pdfminer.layout import LTTextBox, LTTextGroup
 from pdfminer.pdfinterp import (
     PDFPageInterpreter,
     PDFResourceManager,
-    PDFTextExtractionNotAllowed,
 )
-from pdfminer.pdfparser import PDFDocument, PDFParser
+from pdfminer.pdfpage import PDFPage
+from pyrect import Rect
 from tqdm import tqdm
 
 from template import Template, Text
@@ -44,13 +44,14 @@ from template import Template, Text
 
 class JPGConverter(PDFConverter):
     """将pdf文件转换为jpg"""
+    
     RECT_COLORS = {
         "char"     : "green",
         "figure"   : "black",
         "textline" : "black",
         "textbox"  : "green",
         "textgroup": "red",
-        "curve"    : "black",
+        "curve"    : (200, 0, 0),
         "page"     : "black",
     }
     
@@ -122,14 +123,24 @@ class JPGConverter(PDFConverter):
                                 fill=rbg)
     
     def place_border(self, color, borderwidth, item, rbg=None):
-        if isinstance(item, LTTextLine):
-            rect = [
-                item.x0 * self.scale,
-                (self.pg_h - item.y1 + 1) * self.scale,
-                (item.x0 + item.width) * self.scale,
-                (self.pg_h - item.y1 + item.height - 1) * self.scale,
-            ]
-            self.textbox_list.append(Text(box=rect))
+        if isinstance(item, LTTextLineHorizontal):
+            # rect = [
+            #     item.x0 * self.scale,
+            #     (self.pg_h - item.y1 + 1) * self.scale,
+            #     (item.x0 + item.width) * self.scale,
+            #     (self.pg_h - item.y1 + item.height - 1) * self.scale,
+            # ]
+            self.textbox_list.append(
+                Text(
+                    rect=Rect(
+                        item.x0 * self.scale,
+                        (self.pg_h - item.y1) * self.scale,
+                        item.width * self.scale,
+                        item.height * self.scale,
+                    ),
+                    color=rbg
+                )
+            )
         else:
             self.place_rect(
                 color, borderwidth, item.x0, item.y1, item.width, item.height,
@@ -221,31 +232,40 @@ class JPGConverter(PDFConverter):
                 tpl.save(os.path.join(self.outdir, "page%d.tpl" % item.pageid))
                 self.textbox_list.clear()
             
-            
             elif isinstance(item, LTCurve):
-                self.place_border('curve', 0, item, rbg=(0, 0, 0))
+                self.place_border("curve", 1, item, (200, 0, 0))
             
             elif isinstance(item, LTLine):
-                self.place_border('curve', 0, item, rbg=(0, 0, 0))
+                self.place_border("curve", 1, item, (200, 0, 0))
             
             elif isinstance(item, LTFigure):
-                self.place_border('figure', 2, item, rbg=(0, 0, 200))
-                for child in item:
-                    render(child)
+                pass
+                # self.place_border('figure', 2, item, rbg=(0, 0, 200))
+                # for child in item:
+                #     render(child)
             
             elif isinstance(item, LTImage):
-                self.place_border('figure', 2, item, rbg=(0, 0, 200))
+                self.place_border("figure", 2, item)
                 pass
             
             else:
                 if isinstance(item, LTTextBox):
                     for child in item:
                         render(child)
-                elif isinstance(item, LTTextLine):
+                elif isinstance(item, LTTextLineHorizontal):
+                    color = None
+                    for child in item:
+                        if not color:
+                            color = covert_color(child.graphicstate.ncolor)
+                        
+                        render(child)
+                    print(color)
                     if item.width > item.height:
-                        self.place_border('figure', 2, item, rbg=(200, 200, 0))
+                        self.place_border("figure", 2, item, rbg=color)
                 
                 elif isinstance(item, LTChar):
+                    # print(item.fontname, item.size, item.graphicstate.ncolor)
+                    
                     pass
                     # text = item.get_text()
                     # x1, y1, x2, y2 = (
@@ -263,6 +283,23 @@ class JPGConverter(PDFConverter):
         self.outfp.close()
 
 
+def cmyk_to_rgb(cmyk):
+    r = 255 * (1.0 - (cmyk[0] + cmyk[3]))
+    g = 255 * (1.0 - (cmyk[1] + cmyk[3]))
+    b = 255 * (1.0 - (cmyk[2] + cmyk[3]))
+    return r, g, b
+
+
+def covert_color(color):
+    if len(color) == 1:
+        return color[0] * 255, color[0] * 255, color[0] * 255
+    if len(color) == 4:
+        color = cmyk_to_rgb(color)
+    if len(color) == 3:
+        return int(color[0] * 255), int(color[1] * 255), int(color[2] * 255)
+    raise ValueError('Color Error')
+
+
 def process_pdf(
         rsrcmgr,
         device,
@@ -273,43 +310,19 @@ def process_pdf(
         caching=True,
         check_extractable=True,
 ):
-    # Create a PDF parser object associated with the file object.
-    parser = PDFParser(fp)
-    # Create a PDF document object that stores the document structure.
-    doc = PDFDocument(caching=caching)
-    # Connect the parser and document objects.
-    parser.set_document(doc)
-    doc.set_parser(parser)
-    # Supply the document password for initialization.
-    # (If no password is set, give an empty string.)
-    doc.initialize(password)
-    # Check if the document allows text extraction. If not, abort.
-    if check_extractable and not doc.is_extractable:
-        raise PDFTextExtractionNotAllowed(
-            "Text extraction is not allowed: %r" % fp)
-    # Create a PDF interpreter object.
     interpreter = PDFPageInterpreter(rsrcmgr, device)
-    # Process each page contained in the document.
+    pages = PDFPage.get_pages(
+        fp, pagenos, maxpages, password, caching, check_extractable
+    )
     
-    pbar = tqdm(total=len([f for f in doc.get_pages()]))
-    for (pageno, page) in enumerate(doc.get_pages()):
-        if pagenos and (pageno not in pagenos):
-            continue
+    for page in tqdm(pages):
         interpreter.process_page(page)
-        if maxpages and maxpages <= pageno + 1:
-            break
-        pbar.update(1)
-    pbar.close()
 
 
 if __name__ == "__main__":
-    import glob
-    
     outdir = r"E:\00IT\P\uniform\static\pdf"
     rsrcmgr = PDFResourceManager(caching=False)
     outfp = sys.stdout
-    files = [f for f in glob.glob(os.path.join(outdir, "*.pdf"))]
-    
     pdffile = r"test.pdf"
     laparams = LAParams()
     # scale = 2339/4210*5*2
