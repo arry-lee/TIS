@@ -30,6 +30,7 @@ def bezier_curve(points, color="red"):
     plt.plot(
         curve1[:, 0], curve1[:, 1], color=color  # x-coordinates.  # y-coordinates.
     )
+
     buffer = BytesIO()
     plt.axis("off")  # 隐藏x坐标轴
     plt.savefig(buffer, format="png", bbox_inches="tight", pad_inches=0)
