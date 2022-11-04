@@ -14,3 +14,13 @@
 !/.gitignore
 !/data/
 /post_processor/tests/
+/doc/
+/static/
+!/tests/
+!/dev.log
+/script/
+/dev.log
+*.png
+*.jpg
+*.txt
+*.json

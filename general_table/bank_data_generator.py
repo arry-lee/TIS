@@ -189,7 +189,7 @@ def from_dataframe(df, max_cols=12, drop=True):
     field_names = list(df.columns)
     if drop is True:
         dropkey = [
-            "摘要及明细",
+            # "摘要及明细",
             "应用号",
             "序号",
             "存期",
@@ -296,8 +296,243 @@ def banktable2image(
     origin_lines = str(table).splitlines()
     lines = list(filter(lambda x: "<r" not in x, origin_lines))  # 过滤掉标记
 
-    # 判断是不是表头换行的表格
-    # multiline = is_chinese(re.split(vpat,lines[9])[1].strip()[0])
+    char_width = font_size // 2  # 西文字符宽度
+    half_char_width = char_width // 2
+
+    w = (len(lines[0]) + 1) * char_width  # 图片宽度
+    h = (len(lines)) * font_size  # 图片高度
+
+    if line_height is None:
+        line_height = font_size + line_pad
+
+    if background and bg_box:
+        x1, y1, x2, y2 = bg_box
+        w0, h0 = x2 - x1, y2 - y1
+        background = Image.open(background)
+        wb, hb = background.size
+        wn, hn = int(wb * w / w0), int(hb * h / h0)
+        background = background.resize((wn, hn))
+        x0, y0 = int(x1 * w / w0), int(y1 * h / h0)
+    else:
+        background = Image.new("RGB", (w, h), bgcolor)
+        x0, y0 = xy or (char_width, char_width)
+        if watermark and logo_path:
+            try:
+                logo = Image.open(logo_path).resize((w // 2, w // 2))
+                background.paste(logo, (w // 4, h // 4), mask=logo)
+            except FileNotFoundError:
+                pass
+
+    draw = ImageDraw.Draw(background)
+    font = ImageFont.truetype(font_path, font_size, encoding="utf-8")
+    titlesize = font_size + 8
+    titlefont = ImageFont.truetype(font_path, titlesize, encoding="utf-8")
+
+    boxes = set()  # 多行文字的外框是同一个，需要去重
+    text_boxes = []  # 文本框
+
+    is_odd_line = True
+    if multiline:
+        lines_to_draw = (6, 10)
+    else:
+        lines_to_draw = (6, 8)
+    last = 0
+    rno = 0
+    max_cols = 0
+
+    for lno, line in enumerate(lines):
+        v = lno * line_height + y0
+        start = half_char_width + x0
+        rowleft = x0
+        cells = re.split(V_LINE_PATTERN, line)[1:-1]
+
+        if lno == 1:  # title
+            title = cells[0].strip()
+            draw.text((w // 2, v), title, font=titlefont, fill="black", anchor="mm")
+            titlebox = draw.textbbox((w // 2, v), title, font=titlefont, anchor="mm")
+            text_boxes.append([titlebox, "text@" + title])
+            if logo_path:
+                try:
+                    logo = Image.open(logo_path)
+                    xy = (
+                        titlebox[0] - logo.size[0],
+                        titlebox[1] + titlesize // 2 - logo.size[1] // 2,
+                    )
+                    background.paste(logo, xy, mask=logo)
+                except FileNotFoundError:
+                    pass
+            if debug:
+                draw.rectangle(titlebox, outline="green")
+            continue
+
+        if lno == 7:
+            max_cols = len(cells)
+        if lno == 6:
+            last = v
+
+        if "═" in line:
+            if lno in lines_to_draw:  # 用---虚线
+                if dot_line:
+                    draw.text((0, v), "-" * (2 * len(line) - 2), fill="black")
+                else:
+                    draw.line((x0, v) + (w - x0, v), fill="black", width=2)
+
+            if lno > 6:
+                if multiline:
+                    if is_odd_line:
+                        text_boxes.append([[x0, last, w - x0, v], "行-row@%d" % rno])
+                        is_odd_line = not is_odd_line
+                        if debug:
+                            draw.rectangle(
+                                (x0, last) + (w - x0, v), outline="red", width=2
+                            )
+                            draw.text((x0, last), "row@%d" % rno, fill="red")
+                        rno += 1
+                    else:
+                        is_odd_line = not is_odd_line
+
+                else:
+                    text_boxes.append([[x0, last, w - x0, v], "行-row@%d" % rno])
+                    if debug:
+                        draw.rectangle((x0, last) + (w - x0, v), outline="red", width=2)
+                        draw.text((x0, last), "row@%d" % rno, fill="red")
+                    rno += 1
+                last = v
+            continue
+
+        # 以下内容将不会包含'═'
+        for cno, cell in enumerate(cells):
+            ll = sum(_str_block_width(c) + 1 for c in cells[:cno]) + 1
+            if cell == "":  #
+                start += char_width
+                continue
+            if "═" not in cell:
+                box = draw.textbbox((start, v), cell, font=font, anchor="lm")
+                if box[1] != box[3]:  # 非空单元内文字框
+                    draw.text((start, v), cell, font=font, fill="black", anchor="lm")
+                    lpad, rpad = count_padding(cell)
+                    l = box[0] + lpad * char_width
+                    striped_cell = cell.strip()
+                    # 如果有多个空格分隔,例如无线表格
+                    if "  " in striped_cell:
+                        lt, rt = l, l
+                        for text in re.split("( {2,})", striped_cell):
+                            if text.strip():
+                                rt = lt + _str_block_width(text) * char_width
+                                text_box = (lt, box[1], rt, box[3] - 1)
+                                if debug:
+                                    draw.rectangle(text_box, outline="green")
+                                text_boxes.append([text_box, "text@" + text])
+                            else:
+                                lt = rt + _str_block_width(text) * char_width
+                    else:
+                        r = box[2] - rpad * char_width
+                        text_box = (l, box[1], r, box[3])
+                        if debug:
+                            draw.rectangle(text_box, outline="green")
+                        text_boxes.append([text_box, "text@" + striped_cell])
+
+                left = box[0] - half_char_width
+                right = box[2] + half_char_width
+                start = right + half_char_width
+                tt = lno - 1
+                bb = lno + 1
+                # 原因：_str_block_width 和 [ll]不一样,解决方法，将中文替换为2个字母
+                while replace_chinese_to_dunder(lines, tt)[ll] not in H_SYMBOLS:
+                    tt -= 1
+                while replace_chinese_to_dunder(lines, bb)[ll] not in H_SYMBOLS:
+                    bb += 1
+                cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
+                boxes.add(cbox)
+                if not is_odd_line and cell.strip():
+                    label = "跨行列格-cell@{rno}-{rno},{cno}-{cno}".format(
+                        rno=rno - 1, cno=max_cols + cno
+                    )
+                    if [cbox, label] not in text_boxes:
+                        text_boxes.append([cbox, label])
+                    if debug:
+                        draw.rectangle(cbox, outline="blue", width=3)
+                        draw.text((cbox[0], cbox[1]), label, fill="blue")
+            else:
+                end = start + (len(cell) + 1) * char_width
+                left = start - half_char_width
+                right = end - half_char_width
+                start = end
+
+    # 找表宽
+    l, t, r, b = list(boxes)[0]
+    for box in boxes:
+        l = min(l, box[0])
+        t = min(t, box[1])
+        r = max(r, box[2])
+        b = max(b, box[3])
+
+    boxes = list(filter(lambda x: not (x[0] == l and x[2] == r), boxes))
+    l, t, r, b = boxes[0]
+    for box in boxes:
+        l = min(l, box[0])
+        t = min(t, box[1])
+        r = max(r, box[2])
+        b = max(b, box[3])
+    table = (l, t, r, b)
+
+    if debug:
+        draw.rectangle([l, t, r, b], outline="purple")
+        draw.text((l, t), "table@0", fill="purple", anchor="ld")
+
+    cols = []
+    for box in boxes:
+        if box[3] == b:
+            col = [box[0], t, box[2], b]
+            cols.append(col)
+
+    cols.sort()
+    for cno, col in enumerate(cols):
+        text_boxes.append([col, "列-column@%d" % cno])  # 最底部的就是列
+        if debug:
+            draw.rectangle(col, outline="pink")
+            draw.text((col[0], col[1]), "col@%d" % cno, fill="pink")
+
+    boxes = [tb[0] for tb in text_boxes]  # 单纯的boxes分不清是行列还是表格和文本
+    boxes.append([l, t, r, b])
+    points = []
+    for box in boxes:
+        points.append([box[0], box[1]])
+        points.append([box[2], box[1]])
+        points.append([box[2], box[3]])
+        points.append([box[0], box[3]])
+
+    label = [tb[1] for tb in text_boxes] + ["表-table@1"]
+
+    return {
+        "image": cv2.cvtColor(np.array(background, np.uint8), cv2.COLOR_RGB2BGR),
+        "boxes": boxes,  # box 和 label是一一对应的
+        "label": label,
+        "points": points,
+    }
+
+def banktable2image(
+    table,
+    xy=None,
+    font_size=20,
+    bgcolor="white",
+    background=None,
+    bg_box=None,
+    font_path="simfang.ttf",
+    line_pad=0,
+    line_height=None,
+    logo_path=None,
+    watermark=True,
+    dot_line=False,
+    multiline=False,
+    debug=False,
+):
+    """
+    将银行流水单渲染成图片
+    """
+    assert font_size % 4 == 0
+    origin_lines = str(table).splitlines()
+    lines = list(filter(lambda x: "<r" not in x, origin_lines))  # 过滤掉标记
 
     char_width = font_size // 2  # 西文字符宽度
     half_char_width = char_width // 2

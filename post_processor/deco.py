@@ -12,6 +12,10 @@ def p2c(image):
     :param image: PIL.Image
     :return: cv2.image
     """
+    if isinstance(image,np.ndarray):
+        return image
+    if image.mode == 'RGBA':
+        return cv2.cvtColor(np.asarray(image, np.uint8), cv2.COLOR_RGBA2BGRA)
     return cv2.cvtColor(np.asarray(image, np.uint8), cv2.COLOR_RGB2BGR)
 
 
@@ -21,8 +25,11 @@ def c2p(image):
     :param image: cv2.image
     :return: PIL.Image
     """
-    return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-
+    if len(image.shape)==2:
+        return Image.fromarray(image,mode='L')
+    if image.shape[2]==3:
+        return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    return Image.fromarray(cv2.cvtColor(image,cv2.COLOR_BGRA2RGBA))
 
 def as_pillow(img):
     """
@@ -44,7 +51,7 @@ def as_cv(img):
     :return: np.ndarray
     """
     if isinstance(img, str):
-        return cv2.imread(img, cv2.IMREAD_COLOR)
+        return cv2.imread(img, cv2.IMREAD_UNCHANGED)
     if isinstance(img, Image.Image):
         return p2c(img)
     return img
@@ -77,7 +84,8 @@ def keepdata(func):
         elif isinstance(img, Image.Image):
             oimg = p2c(img)
         elif isinstance(img, dict):
-            oimg = img["image"]
+            oimg = as_cv(img["image"])
+            
         else:
             oimg = img
 

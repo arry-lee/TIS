@@ -74,3 +74,28 @@ def tear_image(img, pos, gap=20, slope=0):
         for j in range(mid, img.height):
             out.putpixel((i, j + gap), img.getpixel((i, j)))
     return p2c(out)
+
+
+def tear_image_alpha(img, pos, gap=20, slope=0):
+    """
+    做出一张图片撕裂后的效果
+    :param img: np.ndarray 原图
+    :param pos: int 位置
+    :param gap: int 裂开宽度
+    :param slope: float 斜率
+    :return: np.ndarray 裂开图
+    """
+    img = as_pillow(img).convert('RGBA')
+    zeros = random_tear_curve(img.width, slope)
+    out = Image.new("RGBA", (img.width, img.height + gap), (0,0,0,0))
+    mid = pos
+    for i in range(img.width):
+        mid = mid + zeros[i]
+        for j in range(mid):
+            out.putpixel((i, j), img.getpixel((i, j)))
+
+        for j in range(mid, mid + THICKNESS):
+            out.putpixel((i, j), (255, 255, 255,255))
+        out.putpixel((i, mid), (100, 100, 100,255))
+
+    return out

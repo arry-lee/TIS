@@ -23,7 +23,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from deco import as_cv
+from .deco import as_cv, p2c
 
 
 def replacement(text_layer,
@@ -43,6 +43,10 @@ def replacement(text_layer,
     paper = cv2.resize(texture, (cols, rows))
     filter_img = cv2.cvtColor(paper, cv2.COLOR_BGR2GRAY)
     
+    # max_ = np.max(filter_img)
+    # min_ = np.min(filter_img)
+    # filter_img = filter_img*255/(max_-min_)
+    
     map_y = np.array([list(range(rows)) for _ in range(cols)], np.float32).T
     map_x = np.array([list(range(cols)) for _ in range(rows)], np.float32)
     # 最大偏移量为 ratio,将偏移范围约束到-5到5之间
@@ -59,7 +63,7 @@ def replacement(text_layer,
     mask = Image.fromarray(mask_text)
     paper = Image.fromarray(paper)
     paper.paste(mask, mask=mask)
-    return paper
+    return np.asarray(paper, np.uint8)
 
 
 if __name__ == '__main__':

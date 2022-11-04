@@ -3,7 +3,7 @@ import random
 
 from PIL import Image, ImageDraw, ImageFont
 
-from post_processor.color_reducer import reduce_color
+from post_processor.color import reduce_color
 from post_processor.deco import as_cv, as_pillow
 from post_processor.rotation import rotate_bound
 

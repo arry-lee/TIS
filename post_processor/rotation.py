@@ -66,7 +66,7 @@ def rotate_data(data, angle=0, border_value=(0, 0, 0)):
         data["image"], angle=angle, border_value=border_value, mask=True, matrix=True
     )
     data["points"] = rotate_points(data["points"], mat)
-    if data.get("mask", None):
+    if data.get("mask", None) is not None:
         data["mask"] = rotate_bound(
             data["mask"], angle=angle, border_value=border_value
         )

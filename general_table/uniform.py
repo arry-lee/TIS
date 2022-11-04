@@ -27,12 +27,12 @@ class UniForm:
         else:
             raise ValueError
 
-        self.data = config["form_type"]
+        self.data = self.config["form_type"]
         self.rows = []
-        self.filters = config["filters"]
+        self.filters = self.config["filters"]
         self.table_width = int(self.filters["max_table_width"])
         self.min_width_of_cell = self.filters.get("min_width_of_cell", 4)
-        label_dir = config["base"]["label_dir"]
+        label_dir = self.config["base"]["label_dir"]
         (
             self.keys_dict,
             self.values_dict,

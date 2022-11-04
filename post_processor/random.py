@@ -7,13 +7,15 @@ import random
 import numpy as np
 
 from post_processor.background import add_background_data
+from post_processor.curve import random_ink
 from post_processor.deco import keepdata
 from post_processor.distortion import distortion
-from post_processor.noisemaker import sp_noise
+from post_processor.noise import gauss_noise, sp_noise
 from post_processor.perspective import perspective_data
+from post_processor.reflect import reflect
 from post_processor.rotation import rotate_data
 from post_processor.seal import add_seal
-from post_processor.shadow import add_fold
+from post_processor.shadow import add_fold, add_shader
 from post_processor.watermark import add_watermark
 
 __all__ = [
@@ -25,6 +27,7 @@ __all__ = [
     "random_background",
     "random_perspective",
     "random_distortion",
+    "random_reflect"
 ]
 
 
@@ -46,7 +49,7 @@ def random_distortion(data, max_peak, max_period):
     return data
 
 
-def random_rotate(data, min_angle, max_angle):
+def random_rotate(data, min_angle=-10, max_angle=10):
     """
     随机转动
     :param data: dict 标注字典
@@ -58,7 +61,7 @@ def random_rotate(data, min_angle, max_angle):
     return rotate_data(data, angle)
 
 
-def random_perspective(data, min_offset, max_offset):
+def random_perspective(data, min_offset=0.02, max_offset=0.05):
     """
     随机透视
     :param data: dict 标注字典
@@ -119,7 +122,7 @@ def random_seal(data, seal_dir):
 
 
 @keepdata
-def random_fold(data, min_range, max_range):
+def random_fold(data, min_range=0.25, max_range=0.75):
     """
     随机折痕
     :param data: dict 标注字典
@@ -137,7 +140,7 @@ def random_fold(data, min_range, max_range):
 
 
 @keepdata
-def random_noise(data, max_prob):
+def random_noise(data, max_prob=0.02):
     """
     随机噪声
     :param data: dict 标注字典
@@ -146,3 +149,23 @@ def random_noise(data, max_prob):
     """
     prob = random.uniform(0, max_prob)
     return sp_noise(data, prob)
+
+@keepdata
+def random_gauss_noise(data):
+    return gauss_noise(data,mean=0.01)
+    
+@keepdata
+def random_reflect(data,light=None):
+    """
+    随机反射效果
+    :param data: dict 标注字典
+    :return: dict
+    """
+    if not light:
+        light = r'E:\00IT\P\uniform\post_processor\tmp\test.jpeg'
+    return reflect(data,light)
+
+@keepdata
+def random_shadow(data):
+    shader = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
+    return add_shader(data,shader)

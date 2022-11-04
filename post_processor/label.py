@@ -4,6 +4,8 @@
 import cv2
 import numpy as np
 
+from post_processor.deco import keepdata
+
 
 def log_label(out_file, img, data):
     """

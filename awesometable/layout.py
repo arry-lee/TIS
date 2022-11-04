@@ -1,7 +1,6 @@
 """
 管理布局模块
 """
-
 import textwrap
 from abc import ABCMeta, abstractmethod
 
@@ -14,6 +13,7 @@ from awesometable.awesometable import AwesomeTable
 from awesometable.fontwrap import (put_text_in_box,
                                    put_text_in_box_without_break_word)
 from awesometable.table2image import Text, table2image
+from post_processor.deco import as_pillow, p2c
 
 
 def _modify_text(text, pos):
@@ -78,10 +78,10 @@ class AbstractTable(object, metaclass=ABCMeta):
         """图像高度"""
         return self.get_image()["image"].shape[0]
     
-    @abstractmethod
-    def get_image(self):
-        """图片表示"""
-        return NotImplemented
+    # @abstractmethod
+    # def get_image(self):
+    #     """图片表示"""
+    #     return NotImplemented
     
     def append(self, obj):
         """追加布局"""
@@ -120,7 +120,9 @@ class HorLayout(AbstractTable):
         else:
             self._gaps = [0] * (len(self.layouts) - 1)
         # _char_width 是字符属性 _table 是图像属性
-        self._char_width = sum(x + 1 for x in self._widths) - 1
+        
+        # self._char_width = sum(x + 1 for x in self._widths) - 1
+        
         self._table_width = sum(self._widths) + sum(self._gaps)
         self.table = LayoutTable()
     
@@ -204,6 +206,7 @@ class VerLayout(AbstractTable):
             self._widths = widths
             self._table_width = max(widths)
         else:
+            print(self.layouts)
             self._table_width = max([x.table_width for x in self.layouts])
             self._widths = [self._table_width] * len(self.layouts)
         
@@ -319,7 +322,7 @@ class FlexTable(AwesomeTable):
 
 class TextBlock(AbstractTable):
     """
-    文本块元素
+    文本块元素,其高度是被动决定的
     """
     
     def __init__(
@@ -371,7 +374,7 @@ class TextBlock(AbstractTable):
     @property
     def table_width(self):
         """图像宽度"""
-        return self._table_width or self.get_image()['image'].shape[1]
+        return self.get_image()['image'].shape[1]
     
     @table_width.setter
     def table_width(self, val):
@@ -476,7 +479,7 @@ class Cell(TextBlock):
         img = data['image']
         height, width = img.shape[:2]
         data['image'] = cv2.rectangle(img, (0, 0), (
-        width - self.line_width, height - self.line_width), self.outline,
+            width - self.line_width, height - self.line_width), self.outline,
                                       self.line_width)
         return data
 
@@ -503,3 +506,42 @@ class TableBlock(AwesomeTable):
     
     def get_image(self):
         return self.parse_layout().get_image()
+    
+    def table_width(self):
+        return self.parse_layout().table_width
+
+
+class ImageBlock:
+    def __init__(self, img, width=None, height=None):
+        self.image = as_pillow(img)
+        self._width = width or self.image.width
+        self._height = height or self.image.height
+    
+    @property
+    def table_width(self):
+        return self._width
+    
+    @table_width.setter
+    def table_width(self, val):
+        self._width = val
+    
+    @property
+    def height(self):
+        return self._height
+    
+    @height.setter
+    def height(self, val):
+        self._height = val
+    
+    def get_image(self):
+        return {'image' : p2c(self.image.resize((self._width, self._height))),
+                "points": [[0, 0], [self._width, 0], [self._width, self.height],
+                           [0, self._height]],
+                "label" : ["image@"],
+                "text"  : [],
+                "line"  : [],
+                }
+    
+    def __str__(self):
+        return f"<ImageBlock>{id(self)}-{self._width}x{self._height}"
+

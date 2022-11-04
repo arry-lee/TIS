@@ -15,13 +15,17 @@ def add_background(image, background, offset=0, mask=None):
     :param mask: 蒙版
     :return: np.ndarray
     """
+    # print(image)
+    # assert image.mode == 'RGBA'
     img = as_pillow(image)
-    height, width = image.shape[:2]
+    width,height = img.size
     height += offset * 2
     width += offset * 2
     back = as_pillow(background).resize((width, height))
     if mask is not None:
         mask = as_pillow(mask).convert("L")
+    if img.mode == 'RGBA':
+        mask = img.getchannel('A')
     back.paste(img, (offset, offset), mask=mask)
     return p2c(back)
 
@@ -54,10 +58,10 @@ def add_background_data(data, background, offset):
     mask = data.get("mask", None)
     data["image"] = add_background(data["image"], background, offset, mask=mask)
     data["points"] = np.array(data["points"]) + offset
-    for text in data["text"]:
-        _modify_text(text, (offset, offset))
-    for line in data["line"]:
-        _modify_line(line, (offset, offset))
+    # for text in data["text"]:
+    #     _modify_text(text, (offset, offset))
+    # for line in data["line"]:
+    #     _modify_line(line, (offset, offset))
     return data
 
 
@@ -73,8 +77,8 @@ def add_to_paper(data, paper):
     img.paste(c2p(data["image"]), pos)
     data["image"] = p2c(img)
     data["points"] = np.array(data["points"]) + np.array(pos)
-    for text in data["text"]:
-        _modify_text(text, pos)
-    for line in data["line"]:
-        _modify_line(line, pos)
+    # for text in data["text"]:
+    #     _modify_text(text, pos)
+    # for line in data["line"]:
+    #     _modify_line(line, pos)
     return data

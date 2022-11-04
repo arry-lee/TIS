@@ -163,3 +163,4 @@ def table2image(
         "label": label,
         "points": points,
     }
+

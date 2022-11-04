@@ -256,7 +256,7 @@ def font_wrap(text, width, font_path="arial.ttf", font_size=40):
         width * font_size // 2,
         font_path=font_path,
         font_size=font_size,
-        break_word=False,
+        break_word=True,
         indent=0,
     )
     return out

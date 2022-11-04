@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-from bezier import curve as _curve
+from post_processor.bezier import curve as _curve
 from post_processor.scan import spread
 
 
