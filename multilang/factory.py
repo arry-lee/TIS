@@ -13,7 +13,15 @@ from itertools import cycle
 
 import cv2
 import numpy as np
-from PIL import Image, ImageChops, ImageColor, ImageDraw, ImageFilter, ImageOps
+from PIL import (
+    Image,
+    ImageChops,
+    ImageColor,
+    ImageDraw,
+    ImageFilter,
+    ImageFont,
+    ImageOps,
+)
 from tqdm import tqdm
 
 from designer.bankcard_designer import BadTemplateError, BankCardDesigner
@@ -21,16 +29,19 @@ from general_table.bank_data_generator import (
     bank_detail_generator,
     bank_table_generator,
 )
-from mlang.unilayout import UniForm
-from mockup import random_mockup
 from multifaker import Faker
-from pdfire import from_pdf
+from multilang.formtemplate import FormTemplate, nolinetable2template
+from multilang.htmltemplate import IDCardTemplate
+from multilang.pdfire import from_pdf
+from multilang.template import Template
+from multilang.unilayout import UniForm
 from post_processor.deco import c2p, keepdata
 from post_processor.displace import displace, random_displace
 from post_processor.distortion import distortion2
 from post_processor.harmonizer import harmonize
 from post_processor.label import log_label
-from post_processor.qcode import bar, qr
+from post_processor.mockup import random_mockup
+from post_processor.qcode import barcode_image, qrcode_image
 from post_processor.random import (
     random_background,
     random_gauss_noise,
@@ -39,19 +50,9 @@ from post_processor.random import (
     random_source,
 )
 from post_processor.shadow import add_shader
-from post_processor.tear import tear_image_alpha
-from template import (
-    FormTemplate,
-    IDCardTemplate,
-    NewsTemplate,
-    Template,
-    nolinetable2template,
-)
-
-__all__ = ["ImageMachine", "prepare_templates", "filter_templates",
-           "filter_pdfs"]
-
 from utils.maxrect import max_left
+
+__all__ = ["ImageMachine", "prepare_templates", "filter_templates", "filter_pdfs"]
 
 
 def iglob(path, ext):
@@ -66,11 +67,16 @@ def iglob(path, ext):
 
 
 def filter_templates(tpl_dir, filter_dir):
-    """人工删除不好的效果图后，删去对应的模板"""
+    """
+    人工删除不好的效果图后，删去对应的模板
+    :param tpl_dir: 模板目录
+    :param filter_dir: 人工筛选剩余图片
+    :return: 剩下的数量
+    """
     filters = set()
     for fname in iglob(filter_dir, "g"):
         filters.add(os.path.splitext(os.path.basename(fname))[0])
-    
+
     for tpl in iglob(tpl_dir, "tpl"):
         name = os.path.basename(tpl).removesuffix(".tpl")
         if name not in filters:
@@ -80,14 +86,18 @@ def filter_templates(tpl_dir, filter_dir):
 
 
 def filter_pdfs(pdf_dir, filter_dir):
-    """人工删除不好的效果图后，删去对应的PDF模板"""
+    """
+    人工删除不好的效果图后，删去对应的PDF模板
+    :param pdf_dir: pdf 目录
+    :param filter_dir: 人工筛选剩余图片
+    :return: 剩下的数量
+    """
     filters = set()
     for fname in iglob(filter_dir, ".png"):
         filters.add(os.path.basename(fname).split("-")[0])
-    
+
     for tpl in iglob(pdf_dir, "pdf"):
         name = os.path.basename(tpl).removesuffix(".pdf")
-        # print(name)
         if name not in filters:
             os.remove(tpl)
             print(f"remove {tpl}")
@@ -105,11 +115,19 @@ def prepare_templates(pdf_dir, tpl_dir, use_ocr=False):
     for file in tqdm(iglob(pdf_dir, ".pdf")):
         try:
             from_pdf(file, outdir=tpl_dir, maxpages=0, use_ocr=use_ocr)
-        except Exception as e:
-            print(e)
+        # pylint:disable=broad-except
+        except (FileNotFoundError, Exception) as err:
+            print(err)
 
 
 def _save_and_log(image_data, fname, output_dir):
+    """
+    保存图片和标注到指定文件夹
+    :param image_data: dict 图像字典
+    :param fname: basename 命名 后缀又具体格式定
+    :param output_dir: 输出路径
+    :return: None
+    """
     image = image_data["image"]
     name = f"{fname}.jpg"
     if isinstance(image, Image.Image):
@@ -129,12 +147,12 @@ def _save_and_log(image_data, fname, output_dir):
 
 class BaseGenerator:
     """各类图片生成器基类"""
-    
+
     templates_basedir = "templates"
-    
+
     def __init__(self, name):
         self.name = name
-    
+
     def run(self, product_engine, **kwargs):
         """
         运行方法，无需重写
@@ -146,11 +164,11 @@ class BaseGenerator:
         image_data = self.render_template(template, product_engine)
         image_data = self.postprocess(image_data, **kwargs)
         return image_data
-    
+
     def preprocess(self, template):
         """模板预处理钩子，不同类型的预处理可能有所不同，原地处理"""
-        pass
-    
+
+    # pylint: disable=unused-argument no-self-use
     def postprocess(self, image_data, **kwargs):
         """
         后处理钩子，不同的类型后处理可能有不同的后处理模式
@@ -158,7 +176,7 @@ class BaseGenerator:
         :return: dict
         """
         return image_data
-    
+
     def render_template(self, template, engine):
         """
         模板渲染钩子
@@ -167,7 +185,7 @@ class BaseGenerator:
         :return: imagedict
         """
         return NotImplemented
-    
+
     def load_template(self, **kwargs):
         """模板加载钩子"""
         return NotImplemented
@@ -178,7 +196,7 @@ class BankCardGenerator(BaseGenerator):
     生成器的属性只有一个名字
     只有一个run接口，该接口只有一个必须参数lang，每次调用生成一个图片
     """
-    
+
     def load_template(self, **kwargs):
         temp = BankCardDesigner.random_template()
         try:
@@ -186,7 +204,7 @@ class BankCardGenerator(BaseGenerator):
         except BadTemplateError:
             return self.load_template(**kwargs)
         return temp
-    
+
     def render_template(self, template, engine):
         template.add_round_corner()
         template.set_bank_logo()
@@ -207,19 +225,19 @@ class TemplateGenerator(BaseGenerator):
     模板生成器
     单一职责是渲染一个模板并生成
     """
-    
+
     def __init__(self, name):
         super().__init__(name)
         self.templates_dir = os.path.join(self.templates_basedir, name)
         self._templates = cycle(iglob(self.templates_dir, ".tpl"))
-    
+
     def load_template(self, **kwargs):
         """加载模板钩子可重写"""
         template_path = next(self._templates)
         template = Template.load(template_path)
         template.path = template_path
         return template
-    
+
     def render_template(self, template, engine):
         """
         渲染模板
@@ -231,7 +249,7 @@ class TemplateGenerator(BaseGenerator):
         image_data = template.render_image_data()
         image_data["template"] = template
         return image_data
-    
+
     @staticmethod
     def test_template(image_data, **kwargs):
         """保存测试数据,文件与模板同名,用于人工筛选模板"""
@@ -242,7 +260,7 @@ class TemplateGenerator(BaseGenerator):
 
 class IDCardGenerator(TemplateGenerator):
     """身份证生成器"""
-    
+
     def load_template(self, **kwargs):
         """
         身份证模板的加载与语言有关
@@ -254,11 +272,11 @@ class IDCardGenerator(TemplateGenerator):
         template_file = os.path.join(template_dir, f"{lang}.html")
         template = IDCardTemplate.from_html(template_file)
         return template
-    
+
     def preprocess(self, template):
         """增加圆角的预处理"""
         template.add_round_corner()
-    
+
     def render_template(self, template, engine):
         """
         渲染模板
@@ -269,45 +287,45 @@ class IDCardGenerator(TemplateGenerator):
         template.replace_text(engine=engine)
         image_data = template.render_image_data_poison()  # 采用泊松编辑
         return image_data
-    
+
     def postprocess(self, image_data, **kwargs):
         fname = kwargs.get("fname")
         product_dir = kwargs.get("product_dir")
         _save_and_log(image_data, fname + "_poisson", product_dir)
-        
+
         image_data = self.postprocess_simple(image_data)
         _save_and_log(image_data, fname + "_simple", product_dir)
-        
+
         image_data = self.postprocess_harmonizer(image_data)
         _save_and_log(image_data, fname + "_harmonized", product_dir)
         return image_data
-    
-    def postprocess_simple(self, image_data):
+
+    @staticmethod
+    def postprocess_simple(image_data):
         """文字后处理方法
         1. 泊松融合
         2. 深度学习方法融合
         3. 简单融合
-
         """
         text_layer = image_data["text_layer"]
         mask = image_data["mask"]
-        bg = image_data["background"].convert("RGB")
+        obg = image_data["background"].convert("RGB")
         # 随机改变透明度，使得像素值不单调
-        newmask = mask.point(
-            lambda x: x - random.randint(0, 50) if x > 200 else x)
-        bg.paste(text_layer, mask=newmask)  # 融合
-        size = bg.size
+        newmask = mask.point(lambda x: x - random.randint(0, 50) if x > 200 else x)
+        obg.paste(text_layer, mask=newmask)  # 融合
+        size = obg.size
         mask = Image.new("L", size, 0)
         draw = ImageDraw.Draw(mask)
         draw.rounded_rectangle((0, 0) + size, 40, fill=255)
-        bg.putalpha(mask)
-        
-        image_data["image"] = bg
+        obg.putalpha(mask)
+
+        image_data["image"] = obg
         del image_data["background"]
         del image_data["text_layer"]
         return image_data
-    
-    def postprocess_harmonizer(self, image_data):
+
+    @staticmethod
+    def postprocess_harmonizer(image_data):
         """文字后处理方法
         1. 泊松融合
         2. 深度学习方法融合
@@ -318,37 +336,62 @@ class IDCardGenerator(TemplateGenerator):
         comp = image_data["image"].convert("RGB")
         res = harmonize(comp, mask)
         # res = c2p(res)
-        
+
         size = res.size
         mask = Image.new("L", size, 0)
         draw = ImageDraw.Draw(mask)
         draw.rounded_rectangle((0, 0) + size, 40, fill=255)
         res.putalpha(mask)
-        
+
         image_data["image"] = res
         return image_data
 
 
 class PassportGenerator(IDCardGenerator):
     """护照生成器"""
-    
+
     def preprocess(self, template):
         pass
 
 
 class PaperGenerator(TemplateGenerator):
     """报纸杂志类的生成器"""
-    
-    def load_template(self, **kwargs):
-        template_path = next(self._templates)
-        temp = Template.load(template_path)
-        template = NewsTemplate.copy(temp)
-        return template
-    
+
+    # def load_template(self, **kwargs):
+    #     template_path = next(self._templates)
+    #     temp = Template.load(template_path)
+    #     template = NewsTemplate.copy(temp)
+    #     return template
+
     def preprocess(self, template):
         template.set_background("white")
         template.adjust_texts()  # 移除重叠
-    
+
+    def render_template(self, template: Template, engine):
+        font_path = engine.font()
+        if engine.locale in ("si",):
+            font_path = engine.font("b")
+        image_layer = Image.new("RGBA", template.image.size, (255, 255, 255, 0))
+        for text in template.texts:
+            if text.text in ("<LTImage>",):
+                width, height = text.rect.size
+                img = engine.image(width, height)
+                template.image.paste(img, text.rect.topleft)
+                image_layer.paste(img, text.rect.topleft)
+
+        for text in template.texts:
+            width, height = text.rect.size
+            if text.text in ("IMAGE", "image@", "<LTImage>"):
+                continue
+
+            font = ImageFont.truetype(font_path, height)
+            text.text = engine.sentence_fontlike(font, width)
+            text.font = font_path
+            text.color = tuple(map(lambda x: x // 255 if x > 255 else x, text.color))
+        image_data = template.render_image_data()
+        image_data["image_layer"] = image_layer
+        return image_data
+
     def postprocess(self, image_data, **kwargs):
         text_layer = image_data["text_layer"]
         image_layer = image_data["image_layer"]
@@ -365,14 +408,13 @@ class PaperGenerator(TemplateGenerator):
         # 和谐报纸上的图片显得不那么突兀
         comp = comp.convert("RGB")  # Image.fromarray(comp).convert('RGB')
         img = harmonize(comp, mask)
-        image_data["image"] = cv2.cvtColor(np.asarray(img, np.uint8),
-                                           cv2.COLOR_RGB2BGR)
+        image_data["image"] = cv2.cvtColor(np.asarray(img, np.uint8), cv2.COLOR_RGB2BGR)
         return image_data
 
 
 class MenuGenerator(TemplateGenerator):
     """菜单生成器"""
-    
+
     def preprocess(self, template):
         """
         替换图片多样性
@@ -381,11 +423,10 @@ class MenuGenerator(TemplateGenerator):
         """
         for text in template.texts:
             if text.text == "<LTImage>" and (
-                    text.rect.width < template.image.width / 2
-                    or text.rect.height < template.image.height / 2
+                text.rect.width < template.image.width / 2
+                or text.rect.height < template.image.height / 2
             ):
-                path = random_source(
-                    os.path.join(self.templates_dir, "images/"))
+                path = random_source(os.path.join(self.templates_dir, "images/"))
                 try:
                     _im = ImageOps.fit(
                         Image.open(path), text.rect.size
@@ -395,16 +436,16 @@ class MenuGenerator(TemplateGenerator):
                 else:
                     template.image.paste(_im, text.rect.topleft)
         path = random_source(os.path.join(self.templates_dir, "images/"))
-        bg = template.image
-        im = (
-            ImageOps.fit(Image.open(path), bg.size)
-                .convert("RGB")
-                .filter(ImageFilter.GaussianBlur(5))
+        obg = template.image
+        img = (
+            ImageOps.fit(Image.open(path), obg.size)
+            .convert("RGB")
+            .filter(ImageFilter.GaussianBlur(5))
         )
-        bg = ImageChops.blend(bg, im, 0.4)
-        template.set_background(bg)
+        obg = ImageChops.blend(obg, img, 0.4)
+        template.set_background(obg)
         template.adjust_texts()
-    
+
     def postprocess(self, image_data, **kwargs):
         # text_layer = image_data["text_layer"]
         # bg = image_data["background"]
@@ -420,11 +461,10 @@ class MenuGenerator(TemplateGenerator):
 
 class CouponGenerator(TemplateGenerator):
     """优惠券生成器"""
-    
+
     def postprocess(self, image_data, **kwargs):
         text_layer = image_data["text_layer"]
-        paper = random_source(
-            r"E:\00IT\P\uniform\post_processor\displace\paper")
+        paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
         nbg = add_shader(image_data["background"], paper)
         mask = displace(text_layer, paper, 2, mask_only=True)
         nbg = c2p(nbg)
@@ -439,23 +479,21 @@ class BusinessCardGenerator(TemplateGenerator):
 
 class VIPCardGenerator(BusinessCardGenerator):
     """VIP会员卡，复用名片模板，在文字层空白处加上 VIP 元素"""
-    
+
     def __init__(self, name="vipcard"):
         super().__init__("businesscard")
         self.templates_dir = os.path.join(self.templates_basedir, name)
-    
+
     def preprocess(self, template: Template):
-        vip_sign = Image.open(
-            random_source(os.path.join(self.templates_dir, "vip")))
+        vip_sign = Image.open(random_source(os.path.join(self.templates_dir, "vip")))
         template.adjust_texts()
-        
-        rects = [text.rect for text in template.texts if
-                 text.text != "<LTImage>"]
+
+        rects = [text.rect for text in template.texts if text.text != "<LTImage>"]
         rect = max_left(rects)
         hmax = max(r.height for r in rects)
-        h = min(2 * hmax, rect.height)
-        vip_sign = vip_sign.resize((vip_sign.width * h // vip_sign.height, h))
-        
+        height = min(2 * hmax, rect.height)
+        vip_sign = vip_sign.resize((vip_sign.width * height // vip_sign.height, height))
+
         template.image.paste(vip_sign, rect.topleft, mask=vip_sign)
         template.add_round_corner(40)
 
@@ -478,14 +516,14 @@ class VIPCardGenerator(BusinessCardGenerator):
 
 class FormGenerator(TemplateGenerator):
     """表格生成器"""
-    
-    colors = [c for c in ImageColor.colormap.keys() if c != "black"]
-    
+
+    colors = [c for c in ImageColor.colormap if c != "black"]
+
     def __init__(self, name):
         super().__init__(name)
         self.config_file = os.path.join(self.templates_dir, "config.yaml")
         self.table_generator = UniForm(self.config_file)
-    
+
     def load_template(self, **kwargs):
         table = next(self.table_generator.create())
         # 背景景随机有名色，前景颜色加深
@@ -497,13 +535,12 @@ class FormGenerator(TemplateGenerator):
         for text in template.texts:
             text.color = fg_color
         return template
-    
+
     def postprocess(self, image_data, **kwargs):
         text_layer = image_data["text_layer"]
-        bg = image_data["background"]
-        paper = random_source(
-            r"E:\00IT\P\uniform\post_processor\displace\paper")
-        nbg = add_shader(bg, paper)
+        obg = image_data["background"]
+        paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
+        nbg = add_shader(obg, paper)
         mask = displace(text_layer, paper, 2, mask_only=True)
         nbg = c2p(nbg)
         nbg.paste(mask, mask=mask)
@@ -514,7 +551,7 @@ class FormGenerator(TemplateGenerator):
 
 class NoLineFormGenerator(TemplateGenerator):
     """无线表格生成"""
-    
+
     def load_template(self, **kwargs):
         data = bank_detail_generator.create()[0]
         align = random.choice("lcr")
@@ -530,13 +567,12 @@ class NoLineFormGenerator(TemplateGenerator):
             vrules=random.choice(("all", None)),
         )
         return tmp
-    
+
     def postprocess(self, image_data, **kwargs):
         text_layer = image_data["text_layer"]
-        bg = image_data["background"]
-        paper = random_source(
-            r"E:\00IT\P\uniform\post_processor\displace\paper")
-        nbg = add_shader(bg, paper)
+        obg = image_data["background"]
+        paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
+        nbg = add_shader(obg, paper)
         mask = displace(text_layer, paper, 2, mask_only=True)
         nbg = c2p(nbg)
         nbg.paste(mask, mask=mask)
@@ -550,7 +586,7 @@ class WaybillGenerator(FormGenerator):
     复用通用表格生成器
     配置文件在 ./templates/waybill/config.yaml
     """
-    
+
     def preprocess(self, template):
         """加标题"""
 
@@ -560,50 +596,53 @@ class ExpressGenerator(FormGenerator):
     复用通用表格生成器
     配置文件在 ./templates/express/config.yaml
     """
+
     def load_template(self, **kwargs):
         table = next(self.table_generator.create())
         # 背景景随机有名色，前景颜色加深
-        white = random.randint(230,255)
-        black = random.randint(0,30)
-        bg_color = (white,white,white)
-        fg_color = (black,black,black)
+        white = random.randint(230, 255)
+        black = random.randint(0, 30)
+        bg_color = (white, white, white)
+        fg_color = (black, black, black)
         # fg_color = bg_color[0] // 10, bg_color[1] // 10, bg_color[2] // 10
         template = FormTemplate.from_table(
             table, xy=(80, 80), bgcolor=bg_color, fgcolor=fg_color
         )
-        color = random.choice([fg_color,'red','blue'])
+        color = random.choice([fg_color, "red", "blue"])
         for text in template.texts:
-            text.color = random.choice([fg_color,color])
-            text.font = random.choice(['b','n','i'])
-            
+            text.color = random.choice([fg_color, color])
+            text.font = random.choice(["b", "n", "i"])
+
         return template
-    
+
     def preprocess(self, template):
         """加条形码"""
-        qrcode_img = qr(template)
-        h = 80
-        qrcode_img = qrcode_img.resize((h, h))
-        
-        y = random.choice([10, template.image.height - 90])
-        
-        template.image.paste(qrcode_img, (template.image.width - 160, y),
-                             mask=qrcode_img.convert('L').point(
-                                 lambda x: 255 - x))
-        
-        num = ''.join([str(random.randint(0, 9)) for i in range(12)])
-        bar_img = bar(num)
-        bar_img = bar_img.resize((h * 520 // 200, h)).convert('RGB')
-        template.image.paste(bar_img, (
-        80, random.choice([10, template.image.height - 80])),
-                             mask=bar_img.convert('L').point(lambda x: 255 - x))
+        qrcode_img = qrcode_image(template)
+        height = 80
+        qrcode_img = qrcode_img.resize((height, height))
 
-                
+        pty = random.choice([10, template.image.height - 90])
+
+        template.image.paste(
+            qrcode_img,
+            (template.image.width - 160, pty),
+            mask=qrcode_img.convert("L").point(lambda x: 255 - x),
+        )
+
+        num = "".join([str(random.randint(0, 9)) for i in range(12)])
+        bar_img = barcode_image(num)
+        bar_img = bar_img.resize((height * 520 // 200, height)).convert("RGB")
+        template.image.paste(
+            bar_img,
+            (80, random.choice([10, template.image.height - 80])),
+            mask=bar_img.convert("L").point(lambda x: 255 - x),
+        )
+
     def postprocess(self, image_data, **kwargs):
         text_layer = image_data["text_layer"]
-        bg = image_data["image"]
-        paper = random_source(
-            r"E:\00IT\P\uniform\post_processor\displace\paper")
-        nbg = add_shader(bg, paper)
+        background = image_data["image"]
+        paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
+        nbg = add_shader(background, paper)
         mask = displace(text_layer, paper, 2, mask_only=True)
         nbg = c2p(nbg)
         nbg.paste(mask, mask=mask)
@@ -617,17 +656,17 @@ class ReceiptGenerator(FormGenerator):
     复用通用表格生成器
     配置文件在 ./tempaltes/receipt/config.yaml
     """
-    
+
     def load_template(self, **kwargs):
         table = next(self.table_generator.create(100))
         template = FormTemplate.from_table(
             table, xy=(40, 80), vrules=None, hrules="dot"
         )
         return template
-    
+
     def preprocess(self, template):
         template.adjust_texts()
-    
+
     # def postprocess(self, image_data, **kwargs):
     #     # image_data = super().postprocess(image_data, **kwargs)
     #     # if random.random() < 0.5:
@@ -640,7 +679,8 @@ class ReceiptGenerator(FormGenerator):
 
 class ImageGenerator:
     """策略模式，根据名字来分配对应的生成器"""
-    
+
+    # pylint: disable=too-many-return-statements too-few-public-methods
     def __new__(cls, name=None):
         if name == "bankcard":
             return BankCardGenerator(name)
@@ -671,18 +711,17 @@ class ImageGenerator:
 
 class ImageMachine:
     """与具体的生成器类型无关的部分"""
-    
+
     products_basedir = "output_data"
-    
+
     def __init__(self, name):
-        
+
         self._post_processors = []
-        
+
         if name in ("bankcard", "idcard", "vipcard", "businesscard"):  # 样机指定
             self._post_processors = [
                 {
-                    "func": partial(random_mockup,
-                                    mockup_dir="mockup/res/card"),
+                    "func": partial(random_mockup, mockup_dir="mockup/res/card"),
                     "name": "mockup",
                 },
             ]
@@ -711,7 +750,7 @@ class ImageMachine:
                 # {'func':keepdata(scan),'name':'scan'},
                 # {"func": show_label, "name": "label"}
             ]
-        if name in ("form", "noline", "waybill","express"):
+        if name in ("form", "noline", "waybill", "express"):
             self._post_processors = [
                 {"func": random_perspective, "name": None},
                 {"func": random_rotate, "name": None},
@@ -750,34 +789,32 @@ class ImageMachine:
                         mockup_dir="mockup/res/hand",
                         offset=5,
                         harmonize=harmonize,
-                        crop = True
+                        crop=True,
                     ),
                     "name": "mockup",
                 },
             ]
-        
+
         self.save_mid = True
         self.name = name
         self.generator = ImageGenerator(name)
         self.products_dir = os.path.join(self.products_basedir, name)
-        
+
         self.engine = Faker  # 引擎类型
-    
+
     def clean_output(self):
         """清理输出目录"""
         shutil.rmtree(self.products_dir)
-        
+
     def fname(self, index, lang):
         """
         产品命名格式 可以重写
         :param index: 编号
         :param lang: 语种
-        :param template_path: 模板路径
-        :param processor_name: 后处理
         :return:
         """
         return f"{self.name}_{lang}_{index:08}_{int(time.time())}"
-    
+
     def run(self, batch, lang):
         """
         运行
@@ -788,12 +825,12 @@ class ImageMachine:
         product_dir = os.path.join(self.products_dir, lang)
         if not os.path.exists(product_dir):
             os.makedirs(product_dir, exist_ok=True)
-        
+
         product_engine = self.engine(lang)  # 各个语言有一个引擎实例
-        
+
         for index in tqdm(range(batch), unit=lang):
             fname = self.fname(index, lang)
-            # 实际生产
+            # pylint: disable=no-member
             image_data = self.generator.run(
                 product_engine, lang=lang, fname=fname, product_dir=product_dir
             )
@@ -803,7 +840,7 @@ class ImageMachine:
             else:
                 _save_and_log(image_data, fname, product_dir)
         return True
-    
+
     def postprocess(self, image_data, fname, product_dir):
         """
         后处理器钩子
@@ -821,6 +858,13 @@ class ImageMachine:
 
 
 def main(mode, batch=10, lang=None):
+    """
+    主程序入口
+    :param mode: 种类名
+    :param batch: 数量
+    :param lang: 语种
+    :return: None
+    """
     if not lang:
         langs = [
             "cs",
@@ -860,6 +904,5 @@ if __name__ == "__main__":
     # main("passport", 2)
     # for mode in ("form","receipt","express","noline","businesscard","vipcard"):
     #     main(mode, 5)
-    main("receipt", 10)
-    
+    main("newspaper", 10)
     # for js in iglob(r"E:\00IT\P\uniform\multilang\mockup\res\hand",'json')
