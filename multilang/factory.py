@@ -3,8 +3,9 @@
 职责：生成各类图片
 命令：python factory.py -l si -m bankcard -o outdir -n 1000
 """
-import glob
 import os
+import sys
+import glob
 import random
 import shutil
 import time
@@ -24,7 +25,11 @@ from PIL import (
 )
 from tqdm import tqdm
 
-from designer.bankcard_designer import BadTemplateError, BankCardDesigner
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(BASE_DIR)
+sys.path.append(PROJECT_DIR)
+# pylint: disable=wrong-import-position ungrouped-imports
+from multilang.bankcard import BadTemplateError, BankCardDesigner
 from general_table.bank_data_generator import (
     bank_detail_generator,
     bank_table_generator,
@@ -53,6 +58,8 @@ from post_processor.shadow import add_shader
 from utils.maxrect import max_left
 
 __all__ = ["ImageMachine", "prepare_templates", "filter_templates", "filter_pdfs"]
+
+DISPLACE_PAPER = os.path.join(PROJECT_DIR, "post_processor/displace/paper")
 
 
 def iglob(path, ext):
@@ -148,7 +155,7 @@ def _save_and_log(image_data, fname, output_dir):
 class BaseGenerator:
     """各类图片生成器基类"""
 
-    templates_basedir = "templates"
+    templates_basedir = os.path.join(BASE_DIR, "templates")
 
     def __init__(self, name):
         self.name = name
@@ -156,6 +163,7 @@ class BaseGenerator:
     def run(self, product_engine, **kwargs):
         """
         运行方法，无需重写
+        :param product_engine: 假数据引擎
         :param lang: 语言
         :return: image_dict
         """
@@ -335,8 +343,6 @@ class IDCardGenerator(TemplateGenerator):
         mask = image_data["mask"]  #
         comp = image_data["image"].convert("RGB")
         res = harmonize(comp, mask)
-        # res = c2p(res)
-
         size = res.size
         mask = Image.new("L", size, 0)
         draw = ImageDraw.Draw(mask)
@@ -356,12 +362,6 @@ class PassportGenerator(IDCardGenerator):
 
 class PaperGenerator(TemplateGenerator):
     """报纸杂志类的生成器"""
-
-    # def load_template(self, **kwargs):
-    #     template_path = next(self._templates)
-    #     temp = Template.load(template_path)
-    #     template = NewsTemplate.copy(temp)
-    #     return template
 
     def preprocess(self, template):
         template.set_background("white")
@@ -406,7 +406,7 @@ class PaperGenerator(TemplateGenerator):
         #     cv2.imwrite(texture+'.jpg',img)
         comp = random_displace(image_layer, ratio=2)
         # 和谐报纸上的图片显得不那么突兀
-        comp = comp.convert("RGB")  # Image.fromarray(comp).convert('RGB')
+        comp = comp.convert("RGB")
         img = harmonize(comp, mask)
         image_data["image"] = cv2.cvtColor(np.asarray(img, np.uint8), cv2.COLOR_RGB2BGR)
         return image_data
@@ -464,7 +464,7 @@ class CouponGenerator(TemplateGenerator):
 
     def postprocess(self, image_data, **kwargs):
         text_layer = image_data["text_layer"]
-        paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
+        paper = random_source(DISPLACE_PAPER)
         nbg = add_shader(image_data["background"], paper)
         mask = displace(text_layer, paper, 2, mask_only=True)
         nbg = c2p(nbg)
@@ -498,22 +498,6 @@ class VIPCardGenerator(BusinessCardGenerator):
         template.add_round_corner(40)
 
 
-# class FormMixin:
-#     """表格后处理插件"""
-#
-#     def postprocess(self, image_data, **kwargs):
-#         text_layer = image_data["text_layer"]
-#         bg = image_data["background"]
-#         paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
-#         nbg = add_shader(bg, paper)
-#         mask = displace(text_layer, paper, 2, mask_only=True)
-#         nbg = c2p(nbg)
-#         nbg.paste(mask, mask=mask)
-#         image_data["image"] = nbg
-#         del image_data["mask"]
-#         return image_data
-
-
 class FormGenerator(TemplateGenerator):
     """表格生成器"""
 
@@ -539,7 +523,7 @@ class FormGenerator(TemplateGenerator):
     def postprocess(self, image_data, **kwargs):
         text_layer = image_data["text_layer"]
         obg = image_data["background"]
-        paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
+        paper = random_source(DISPLACE_PAPER)
         nbg = add_shader(obg, paper)
         mask = displace(text_layer, paper, 2, mask_only=True)
         nbg = c2p(nbg)
@@ -549,7 +533,7 @@ class FormGenerator(TemplateGenerator):
         return image_data
 
 
-class NoLineFormGenerator(TemplateGenerator):
+class NoLineFormGenerator(FormGenerator):
     """无线表格生成"""
 
     def load_template(self, **kwargs):
@@ -567,18 +551,6 @@ class NoLineFormGenerator(TemplateGenerator):
             vrules=random.choice(("all", None)),
         )
         return tmp
-
-    def postprocess(self, image_data, **kwargs):
-        text_layer = image_data["text_layer"]
-        obg = image_data["background"]
-        paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
-        nbg = add_shader(obg, paper)
-        mask = displace(text_layer, paper, 2, mask_only=True)
-        nbg = c2p(nbg)
-        nbg.paste(mask, mask=mask)
-        image_data["image"] = nbg
-        del image_data["mask"]
-        return image_data
 
 
 class WaybillGenerator(FormGenerator):
@@ -604,7 +576,6 @@ class ExpressGenerator(FormGenerator):
         black = random.randint(0, 30)
         bg_color = (white, white, white)
         fg_color = (black, black, black)
-        # fg_color = bg_color[0] // 10, bg_color[1] // 10, bg_color[2] // 10
         template = FormTemplate.from_table(
             table, xy=(80, 80), bgcolor=bg_color, fgcolor=fg_color
         )
@@ -641,7 +612,7 @@ class ExpressGenerator(FormGenerator):
     def postprocess(self, image_data, **kwargs):
         text_layer = image_data["text_layer"]
         background = image_data["image"]
-        paper = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
+        paper = random_source(DISPLACE_PAPER)
         nbg = add_shader(background, paper)
         mask = displace(text_layer, paper, 2, mask_only=True)
         nbg = c2p(nbg)
@@ -712,7 +683,7 @@ class ImageGenerator:
 class ImageMachine:
     """与具体的生成器类型无关的部分"""
 
-    products_basedir = "output_data"
+    products_basedir = os.path.join(BASE_DIR, "output_data")
 
     def __init__(self, name):
 
@@ -721,7 +692,7 @@ class ImageMachine:
         if name in ("bankcard", "idcard", "vipcard", "businesscard"):  # 样机指定
             self._post_processors = [
                 {
-                    "func": partial(random_mockup, mockup_dir="mockup/res/card"),
+                    "func": partial(random_mockup, mockup_dir="card"),
                     "name": "mockup",
                 },
             ]
@@ -738,9 +709,7 @@ class ImageMachine:
                     "name": "bend",
                 },
                 {
-                    "func": partial(
-                        random_mockup, mockup_dir="mockup/res/coupon", offset=15
-                    ),
+                    "func": partial(random_mockup, mockup_dir="coupon", offset=15),
                     "name": "mockup",
                 },
             ]
@@ -786,7 +755,7 @@ class ImageMachine:
                 {
                     "func": partial(
                         random_mockup,
-                        mockup_dir="mockup/res/hand",
+                        mockup_dir="hand",
                         offset=5,
                         harmonize=harmonize,
                         crop=True,
@@ -888,6 +857,22 @@ def main(mode, batch=10, lang=None):
 
 
 if __name__ == "__main__":
+    import argparse
+    from settings import TEMPLATES_MAP, LANG_TUPLE
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "--mode", help=f"mode, one of {TEMPLATES_MAP}")
+    parser.add_argument("-b", "--batch", type=int, help="batch size")
+    parser.add_argument(
+        "-l",
+        "--lang",
+        default=None,
+        help=f"lang code, one of {[(i[0],i[2]) for i in LANG_TUPLE]}",
+    )
+    args = parser.parse_args()
+
+    main(args.mode, args.batch, args.lang)
+
     # 准备模板 加人工过滤
     # prepare_templates('./templates/businesscard', './templates/businesscard')
     # x = filter_templates('./templates/businesscard/', './templates/businesscard/filter/')
@@ -904,5 +889,5 @@ if __name__ == "__main__":
     # main("passport", 2)
     # for mode in ("form","receipt","express","noline","businesscard","vipcard"):
     #     main(mode, 5)
-    main("newspaper", 10)
+    # main("bankcard", 10)
     # for js in iglob(r"E:\00IT\P\uniform\multilang\mockup\res\hand",'json')
