@@ -4,12 +4,10 @@
 import math
 import random
 
-import cv2
-import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from post_processor.deco import as_cv, as_pillow, c2p
-from post_processor.rotation import rotate_bound
+from postprocessor.convert import as_array, as_image, c2p
+from postprocessor.rotate import rotate_bound
 
 
 def gen_name_seal(name, font_size=40, yang=True):
@@ -21,9 +19,9 @@ def gen_name_seal(name, font_size=40, yang=True):
     :return: PIL.Image
     """
     if yang:
-        bg_color, fg_color = "white", "red"
+        bg_color, fg_color = (255, 255, 255, 0), (255, 0, 0, 255)
     else:
-        bg_color, fg_color = "red", "white"
+        bg_color, fg_color = (255, 0, 0, 255), (255, 255, 255, 0)
     font = ImageFont.truetype("simkai.ttf", font_size)
     if len(name) == 3:
         size = (2 * font_size, 2 * font_size)
@@ -43,7 +41,7 @@ def gen_name_seal(name, font_size=40, yang=True):
         draw.text((0, font_size), "印", fill=fg_color, font=font)
     else:
         size = font.getsize(name)
-        out = Image.new("RGB", size, "white")
+        out = Image.new("RGBA", size, (255, 255, 255, 0))
         draw = ImageDraw.Draw(out)
         width, height = size
         draw.rounded_rectangle(
@@ -58,7 +56,8 @@ def gen_name_seal(name, font_size=40, yang=True):
 
 
 def gen_seal(
-    text, bottom_text="结算专用章", center_text="2021.01.01", width=200, usestar=False
+        text, bottom_text="结算专用章", center_text="2021.01.01", width=200,
+        usestar=False
 ):
     """
     圆形印章生成器
@@ -72,11 +71,13 @@ def gen_seal(
     if usestar:
         out = Image.open("./static/seal/star.png").resize((width, width))
     else:
-        out = Image.new("RGB", (width, width), "white")
+        out = Image.new("RGBA", (width, width), (255, 255, 255, 0))
     draw = ImageDraw.Draw(out)
-    draw.ellipse((0, 0) + (width, width), outline="red", width=5)
-    font = ImageFont.truetype("./static/fonts/simfang.TTF", 20, encoding="utf-8")
-    font_small = ImageFont.truetype("./static/fonts/simfang.TTF", 16, encoding="utf-8")
+    draw.ellipse((0, 0) + (width, width), outline=(255, 0, 0, 255), width=5)
+    font = ImageFont.truetype("simfang.ttf", 20,
+                              encoding="utf-8")
+    font_small = ImageFont.truetype("simfang.ttf", 16,
+                                    encoding="utf-8")
     draw.text(
         (width // 2, width - 30),
         bottom_text,
@@ -108,7 +109,7 @@ def gen_seal(
     ]
     txts = []
     for i in range(lot):
-        txt = Image.new("RGB", (20, 20), "white")
+        txt = Image.new("RGBA", (20, 20), (255, 255, 255, 0))
         draw_txt = ImageDraw.Draw(txt)
         draw_txt.text(
             (10, 10),
@@ -119,17 +120,14 @@ def gen_seal(
             stroke_fill="red",
             stroke_width=1,
         )
-        txt = cv2.cvtColor(np.array(txt), cv2.COLOR_RGB2BGR)
-        txt = rotate_bound(txt, 135 - 270 / (lot - 1) * i, border_value=(255, 255, 255))
+        txt = txt.rotate(135 - 270 / (lot - 1) * i, expand=True,
+                         fillcolor=(255, 255, 255, 0))
         txts.append(txt)
-    out = cv2.cvtColor(np.array(out), cv2.COLOR_RGB2BGR)
+    
     for pos, txt in zip(points, txts):
         ptx, pty = int(pos[0]), int(pos[1])
-        height, width = txt.shape[:2]
-        out[
-            pty - height // 2 : pty - height // 2 + height,
-            ptx - width // 2 : ptx + width - width // 2,
-        ] = txt
+        width, height = txt.size
+        out.paste(txt, (ptx - width // 2, pty - height // 2), mask=txt)
     return out
 
 
@@ -142,13 +140,14 @@ def add_seal(img, seal_p="./static/seal/seal.jpg", pos=None, angle=None):
     :param angle: 角度
     :return: PIL.Image
     """
-    img = as_pillow(img)
+    img = as_image(img)
     width, height = img.size
     if pos is None:
-        pos = random.randint(0, 3 * width // 4), random.randint(0, 3 * height // 4)
+        pos = random.randint(0, 3 * width // 4), random.randint(0,
+                                                                3 * height // 4)
     if angle is None:
         angle = random.randint(0, 45)
-    seal_p = as_cv(seal_p)
+    seal_p = as_array(seal_p)
     seal = c2p(rotate_bound(seal_p, angle, border_value=(255, 255, 255)))
     mask = seal.convert("L").point(lambda x: 0 if x > 200 else 200)
     img.paste(seal, pos, mask=mask)
@@ -156,7 +155,8 @@ def add_seal(img, seal_p="./static/seal/seal.jpg", pos=None, angle=None):
 
 
 def add_seal_box(
-    img, seal_p="./static/seal/seal.jpg", pos=None, angle=None, arc_seal=True
+        img, seal_p="./static/seal/seal.jpg", pos=None, angle=None,
+        arc_seal=True
 ):
     """
     给图像添加印章效果, 返回图像和印章位置
@@ -167,13 +167,15 @@ def add_seal_box(
     :param arc_seal: 是否是圆形章
     :return: tuple[PIL.ndarray,tuple[int,int,int,int]]
     """
-    img = as_pillow(img)
+    img = as_image(img)
     width, height = img.size
     if pos is None:
-        pos = (random.randint(0, 3 * width // 4), random.randint(0, 3 * height // 4))
+        pos = (
+            random.randint(0, 3 * width // 4),
+            random.randint(0, 3 * height // 4))
     if angle is None:
         angle = random.randint(0, 45)
-    seal_p = as_cv(seal_p)
+    seal_p = as_array(seal_p)
     seal = c2p(rotate_bound(seal_p, angle, border_value=(255, 255, 255)))
     mask = seal.convert("L").point(lambda x: 0 if x > 200 else 200)
     img.paste(seal, pos, mask=mask)

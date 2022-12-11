@@ -7,25 +7,25 @@
 import cv2
 import numpy as np
 
-from post_processor.deco import as_cv
+from postprocessor.convert import as_array
 
 
 # Photoshop 色阶调整算法
-def levelAdjust(img, Sin=0, Hin=255, Mt=1.0, Sout=0, Hout=255):
-    Sin = min(max(Sin, 0), Hin - 2)  # Sin, 黑场阈值, 0<=Sin<Hin
-    Hin = min(Hin, 255)  # Hin, 白场阈值, Sin<Hin<=255
-    Mt = min(max(Mt, 0.01), 9.99)  # Mt, 灰场调节值, 0.01~9.99
-    Sout = min(max(Sout, 0), Hout - 2)  # Sout, 输出黑场阈值, 0<=Sout<Hout
-    Hout = min(Hout, 255)  # Hout, 输出白场阈值, Sout<Hout<=255
-
-    dif_in = Hin - Sin
-    dif_out = Hout - Sout
+def level_adjust(img, sin=0, hin=255, mt=1.0, sout=0, hout=255):
+    sin = min(max(sin, 0), hin - 2)  # Sin, 黑场阈值, 0<=Sin<Hin
+    hin = min(hin, 255)  # Hin, 白场阈值, Sin<Hin<=255
+    mt = min(max(mt, 0.01), 9.99)  # Mt, 灰场调节值, 0.01~9.99
+    sout = min(max(sout, 0), hout - 2)  # Sout, 输出黑场阈值, 0<=Sout<Hout
+    hout = min(hout, 255)  # Hout, 输出白场阈值, Sout<Hout<=255
+    
+    dif_in = hin - sin
+    dif_out = hout - sout
     table = np.zeros(256, np.uint16)
     for i in range(256):
-        v1 = min(max(255 * (i - Sin) / dif_in, 0), 255)  # 输入动态线性拉伸
-        v2 = 255 * np.power(v1 / 255, 1 / Mt)  # 灰场伽马调节
-        table[i] = min(max(Sout + dif_out * v2 / 255, 0), 255)  # 输出线性拉伸
-
+        v1 = min(max(255 * (i - sin) / dif_in, 0), 255)  # 输入动态线性拉伸
+        v2 = 255 * np.power(v1 / 255, 1 / mt)  # 灰场伽马调节
+        table[i] = min(max(sout + dif_out * v2 / 255, 0), 255)  # 输出线性拉伸
+    
     out = cv2.LUT(img, table)
     return out
 
@@ -47,9 +47,9 @@ def apply(bottom_img, top_img, func):
             func = strong_lighten
         else:
             func = add_color
-
-    bottom_img = as_cv(bottom_img)
-    top_img = as_cv(top_img)
+    
+    bottom_img = as_array(bottom_img)
+    top_img = as_array(top_img)
     top_img = cv2.resize(top_img, (bottom_img.shape[1], bottom_img.shape[0]))
     img_up = cv2.cvtColor(bottom_img, cv2.COLOR_RGB2BGR, cv2.CV_32FC3)
     img_down = cv2.cvtColor(top_img, cv2.COLOR_RGB2BGR, cv2.CV_32FC3)
@@ -84,27 +84,22 @@ def soft_lighten(img1, img2):
 
 def strong_lighten(img1, img2):
     """强光模式"""
-    dst = np.where(img1 <= 0.5, 2 * img1 * img2, 1 - 2 * (1 - img1) * (1 - img2))
+    dst = np.where(img1 <= 0.5, 2 * img1 * img2,
+                   1 - 2 * (1 - img1) * (1 - img2))
     return dst
 
 
-def reflect(img, light="test.jpeg", ksize=(50, 50), func="screen", alpha=0.3):
+def reflect(img, light, ksize=(50, 50), func="screen", alpha=0.3):
     """
     模拟玻璃反射
     https://jingyan.baidu.com/article/4e5b3e193865e8d0911e2444.html
     :return:
     """
-
-    light = as_cv(light)
+    
+    light = as_array(light)
     out = cv2.blur(light, ksize)
-    img2 = levelAdjust(out, 90, 225, 1.0, 10, 245)
+    img2 = level_adjust(out, 90, 225, 1.0, 10, 245)
     cv2.imwrite("t2.jpg", img2)
     img2 = np.uint8(img2 * alpha)
     out = apply(img, img2, func)
     return out
-
-
-if __name__ == "__main__":
-    for f in ("screen", "soft", "strong", "add"):
-        out = reflect(r"E:\00IT\P\uniform\t2.jpg", func=f)
-        cv2.imwrite(f"{f}.jpg", out)

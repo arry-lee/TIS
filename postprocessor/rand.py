@@ -4,31 +4,23 @@
 import os
 import random
 
+import cv2
 import numpy as np
 
-from post_processor.background import add_background_data
-from post_processor.curve import random_ink
-from post_processor.deco import keepdata
-from post_processor.distortion import distortion
-from post_processor.noise import gauss_noise, sp_noise
-from post_processor.perspective import perspective_data
-from post_processor.reflect import reflect
-from post_processor.rotation import rotate_data
-from post_processor.seal import add_seal
-from post_processor.shadow import add_fold, add_shader
-from post_processor.watermark import add_watermark
+from postprocessor.background import add_background_data
+from postprocessor.convert import keepdata
+from postprocessor.distortion import distortion
 
-__all__ = [
-    "random_seal",
-    "random_noise",
-    "random_fold",
-    "random_pollution",
-    "random_rotate",
-    "random_background",
-    "random_perspective",
-    "random_distortion",
-    "random_reflect"
-]
+from postprocessor.curve import bezier_curve
+from postprocessor.displace import TEXTURE_DIR, displace
+from postprocessor.noise import gauss_noise, pepper_noise
+from postprocessor.perspective import perspective_data
+from postprocessor.reflect import reflect
+from postprocessor.rotate import rotate_data
+from postprocessor.spread import spread
+from postprocessor.seal import add_seal
+from postprocessor.shadow import add_fold, add_shader
+from postprocessor.watermark import add_watermark
 
 
 def random_distortion(data, max_peak, max_period):
@@ -148,14 +140,16 @@ def random_noise(data, max_prob=0.02):
     :return: dict 标注字典
     """
     prob = random.uniform(0, max_prob)
-    return sp_noise(data, prob)
+    return pepper_noise(data, prob)
+
 
 @keepdata
 def random_gauss_noise(data):
-    return gauss_noise(data,mean=0.01)
-    
+    return gauss_noise(data, mean=0.01)
+
+
 @keepdata
-def random_reflect(data,light=None):
+def random_reflect(data, light=None):
     """
     随机反射效果
     :param data: dict 标注字典
@@ -163,9 +157,38 @@ def random_reflect(data,light=None):
     """
     if not light:
         light = r'E:\00IT\P\uniform\post_processor\tmp\test.jpeg'
-    return reflect(data,light)
+    return reflect(data, light)
+
 
 @keepdata
 def random_shadow(data):
-    shader = random_source(r"E:\00IT\P\uniform\post_processor\displace\paper")
-    return add_shader(data,shader)
+    shader = random_source(r"/postprocessor\displace\paper")
+    return add_shader(data, shader)
+
+
+def random_curve(num=5, high=4):
+    """
+    随机曲线
+    :param num: int 控制点数量
+    :param high: int 控制点坐标最大值
+    :return: np.ndarray 随机曲线图
+    """
+    pts = np.random.randint(0, high, (num, 2), np.int32)
+    color = random.choice(["red", "green", "blue", "black", "yellow"])
+    return bezier_curve(pts, color)
+
+
+def random_ink():
+    """随机笔迹"""
+    img = random_curve()
+    return cv2.blur(spread(img), ksize=(3, 3))
+
+
+def random_displace(text_layer,ratio=2,paper_dir=TEXTURE_DIR):
+    """
+    随机置换
+    :param text_layer: 文字层
+    :return:
+    """
+    texture = random_source(paper_dir)
+    return displace(text_layer, texture, ratio)

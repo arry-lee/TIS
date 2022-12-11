@@ -4,7 +4,7 @@
 import cv2
 import numpy as np
 
-from post_processor.deco import as_cv
+from postprocessor.convert import as_array
 
 
 def perspective(
@@ -26,7 +26,7 @@ def perspective(
     :param matrix: bool 是否返回变换矩阵
     :return: np.ndarray or Tuple(np.ndarray,bool,bool)
     """
-    img = as_cv(img)
+    img = as_array(img)
     height, width = img.shape[:2]
     src = np.float32([(0, 0), (width, 0), (0, height), (width, height)])
     dst = np.float32(

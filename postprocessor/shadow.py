@@ -3,7 +3,7 @@
 import cv2
 import numpy as np
 
-from post_processor.deco import as_cv
+from postprocessor.convert import as_array
 
 def grad(size, direct, color_start, color_end):
     """
@@ -84,9 +84,9 @@ def add_fold(img, pos, direction="h"):
 
 def add_shader(img,shader=None,alpha=0.5,beta=0.5):
     """按纸张增加阴影"""
-    img = as_cv(img)
+    img = as_array(img)
     h, w = img.shape[:2]
-    shader = as_cv(shader)
+    shader = as_array(shader)
     shader = cv2.resize(shader, (w, h))
     shader = cv2.cvtColor(shader,cv2.COLOR_BGR2GRAY)
     shader = cv2.cvtColor(shader,cv2.COLOR_GRAY2BGR)

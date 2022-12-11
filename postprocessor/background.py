@@ -1,9 +1,10 @@
 """
 添加背景
 """
+import cv2
 import numpy as np
 
-from post_processor.deco import as_pillow, c2p, p2c
+from postprocessor.convert import as_array, as_image, c2p, p2c
 
 
 def add_background(image, background, offset=0, mask=None):
@@ -17,33 +18,19 @@ def add_background(image, background, offset=0, mask=None):
     """
     # print(image)
     # assert image.mode == 'RGBA'
-    img = as_pillow(image)
+    img = as_image(image)
     width,height = img.size
     height += offset * 2
     width += offset * 2
-    back = as_pillow(background).resize((width, height))
+    back = as_image(background).resize((width, height))
     if mask is not None:
-        mask = as_pillow(mask).convert("L")
+        mask = as_image(mask).convert("L")
     if img.mode == 'RGBA':
         mask = img.getchannel('A')
     back.paste(img, (offset, offset), mask=mask)
     return p2c(back)
 
 
-def _modify_text(text, offsets):
-    x_0, y_0 = offsets
-    x_1, y_1, x_2, y_2 = text.box
-    x_3, y_3 = text.xy
-    text.box = x_1 + x_0, y_1 + y_0, x_2 + x_0, y_2 + y_0
-    text.xy = x_3 + x_0, y_3 + y_0
-
-
-def _modify_line(line, offsets):
-    x_0, y_0 = offsets
-    x_1, y_1 = line.start
-    x_2, y_2 = line.end
-    line.start = x_1 + x_0, y_1 + y_0
-    line.end = x_2 + x_0, y_2 + y_0
 
 
 def add_background_data(data, background, offset):
@@ -58,10 +45,6 @@ def add_background_data(data, background, offset):
     mask = data.get("mask", None)
     data["image"] = add_background(data["image"], background, offset, mask=mask)
     data["points"] = np.array(data["points"]) + offset
-    # for text in data["text"]:
-    #     _modify_text(text, (offset, offset))
-    # for line in data["line"]:
-    #     _modify_line(line, (offset, offset))
     return data
 
 
@@ -77,8 +60,27 @@ def add_to_paper(data, paper):
     img.paste(c2p(data["image"]), pos)
     data["image"] = p2c(img)
     data["points"] = np.array(data["points"]) + np.array(pos)
-    # for text in data["text"]:
-    #     _modify_text(text, pos)
-    # for line in data["line"]:
-    #     _modify_line(line, pos)
     return data
+
+
+def get_background(img, thresh=128, ksize=(3, 3), iterations=2,
+                   inpaint_radius=5):
+    """
+    移除图像中的文字，获取单纯的背景
+    :param img: 图像
+    :param thresh: 二值化的阈值
+    :param ksize: 膨胀操作的核尺寸
+    :param iterations: 膨胀操作的迭代次数
+    :param inpaint_radius: 修复操作的半径
+    :return: 背景图像
+    """
+    img = as_array(img)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, mask = cv2.threshold(gray, thresh, 255, cv2.THRESH_BINARY_INV)
+    kernel = np.ones(ksize, dtype=np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, kernel, iterations)  # 膨胀
+    # mask = cv2.erode(mask, kernel, iterations=1) #腐蚀
+    out = cv2.inpaint(img, mask, inpaint_radius, cv2.INPAINT_TELEA)
+    cv2.imwrite("mask.jpg", mask)
+    cv2.imwrite("bg.jpg", out)
+    return out

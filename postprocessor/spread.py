@@ -1,7 +1,6 @@
-# 原理: 扩散滤镜的效果是局部混乱而整体有序，可在邻域中随机取值实现，
-# 这样在邻域中便是混乱的，而邻域间仍保持有序，从而保证了整体的有序。
-
 """
+  原理: 扩散滤镜的效果是局部混乱而整体有序，可在邻域中随机取值实现，
+  这样在邻域中便是混乱的，而邻域间仍保持有序，从而保证了整体的有序。
 　１）输入文字。注意，不要在字体面板中选择任何消除字体的效果，默认为“无”。
 　２）删格化图层。并把图层改名为L1。
 　３）Ctrl+J复制一个新图层，起名为L2。
@@ -19,34 +18,35 @@ import cv2
 import numpy as np
 
 
-def scan(img, offset=1, ksize=(3, 3)):
+def scan(image, offset=1, ksize=(3, 3)):
     """
     扫描扩散滤镜
-    :param img: np.ndarray 原图
+    :param image: np.ndarray 原图
     :param offset: int 表示偏移值 越大越模糊
     :param ksize: tuple[int,int] 高斯模糊核 (3,3),(5,5),(7,7)
     :return: np.ndarray
     """
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, img = cv2.threshold(img, 125, 200, cv2.THRESH_BINARY)
-    out = spread(img, offset)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, image = cv2.threshold(image, 125, 200, cv2.THRESH_BINARY)
+    out = spread(image, offset)
     return cv2.cvtColor(cv2.blur(out, ksize), cv2.COLOR_GRAY2BGR)
 
 
-def spread(img, offset=1):
+def spread(image, offset=1):
     """
     扩散滤镜
-    :param img: np.ndarray 原图
+    :param image: np.ndarray 原图
     :param offset: int 表示扩散偏移量 越大越模糊 一般取 1
     :return: np.ndarray
     """
-    rows, cols = img.shape[:2]
+    rows, cols = image.shape[:2]
     map_y = np.array([list(range(rows)) for _ in range(cols)], np.float32).T
     map_x = np.array([list(range(cols)) for _ in range(rows)], np.float32)
-    map_e = np.random.randint(-offset, offset, (rows, cols))
-    map_x = map_x + map_e
-    map_y = map_y + map_e
+    map_ex = np.random.randint(-offset, offset, (rows, cols))
+    map_ey = np.random.randint(-offset, offset, (rows, cols))
+    map_x = map_x + map_ex
+    map_y = map_y + map_ey
     map_x = np.clip(map_x, 0, cols - 1).astype(np.float32)
     map_y = np.clip(map_y, 0, rows - 1).astype(np.float32)
-    out = cv2.remap(img, map_x, map_y, interpolation=cv2.INTER_LINEAR)
+    out = cv2.remap(image, map_x, map_y, interpolation=cv2.INTER_LINEAR)
     return out

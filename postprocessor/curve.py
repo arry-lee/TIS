@@ -1,7 +1,6 @@
 """
 随机曲线生成模块
 """
-import random
 from io import BytesIO
 
 import cv2
@@ -9,8 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-from post_processor.bezier import curve as _curve
-from post_processor.scan import spread
+from postprocessor.bezier import curve as _curve
 
 
 def bezier_curve(points, color="red"):
@@ -40,19 +38,3 @@ def bezier_curve(points, color="red"):
     return cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
 
 
-def random_curve(num=5, high=4):
-    """
-    随机曲线
-    :param num: int 控制点数量
-    :param high: int 控制点坐标最大值
-    :return: np.ndarray 随机曲线图
-    """
-    pts = np.random.randint(0, high, (num, 2), np.int32)
-    color = random.choice(["red", "green", "blue", "black", "yellow"])
-    return bezier_curve(pts, color)
-
-
-def random_ink():
-    """随机笔迹"""
-    img = random_curve()
-    return cv2.blur(spread(img), ksize=(3, 3))

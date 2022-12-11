@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from post_processor.deco import keepdata
+from postprocessor.convert import keepdata
 
 WIDTH_IN_MM = 210  # A4 的毫米尺寸
 HEIGHT_IN_MM = 279
