@@ -12,9 +12,9 @@ def p2c(image):
     :param image: PIL.Image
     :return: cv2.image
     """
-    if isinstance(image,np.ndarray):
+    if isinstance(image, np.ndarray):
         return image
-    if image.mode == 'RGBA':
+    if image.mode == "RGBA":
         return cv2.cvtColor(np.asarray(image, np.uint8), cv2.COLOR_RGBA2BGRA)
     return cv2.cvtColor(np.asarray(image, np.uint8), cv2.COLOR_RGB2BGR)
 
@@ -25,13 +25,14 @@ def c2p(image):
     :param image: cv2.image
     :return: PIL.Image
     """
-    if len(image.shape)==2:
-        return Image.fromarray(image,mode='L')
-    if image.shape[2]==3:
+    if len(image.shape) == 2:
+        return Image.fromarray(image, mode="L")
+    if image.shape[2] == 3:
         return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    return Image.fromarray(cv2.cvtColor(image,cv2.COLOR_BGRA2RGBA))
+    return Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA))
 
-def as_pillow(img):
+
+def as_image(img):
     """
     convert everything to PIL.Image
     :param img: path/np.ndarray/PIL.Image
@@ -44,7 +45,7 @@ def as_pillow(img):
     return img
 
 
-def as_cv(img):
+def as_array(img):
     """
     convert everything to np.ndarray
     :param img: path/np.ndarray/PIL.Image
@@ -55,20 +56,6 @@ def as_cv(img):
     if isinstance(img, Image.Image):
         return p2c(img)
     return img
-
-
-def imageit(func):
-    """
-    将输入图片包装成 cv 格式函数装饰器
-    :param func: 被装饰函数
-    :return: 装饰器
-    """
-
-    def wrap(img, *args, **kwargs):
-        res = func(as_cv(img), *args, **kwargs)
-        return res
-
-    return wrap
 
 
 def keepdata(func):
@@ -84,8 +71,8 @@ def keepdata(func):
         elif isinstance(img, Image.Image):
             oimg = p2c(img)
         elif isinstance(img, dict):
-            oimg = as_cv(img["image"])
-            
+            oimg = as_array(img["image"])
+
         else:
             oimg = img
 
