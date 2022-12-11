@@ -1,3 +1,4 @@
+"""矩形相关的操作"""
 from pyrect import Rect
 
 
