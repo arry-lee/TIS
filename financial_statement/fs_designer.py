@@ -15,12 +15,12 @@ from awesometable.layout import VerLayout as V
 from awesometable.layout import TextBlock, FlexTable
 from awesometable.table2pdf import render_pdf
 
-from post_processor.label import log_label
-from post_processor.background import add_background_data, add_to_paper
+from postprocessor.label import log_label
+from postprocessor.background import add_background_data, add_to_paper
 from awesometable.table2image import table2image
 
 from fs_settings import *
-from post_processor.paper import Paper
+from postprocessor.paper import Paper
 
 COLUMN_WIDTH = (PAPER_WIDTH - PAPER_OFFSET * 2 - HOR_GAP_WIDTH) // 2
 PAGE_WIDTH = PAPER_WIDTH - PAPER_OFFSET * 2

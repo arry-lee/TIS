@@ -44,8 +44,8 @@ from pdfminer.pdftypes import stream_value
 from pyrect import Rect
 from tqdm import tqdm
 
-from post_processor.deco import p2c
-from template import Template, Text
+from postprocessor.convert import p2c
+from multilang.template import Template, Text
 
 from paddleocr import PaddleOCR
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"

@@ -23,7 +23,7 @@ from awesometable.awesometable import (
     vstack,
     AwesomeTable,
 )
-from static.logo import bank_list
+from postprocessor.logo import bank_list
 
 # label_dir = ''
 # keys_dict, values_dict, texts, keys, values = key_value_generator(label_dir)

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from postprocessor.deco import c2p, p2c
+from postprocessor.convert import c2p, p2c
 
 
 def poison_text(image, xy, text, fill, font, anchor="lt", mode="mixed"):

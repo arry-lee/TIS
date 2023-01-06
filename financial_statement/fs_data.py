@@ -27,8 +27,8 @@ from awesometable.awesometable import (
     wrap,
 )
 from awesometable.converter import from_list
-from post_processor.paper import Paper
-from post_processor.seal import add_seal_box, gen_name_seal, gen_seal
+from postprocessor.paper import Paper
+from postprocessor.seal import add_seal_box, gen_name_seal, gen_seal
 from utils.ulpb import encode
 
 from awesometable.table2image import table2image
@@ -64,7 +64,10 @@ with open(r"E:\00IT\P\uniform\static\index.txt", encoding="utf-8") as f:
     for s in f.read().split():
         if len(s) > 30:
             words.append(s)
-random_words = lambda: random.choice(words)
+            
+from faker import Faker
+FAKE_CN = Faker('zh_CN')
+random_words = lambda: FAKE_CN.word()
 
 
 class FinancialStatementTable(object):
@@ -353,7 +356,7 @@ class FinancialStatementTable(object):
         分别为多表,单双栏做法
         """
         if self.is_zh:
-            t.align = "color"
+            t.align = "c"
         else:
             t.align = "r"
         t._align["Field 1"] = "l"  # 破坏了封装 左对齐

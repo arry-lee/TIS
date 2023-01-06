@@ -86,6 +86,18 @@ class ImageMachine:
 
 
 def main(mode, batch=10, lang=None, clear_output=False):
+    """
+    The main function is the entry point for the program.
+    It creates an ImageMachine object and calls its run method to generate images.
+    
+    
+    :param mode: Specify the type of images to download
+    :param batch=10: Specify the number of images to be generated
+    :param lang=None: Specify the language of the images to be downloaded
+    :param clear_output=False: Prevent the output folder from being cleared every time you run this script
+    :return: None
+    :doc-author: Trelent
+    """
     """主程序入口
     
     :param mode: 种类名

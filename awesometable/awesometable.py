@@ -420,6 +420,7 @@ class MultiTable(object):
 
 def paginate(table, lines_per_page=40):
     """分页算法
+    
     1.保证按行分割，行内有换行不会被分开
     2.必须分割时另起一页
     3.修复分割线
@@ -444,8 +445,8 @@ def paginate(table, lines_per_page=40):
 
 
 def clear_symbols(table):
-    """
-    清除所有制表符
+    """清除所有制表符
+    
     :param table:
     :return:
     """
@@ -474,8 +475,8 @@ def _align_cell(cell, align="color"):
 
 
 def set_align(table, cno, align, rno=None):
-    """
-    设置表格对齐方式
+    """设置表格对齐方式
+    
     :param table: AwesomeTable
     :param cno: int 单元格号
     :param align: str 对齐方式
@@ -508,8 +509,8 @@ def set_align(table, cno, align, rno=None):
 
 
 def merge_row(table, rno):
-    """
-    合并同一行的cells
+    """合并同一行的cells
+    
     :param table: AwesomeTable | str
     :param rno: int
     :return: str
@@ -522,8 +523,8 @@ def merge_row(table, rno):
 
 
 def remove_hor_line(table, start=2, end=-1, keep_blank=True):
-    """
-    移除中间的横线
+    """移除中间的横线
+    
     :param table: AwesomeTable | str
     :param start: int 起始行号
     :param end: int 结束行号
@@ -540,9 +541,9 @@ def remove_hor_line(table, start=2, end=-1, keep_blank=True):
     return "\n".join(lines)
 
 
-def add_width(table, num=1,align='m'):
-    """
-    增加表格宽度
+def add_width(table, num=1, align='m'):
+    """增加表格宽度
+    
     :param table: AwesomeTable | str
     :param num: int 字符数
     :return: str
@@ -556,7 +557,7 @@ def add_width(table, num=1,align='m'):
                 newline = line[0] + line[1:-1] + line[-2] * num + line[-1]
             elif "║" in line:
                 cells = line.rsplit("║", 2)
-                if align=='m':
+                if align == 'm':
                     newline = (
                             cells[0]
                             + "║"
@@ -565,7 +566,7 @@ def add_width(table, num=1,align='m'):
                             + " " * (num - num // 2)
                             + "║"
                     )
-                elif align=='l':
+                elif align == 'l':
                     newline = (
                             cells[0]
                             + "║"
@@ -573,7 +574,7 @@ def add_width(table, num=1,align='m'):
                             + " " * num
                             + "║"
                     )
-                elif align=='r':
+                elif align == 'r':
                     newline = (
                             cells[0]
                             + "║"
@@ -592,8 +593,8 @@ def add_width(table, num=1,align='m'):
 
 
 def add_newline(table, num=1, align="t"):
-    """
-    纵向拉伸,直接加到末尾
+    """纵向拉伸,直接加到末尾
+    
     :param table: AwesomeTable | str
     :param num: int 行数
     :param align: str 对齐方式
@@ -623,8 +624,8 @@ def add_newline(table, num=1, align="t"):
 
 
 def _hstack(self, other, merged=True, space=0, align="t"):
-    """
-    表格字符横向拼接
+    """表格字符横向拼接
+    
     :param self: AwesomeTable | str 左侧
     :param other: AwesomeTable | str 右侧
     :param merged: bool 是否连接
@@ -670,9 +671,9 @@ def _hstack(self, other, merged=True, space=0, align="t"):
     return "\n".join(new_lines)
 
 
-def _vstack(self, other, merged=True,align='m'):
-    """
-    表格字符纵向拼接
+def _vstack(self, other, merged=True, align='m'):
+    """表格字符纵向拼接
+    
     :param self: AwesomeTable | str 左侧
     :param other: AwesomeTable | str 左侧
     :param merged: bool 是否合并
@@ -683,15 +684,15 @@ def _vstack(self, other, merged=True,align='m'):
     hos = len(sos.splitlines()[0])
     hoo = len(soo.splitlines()[0])
     if hos > hoo:
-        soo = add_width(soo, hos - hoo,align)
+        soo = add_width(soo, hos - hoo, align)
     elif hos < hoo:
-        sos = add_width(sos, hoo - hos,align)
+        sos = add_width(sos, hoo - hos, align)
     else:
         pass
     if sos.splitlines()[-1][-1] != "╝" or soo[0] != "╔":
         return sos + "\n" + soo
     if not merged:
-        return sos + "\n" + soo#{' '*len(sos.splitlines()[0])}
+        return sos + "\n" + soo  # {' '*len(sos.splitlines()[0])}
     
     end_of_self = sos.splitlines()[-1]
     begin_of_other = soo.splitlines()[0]
@@ -718,33 +719,33 @@ def _vstack(self, other, merged=True,align='m'):
     return "\n".join(new_lines)
 
 
-def hstack(tables, other=None,merged=True,align='t'):
-    """
-    横向连接多个表格
+def hstack(tables, other=None, merged=True, align='t'):
+    """横向连接多个表格
+    
     :param tables: list[AwesomeTable] | AwesomeTable
     :param other: None | AwesomeTable
     :return: str
     """
     if isinstance(tables, list) and other is None:
-        return reduce(partial(_hstack,merged=merged,align=align), tables)
-    return _hstack(tables, other,merged,align)
+        return reduce(partial(_hstack, merged=merged, align=align), tables)
+    return _hstack(tables, other, merged, align)
 
 
-def vstack(tables, other=None,merged=True,align='m'):
-    """
-    纵向连接多个表格
+def vstack(tables, other=None, merged=True, align='m'):
+    """纵向连接多个表格
+    
     :param tables: list[AwesomeTable] | AwesomeTable
     :param other: None | AwesomeTable
     :return: str
     """
     if isinstance(tables, list) and other is None:
-        return reduce(partial(_vstack,merged=merged,align=align), tables)
-    return _vstack(tables, other,merged,align)
+        return reduce(partial(_vstack, merged=merged, align=align), tables)
+    return _vstack(tables, other, merged, align)
 
 
 def stack(tables):
-    """
-    合并多个表格
+    """合并多个表格
+    
     :param tables: list[list[AwesomeTable|str]]
     :return: str
     """
@@ -752,14 +753,12 @@ def stack(tables):
 
 
 def wrap(line, width):
-    """
-    考虑了中文宽度和字母宽度不一样
+    """考虑了中文宽度和字母宽度不一样
+    
     :param line: str
     :param width: int
     :return: str
     """
-    # if not any(is_chinese(c) for c in line):  # 没有中文则保持原样
-    #     return textwrap.fill(line, width)
     lines = []
     new_line = ""
     for char in line:
@@ -780,8 +779,8 @@ def wrap(line, width):
 
 
 def count_padding(text):
-    """
-    计算字符串的前缀空格数和后缀空格数
+    """计算字符串的前缀空格数和后缀空格数
+    
     :param text: str
     :return: tuple[int,int]
     """
@@ -800,8 +799,8 @@ def count_padding(text):
 
 
 def replace_chinese_to_dunder(lines, lno):
-    """
-    将中文字符替换为双下划线
+    """ 将中文字符替换为双下划线
+    
     :param lines: list[str] 字符串列表
     :param lno: int 行号
     :return: str

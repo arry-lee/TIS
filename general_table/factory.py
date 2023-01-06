@@ -14,11 +14,11 @@ import yaml
 from tqdm import tqdm
 
 from awesometable.table2image import table2image
-from post_processor import random as _random
-from post_processor.background import add_background_data
-from post_processor.deco import keepdata
-from post_processor.label import log_label, show_label
-from post_processor.random import (
+from postprocessor import random as _random
+from postprocessor.background import add_background_data
+from postprocessor.convert import processor
+from postprocessor.label import log_label, show_label
+from postprocessor.random import (
     random_background,
     random_distortion,
     random_fold,
@@ -28,7 +28,7 @@ from post_processor.random import (
     random_rotate,
     random_seal,
 )
-from post_processor.seal import add_seal, gen_seal
+from postprocessor.seal import add_seal, gen_seal
 from static.logo import get_logo_path
 from utils.ulpb import encode
 from .bank_data_generator import bank_detail_generator, bank_table_generator
@@ -109,7 +109,7 @@ class BackTableFactory(Thread):
                 cv2.imwrite(seal_name, seal)
 
             # 银行印章不随机
-            self.post_processor[0]["func"] = keepdata(
+            self.post_processor[0]["func"] = processor(
                 partial(add_seal, seal_p=seal_name)
             )
             func = None

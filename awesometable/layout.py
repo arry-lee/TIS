@@ -13,7 +13,7 @@ from awesometable.awesometable import AwesomeTable
 from awesometable.fontwrap import (put_text_in_box,
                                    put_text_in_box_without_break_word)
 from awesometable.table2image import Text, table2image
-from post_processor.deco import as_pillow, p2c
+from postprocessor.convert import as_image, p2c
 
 
 def _modify_text(text, pos):
@@ -513,7 +513,7 @@ class TableBlock(AwesomeTable):
 
 class ImageBlock:
     def __init__(self, img, width=None, height=None):
-        self.image = as_pillow(img)
+        self.image = as_image(img)
         self._width = width or self.image.width
         self._height = height or self.image.height
     

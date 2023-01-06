@@ -1,6 +1,8 @@
 """
 本模块保存常用的数据格式转换函数
 """
+from functools import wraps
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -8,9 +10,11 @@ from PIL import Image
 
 def p2c(image):
     """
-    convert image format from pillow to cv
-    :param image: PIL.Image
-    :return: cv2.image
+    The p2c function converts an image from pillow format to cv2 format.
+
+    :param image: Convert the image to a cv2 format
+    :return: A cv2 image
+    :doc-author: Trelent
     """
     if isinstance(image, np.ndarray):
         return image
@@ -20,6 +24,16 @@ def p2c(image):
 
 
 def c2p(image):
+    """
+    The c2p function converts an image from the cv2 format to the pillow format.
+    The function takes in a single argument, image, which is a numpy array of shape (height, width) or (height, width, 3).
+    If the input is only two dimensional it will be converted to grayscale. If there are three dimensions then it will be
+    converted to rgb color space.
+
+    :param image: Convert the image from cv2 to pil
+    :return: A pil
+    :doc-author: Trelent
+    """
     """
     convert image format from cv to pillow
     :param image: cv2.image
@@ -58,36 +72,42 @@ def as_array(img):
     return img
 
 
-def keepdata(func):
+def processor(func):
     """
-    将处理器函数包装成可以处理字典的,任何输入图像的输入转换为cv,输出为cv
+    将处理器函数包装成可以处理字典的,以及任何输入图像的输入转换
+    
+    :param func: The function to be decorated
+    """
+    """
+    
     :param func: 被装饰函数
     :return: 装饰器
     """
 
+    @wraps(func)
     def wrap(img, *args, **kwargs):
-        if isinstance(img, str):
-            oimg = cv2.imread(img, cv2.IMREAD_COLOR)
-        elif isinstance(img, Image.Image):
-            oimg = p2c(img)
-        elif isinstance(img, dict):
-            oimg = as_array(img["image"])
+        if isinstance(img, dict):  # 如果是字典，先尝试处理字典
+            try:
+                return func(img, *args, **kwargs)
+            except:
+                pass
 
-        else:
-            oimg = img
-
-        res = func(oimg, *args, **kwargs)
-
-        if isinstance(img, dict):
-            if isinstance(res, Image.Image):
-                img["image"] = p2c(res)
-            else:
-                img["image"] = res
-        else:
-            if isinstance(res, Image.Image):
-                img["image"] = p2c(res)
-            else:
-                img["image"] = res
-        return img
+            try:
+                img["image"] = func(img["image"], *args, **kwargs)  # 然后处理图片
+            except:
+                if isinstance(img, Image.Image):
+                    img["image"] = func(
+                        p2c(img["image"]), *args, **kwargs
+                    )  # 若类型错误尝试转换类型
+                else:
+                    img["image"] = func(c2p(img["image"]), *args, **kwargs)
+            return img
+        
+        try:
+            return func(img, *args, **kwargs)  # 尝试直接处理图片
+        except:
+            if isinstance(img, Image.Image):
+                return func(p2c(img), *args, **kwargs)  # 若类型错误尝试转换类型
+            return func(c2p(img), *args, **kwargs)
 
     return wrap

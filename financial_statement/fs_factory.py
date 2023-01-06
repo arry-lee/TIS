@@ -19,9 +19,9 @@ sys.path.append("E:\\00IT\\P\\uniform")
 from awesometable.table2pdf import render_pdf
 from fs_data import FinancialStatementTable, fstable2image, fstable2image_en
 from fs_designer import LayoutDesigner
-from post_processor import random as _random
-from post_processor.background import add_background_data
-from post_processor.label import log_label
+from postprocessor import rand as _random
+from postprocessor.background import add_background_data
+from postprocessor.label import log_label
 
 
 class FSFactory(Thread):

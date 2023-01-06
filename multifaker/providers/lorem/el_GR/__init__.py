@@ -19,8 +19,8 @@ class Provider(LoremProvider):
     )
     word_map = defaultdict(list)
     for w in word_list:
-        word = clean_chars(w.strip())
-        word_map[len(word)].append(word)
+        _word = clean_chars(w.strip())
+        word_map[len(_word)].append(_word)
 
     def words(self, nb=3, ext_word_list=None, unique=False):
         word_list = ext_word_list if ext_word_list else self.word_list

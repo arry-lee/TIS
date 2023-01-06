@@ -31,8 +31,8 @@ from PIL import Image, ImageDraw, ImageFont
 from pyrect import Rect
 
 from awesometable.awesometable import AwesomeTable, str_block_width
-from awesometable.imagedata import Cell
-from awesometable.imagedata import ImageData, Table, Text
+from awesometable.imagedata import Cell, ImageData, Table
+from awesometable.imagedata import Text
 
 
 @lru_cache
@@ -118,10 +118,10 @@ def filter_cols(cols, min_width):
 
 
 def remove_text_from_img(img, texts):
-    oimg = img.convert('L').point(lambda x: 0 if x<50 else 255)
+    oimg = img.convert('L').point(lambda x: 0 if x < 50 else 255)
     drawer = ImageDraw.Draw(oimg)
     for text in texts:
-        drawer.rectangle((text.left,text.top,text.right,text.bottom),255)
+        drawer.rectangle((text.left, text.top, text.right, text.bottom), 255)
     return oimg
 
 
@@ -138,113 +138,11 @@ def strip_lines(lines):
     pass
 
 
-def gen_mesh(label_file):
-    with open(label_file, "r", encoding="utf-8") as f:
-        temp = f.read()
-    name, dic = parse_label_file(temp)
-    
-    texts = parse_texts(dic)
-    
-    left_min, right_max = _get_left_right(texts)
-    
-    img = Image.open(os.path.join(os.path.dirname(label_file), name))
-    
-    imd = ImageData(img, texts)
-    # 获取无字图片
-    # notxt_img = remove_text_from_img(img,texts)
-    # notxt_img.show()
-    # 计算字体高度
-    fz = []
-    for text in dic.get("text"):
-        fz.append(text[0][2][1] - text[0][0][1])
-    counter = Counter(fz)
-    min_uint = counter.most_common(1)[0][0]
-    # half = min_uint // 2
-    print(min_uint)
-    
-    imd.texts.sort(key=lambda x: (x.top, x.left))
-    d = defaultdict(list)
-    # for text in imd.texts:
-    #     d[text.top // min_uint * min_uint].append(text)
-    for k in d:
-        d[k].sort(key=lambda x: x.left)
-    
-    char = img.width // min_uint
-    
-    lines = get_hor_lines(imd.texts)
-    columns = get_ver_lines(imd.texts)  # 这里的列包含了标题
-    print(lines)
-    # 找到最大列数
-    cols_max = get_col_max(lines)
-    print(cols_max)
-    # 正规行
-    normal_lines = [line for line in lines if len(line) == cols_max]
-    # unnormal_lines = [line for line in lines if len(line) < cols_max]
-    
-    normal_rows = get_normal_rows(normal_lines)
-    # 假设第一个 normal row 为标题栏，
-    normal_cols = get_normal_cols(normal_lines) # 修复了列数不对的bug
-    # normal_cols[0].left = left_min
-    # normal_cols[-1].right = right_max
-    cols = modify_column_width(normal_cols)
-    
-    # unnormal_rows = get_normal_rows(unnormal_lines)
-    # 找到所有的列数最大的行
-    for row in normal_rows:
-        row.left = left_min
-        row.width = right_max - left_min
-    
-    # 找到所有正常列的对齐方式
-    # cols = []
-    # for col in zip(*normal_lines):
-    #     lmin = min(c.left for c in col)
-    #     lmax = max(c.left for c in col)
-    #     ldiff = lmax - lmin
-    #
-    #     rmin = min(c.right for c in col)
-    #     rmax = max(c.right for c in col)
-    #     rdiff = rmax - rmin
-    #
-    #     if ldiff <= rdiff:
-    #         align = 'l'
-    #     else:
-    #         align = 'r'
-    #     print(align)
-    #     top = min(c.top for c in lines[0])
-    #     bot = max(c.bottom for c in lines[-1])
-    #     col = Rect(lmin, top, rmax - lmin, bot - top)
-    #     cols.append(col)
-    
-    # 列的正则化
-    auto_column_width(cols,left_min,right_max)
-    filter_cols(cols, min_uint)
-    
-    # strip_lines(lines,cols_max,cols_min=)
-    
-    orign_rows = get_origin_rows(left_min, lines, right_max) # 去除首尾的异常行
-    
-    new_rows = find_hidden_rows(orign_rows)
-    # 整合行
-    rows = orign_rows + new_rows
-    rows.sort(key=lambda x: x.top)
-    
-    modify_rows_height(rows)
-    # 绘制行
-    render_rows(imd, rows)
-    # 修正列
-    auto_column_height(cols, rows)
-    
-    render_cols(imd, cols)
-    
-    # imd.show()
-    # 生成单元格
-    # drawer = ImageDraw.Draw(img)
-    # t = Table(gen_cells(cols, rows), outline=(0, 0, 255, 255))
-    # t.render(drawer)
-    # imd.texts.clear()
-    imd.save(name + ".color.jpg")
-    # img.save(name + '.mesh.jpg')
-    return imd, cols, rows
+def filter_rows(rows, start=0, end=0):
+    for i in range(end):
+        rows.pop()
+    for i in range(start):
+        del rows[0]
 
 
 def get_col_max(lines):
@@ -257,40 +155,41 @@ def get_col_max(lines):
     #     if counter.get(c)<=2:
     #         del counter[c]
     print(counter)
-    cols_max = max(key for key in counter if counter[key]>2)
+    cols_max = max(key for key in counter if counter[key] > 2)
     
     # most_common = counter.most_common(1)[0][0] #出现次数最多的
     
     return cols_max
 
 
-def auto_column_width(cols,left_min,right_max):
+def auto_column_width(cols, left_min, right_max):
     """处理列宽"""
     paddings = []
     for i in range(len(cols)):
-        if i == len(cols)-1:
-            right_padding = right_max-cols[i].right
-            left_padding = (cols[i].left - cols[i-1].right)//2
-        elif i==0:
+        if i == len(cols) - 1:
+            right_padding = right_max - cols[i].right
+            left_padding = (cols[i].left - cols[i - 1].right) // 2
+        elif i == 0:
             left_padding = cols[i].left - left_min
-            right_padding = (cols[i+1].left - cols[i].right)//2
-            
+            right_padding = (cols[i + 1].left - cols[i].right) // 2
+        
         else:
-            left_padding = (cols[i].left - cols[i-1].right)//2
-            right_padding = (cols[i+1].left - cols[i].right)//2
-        paddings.append([left_padding,right_padding])
+            left_padding = (cols[i].left - cols[i - 1].right) // 2
+            right_padding = (cols[i + 1].left - cols[i].right) // 2
+        paddings.append([left_padding, right_padding])
     
-    if paddings[1][1]<paddings[1][0]: #第一列比较特殊，二分可能不对称
-        delta = paddings[1][0]-paddings[1][1]
+    if paddings[1][1] < paddings[1][0]:  # 第一列比较特殊，二分可能不对称
+        delta = paddings[1][0] - paddings[1][1]
         paddings[1][0] = paddings[1][1]
         paddings[0][1] += delta
-        
-    for col,(lp,rp) in zip(cols,paddings):
+    
+    for col, (lp, rp) in zip(cols, paddings):
         col.left -= lp
         col.width += lp + rp
         
         # cols[i - 1].width = left_padding - cols[i - 1].left
         # cols[i].left = cols[i-1].right
+
 
 def auto_column_height(cols, rows):
     for col in cols:
@@ -356,7 +255,13 @@ def modify_rows_height(rows):
             bot_padding = top_padding
         rows[i].top -= top_padding
         rows[i].height += top_padding + bot_padding
-    # 衔接行
+    # # 衔接行
+    # average_height = sum(r.height for r in rows)//len(rows)
+    # for i,row in enumerate(rows):
+    #     row.height = average_height
+    #     if i > 0:
+    #         row.top = rows[i-1].bottom
+    
     for i in range(0, len(rows) - 1):
         rows[i].height = rows[i + 1].top - rows[i].top
 
@@ -403,13 +308,13 @@ def get_normal_rows(normal_lines):
 
 def modify_column_width(normal_columns):
     cols = []
-    for i,col in enumerate(normal_columns):
+    for i, col in enumerate(normal_columns):
         x = min(c.left for c in col)
         y = min(c.top for c in col)
         w = max(c.right for c in col) - x
         h = max(c.bottom for c in col) - y
         cols.append(Rect(x, y, w, h))
-        
+    
     return cols
 
 
@@ -594,7 +499,108 @@ def cells_to_awesometable(rows):
     return AwesomeTable(_rows)
 
 
-def process_imagedata(pickle_name):
+def get_rows_and_cols_from_label(label_file):
+    with open(label_file, "r", encoding="utf-8") as f:
+        temp = f.read()
+    name, dic = parse_label_file(temp)
+    
+    texts = parse_texts(dic)
+    
+    left_min, right_max = _get_left_right(texts)
+    
+    
+    # imd = ImageData(img, texts)
+    # 获取无字图片
+    # notxt_img = remove_text_from_img(img,texts)
+    # notxt_img.show()
+    # 计算字体高度
+    fz = []
+    for text in dic.get("text"):
+        fz.append(text[0][2][1] - text[0][0][1])
+    counter = Counter(fz)
+    min_uint = counter.most_common(1)[0][0]
+    # half = min_uint // 2
+    print(min_uint)
+    
+    texts.sort(key=lambda x: (x.top, x.left))
+    d = defaultdict(list)
+    # for text in texts:
+    #     d[text.top // min_uint * min_uint].append(text)
+    for k in d:
+        d[k].sort(key=lambda x: x.left)
+    
+    # char = img.width // min_uint
+    
+    lines = get_hor_lines(texts)
+    # columns = get_ver_lines(texts)  # 这里的列包含了标题
+    print(lines)
+    # 找到最大列数
+    cols_max = get_col_max(lines)
+    print(cols_max)
+    # 正规行
+    normal_lines = [line for line in lines if len(line) == cols_max]
+    # unnormal_lines = [line for line in lines if len(line) < cols_max]
+    
+    normal_rows = get_normal_rows(normal_lines)
+    # 假设第一个 normal row 为标题栏，
+    normal_cols = get_normal_cols(normal_lines)  # 修复了列数不对的bug
+    cols = modify_column_width(normal_cols)
+    # unnormal_rows = get_normal_rows(unnormal_lines)
+    # 找到所有的列数最大的行
+    for row in normal_rows:
+        row.left = left_min
+        row.width = right_max - left_min
+    
+    # 列的正则化
+    auto_column_width(cols, left_min, right_max)
+    filter_cols(cols, min_uint)
+    
+    # strip_lines(lines,cols_max,cols_min=)
+    
+    orign_rows = get_origin_rows(left_min, lines, right_max)  # 去除首尾的异常行
+    
+    new_rows = find_hidden_rows(orign_rows)
+    # 整合行
+    rows = orign_rows + new_rows
+    
+    filter_rows(rows, start=2, end=1)  # 移除行
+    
+    rows.sort(key=lambda x: x.top)
+    
+    modify_rows_height(rows)
+    # 绘制行+
+    auto_column_height(cols, rows)
+    
+    # imd.save(name + ".color.jpg")
+    # img.save(name + '.mesh.jpg')
+    return texts, cols, rows
+
+
+def get_rows_and_cols_from_pickle(pickle_name):
+    with open(pickle_name, "rb") as f:
+        texts, cols, rows = pickle.load(f)
+    return texts, cols, rows
+
+
+def rebuild_table(texts, rows, cols):
+    """重建表格"""
+    cells = compute_cells(cols, rows)
+    # imd.images.clear()
+    for text in texts:
+        modify_font_size(text)
+    modify_digit_font_size(texts)
+    put_text_in_cell(texts, cells)
+    # imd.texts.clear()
+    # fill_cells(cells) #这里改变了text内容，仅适用于处理文本
+
+    for text in texts:
+        text.fill = (0, 0, 0, 255)
+        text.text = text.text.replace("_", " ")
+    table = Table(cells)
+    return table
+
+
+def rebuild_imagadata(img, texts, cols, rows):
     """
     处理过的内容
     :param pickle_name:
@@ -602,52 +608,26 @@ def process_imagedata(pickle_name):
     :return:
     :rtype:
     """
-    with open(pickle_name, "rb") as f:
-        imd, cols, rows = pickle.load(f)
-    imd.images.clear()
-    for text in imd.texts:
-        modify_font_size(text)
-    modify_digit_font_size(imd.texts)
-    put_text_in_cell(imd.texts, imd.tables[0].cells)
-    # imd.texts.clear()
-    fill_cells(imd.tables[0].cells)
-    # for col in imd.tables[0].cols:
-    #     fill_col(col)
-    # show_label()
-    # at = cells_to_awesometable(imd.tables[0]._rows)
-    # print(at)
-    # im = table2imagedata(at, line_pad=10)
-    # im.show()
-    for text in imd.texts:
-        text.fill = (0, 0, 0, 255)
-        text.text = text.text.replace("_", " ")
-        
-    for cell in imd.tables[0]:
-        cell.outline = (0,0,0,255)
-        
-    imd.line(imd.tables[0].topleft, imd.tables[0].topright, 2, (0, 0, 0, 255))
+    table = rebuild_table(texts, rows, cols)
+    
+    imd = ImageData(img,texts=texts, tables=[table])
+    
     imd.background = Image.new("RGBA", imd.background.size,
                                (255, 255, 255, 255))
-    # render_rows(imd,rows)
-    # render_cols(imd,cols)
-    imd.show()
-    return imd, cols, rows
+    return imd
 
 
-
-if __name__ == "__main__":
+def get_rows_and_cols_from_file(file):
+    # global file, texts, update, scroll_w
     
-    file = "E:/00IT/P/uniform/data/financial_statement/005191382.txt"
     pickle_name = file.split(".")[0] + ".pickle"
-    
     if os.path.exists(pickle_name):
-        imd, cols, rows = process_imagedata(pickle_name)
-    else:
-        imd, cols, rows = gen_mesh(file)
+         return get_rows_and_cols_from_pickle(pickle_name)
     
+    texts, cols, rows = get_rows_and_cols_from_label(file)
     
     def update():
-        global img, cols, rows
+        nonlocal img, cols, rows
         img = cv2.imread(file.split(".")[0] + ".jpg", cv2.IMREAD_UNCHANGED)
         for text in cols:
             pt1 = (text.left, text.top)
@@ -659,17 +639,17 @@ if __name__ == "__main__":
             pt2 = (text.right, text.bottom)
             cv2.rectangle(img, pt1, pt2, (0, 255, 0, 125))
     
-    
     select_one = None
     select_col = False
     update()
     
-    
     # 鼠标事件
     def mouse(event, x, y, flags, param):
-        global flag, horizontal, vertical, flag_hor, flag_ver, dx, dy, sx, sy, dst, x1, y1, x2, y2, x3, y3, f1, f2
-        global zoom, scroll_har, scroll_var, img_w, img_h, img, dst1, win_w, win_h, show_w, show_h
-        global select_one, select_col
+        nonlocal flag, horizontal, vertical, flag_hor, flag_ver, dx, dy, sx, sy, \
+          dst, x1, y1, x2, y2, x3, y3, f1, f2
+        nonlocal zoom, scroll_har, scroll_var, img_w, img_h, img, win_w, \
+          win_h, show_w, show_h
+        nonlocal select_one, select_col
         if event == cv2.EVENT_LBUTTONDOWN:  # 左键点击
             if flag == 0:
                 if horizontal and 0 < x < win_w and win_h - scroll_w < y < win_h:
@@ -802,6 +782,7 @@ if __name__ == "__main__":
                     cols.remove(select_one)
                 else:
                     rows.remove(select_one)
+                    # modify_rows_height(rows)
             update()
         
         if horizontal and vertical:
@@ -847,7 +828,6 @@ if __name__ == "__main__":
         cv2.imshow("img", dst1)
         cv2.waitKey(1)
     
-    
     # 以下是滚动条所需的内容与算法无关
     img_original = cv2.imread(
         file.split(".")[0] + ".jpg", cv2.IMREAD_UNCHANGED
@@ -871,7 +851,6 @@ if __name__ == "__main__":
     f1, f2 = (img_w - show_w) / (win_w - scroll_har), (img_h - show_h) / (
             win_h - scroll_var
     )  # 原图可移动部分占滚动条可移动部分的比例
-    
     cv2.resizeWindow("img", win_w, win_h)
     cv2.setMouseCallback("img", mouse)
     # cv2.waitKey()
@@ -887,10 +866,40 @@ if __name__ == "__main__":
             dst = i.copy()
         
         if cv2.waitKey(1) & 0xFF == ord("s"):
-            cells = compute_cells(cols, rows)
-            table = Table(cells)
-            imd.tables = [table]
             with open(pickle_name, "wb") as f:
-                pickle.dump((imd, cols, rows), f)
+                pickle.dump((texts, cols, rows), f)
             break
     cv2.destroyAllWindows()
+    
+    return texts, cols, rows
+
+
+def similar(text):
+    out = []
+    for i in text:
+        if i.isdigit():
+            out.append(random.choice('0123456789'))
+        else:
+            out.append(i)
+    return ''.join(out)
+    
+if __name__ == "__main__":
+    label_file =  "E:/00IT/P/uniform/data/financial_statement/005191840.txt"
+    texts, cols, rows = get_rows_and_cols_from_file(label_file)
+    
+    img = Image.open(label_file.split('.')[0]+'.jpg')
+
+    imd = rebuild_imagadata(img,texts,cols,rows)
+
+    # for cell in imd.tables[0]:
+    #     cell.outline = (0, 0, 0, 255)
+    
+    for text in imd.texts:
+    
+        if re.match(r"[0-9,)(-]+", text.text.strip()):
+            text.text = similar(text.text)
+            text.underline = True
+    imd.line(imd.tables[0].topleft, imd.tables[0].topright, 2, (0, 0, 0, 255))
+    imd.show()
+    
+    print(imd.asdict())

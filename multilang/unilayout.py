@@ -1,6 +1,8 @@
 """随机参数通用表格生成"""
 
 import random
+from collections import defaultdict
+from copy import deepcopy
 
 import prettytable
 import yaml
@@ -8,12 +10,13 @@ from faker import Faker
 
 from awesometable.awesometable import (
     AwesomeTable,
-    _vstack, hstack,
+    _vstack,
+    hstack,
     vstack,
 )
-from awesometable.converter import from_dict
+from awesometable.converter import from_dict, from_str
 
-DEFAULT_FAKER = Faker('en')
+DEFAULT_FAKER = Faker("en")
 
 
 def hit(r):
@@ -22,12 +25,13 @@ def hit(r):
 
 class UniForm:
     """根据配置的参数随机生成通用表格"""
+
     faker = DEFAULT_FAKER
-    
+
     @classmethod
     def set_faker_engine(cls, engine):
         cls.faker = engine
-    
+
     def __init__(self, config):
         if isinstance(config, dict):
             self.config = config
@@ -36,16 +40,19 @@ class UniForm:
                 self.config = yaml.load(cfg, Loader=yaml.SafeLoader)
         else:
             raise ValueError
-        
+
         self.data = self.config["form_type"]
         self.rows = []
         self.filters = self.config["filters"]
         self.table_width = int(self.filters["max_table_width"])
         self.min_width_of_cell = self.filters.get("min_width_of_cell", 4)
-        
+
         self.empty_cell_ratio = self.filters.get("empty_cell_ratio", 0.05)
         self.long_text_ratio = self.filters.get("long_text_ratio", 0.1)
-    
+
+        if self.filters.get("num_of_cols", False):
+            self.table_width = self.table_width // self.filters.get("num_of_cols")
+
     def rand_text(self, length, place_holder="_"):
         """
         随机文本
@@ -56,10 +63,9 @@ class UniForm:
         if place_holder == "key":
             return self.faker.word()
         if place_holder == "value":
-            return self.faker.word() if hit(0.5) else str(
-                random.randint(0, 10000))
+            return self.faker.word() if hit(0.5) else str(random.randint(0, 10000))
         return self.faker.sentence(random.randint(3, 5))
-    
+
     def rand_dict(self, depth, cols, rows):
         """
         随机字典
@@ -81,7 +87,7 @@ class UniForm:
                 self.rand_text(4, place_holder="value") for _ in range(rows)
             ]
         return dic
-    
+
     def rand_table(self, cols, rows, width, title_pos=0):
         """
         表格的基本元生成
@@ -104,12 +110,12 @@ class UniForm:
             tab.title = self.rand_text(4, place_holder="key")
         tab.min_width = self.min_width_of_cell
         return tab
-    
+
     def filter(self, table):
         """过滤器"""
         if self.filters.get("disable", True):
             return True
-        
+
         lines = table.splitlines()
         rows = len(lines)
         # if self.filters.get('max_table_width', None):
@@ -123,7 +129,7 @@ class UniForm:
         if rows < self.filters.get("min_num_of_rows"):
             return False
         return True
-    
+
     def create(self, iteration=1):
         """
         表格生成器
@@ -131,54 +137,85 @@ class UniForm:
         :return: yield AwesomeTable
         """
         min_rows = self.filters.get("min_num_of_rows")
+        max_rows = self.filters.get("max_num_of_rows")
+        num_rows = random.randint(min_rows, max_rows)
+
+        num_cols = self.filters.get("num_of_cols", False)
+        # 横向排布
+        if num_cols:
+            num_cols += random.randint(0, 1)
+        cols = []
         for _ in range(iteration):
-            rows_count = 0
-            rows = []
-            while rows_count < min_rows:
-                for key, val in self.data.items():
-                    func = self.__getattribute__(key)
-                    if random.random() < val.get("probability"):  # 出现概率
-                        max_ = val.get("max_num", 1)
-                        min_ = val.get("min_num", 1)
-                        times = random.randint(min_, max_)
-                        for _ in range(times):
-                            rows.append(func(**val))
+            if num_cols:
+                use_title = self.filters.get("block_title", False)
+                for i in range(num_cols):
+                    rows = self.get_rows(min_rows, num_rows)
+                    x = len(rows) // 2
+                    if not use_title:
+                        cols.append(vstack(vstack(rows[:x]), vstack(rows[x:]), False))
                     else:
-                        pass
-                    rows_count = len(
-                        '\n'.join([str(i) for i in rows]).splitlines())
-                    if rows_count >= min_rows:
-                        break
-            
-            random.shuffle(rows)
-            
-            if random.random() < self.filters["vstack_split_ratio"]:
-                mid = len(rows) // 2
-                top = vstack(rows[:mid])
-                bottom = vstack(rows[mid:])
-                
-                top, bottom = _vstack(top, bottom, False).split("\n\n")
-                
-                sepr = "".join(
-                    [
-                        self.rand_text(random.randint(4, 10),
-                                       place_holder="key")
-                        for _ in range(random.randint(1, 3))
-                    ]
-                )
-                
-                ret = "\n".join([top, sepr, bottom])
-            else:
-                if len(rows) > 1:
-                    ret = vstack(rows)
-                else:
-                    ret = rows[0]
-            
-            if self.filter(ret):
+                        cols.append(
+                            vstack(
+                                vstack(
+                                    from_str("<TITLE>"), vstack(rows[:x]), align="l"
+                                ),
+                                vstack(
+                                    from_str("<TITLE>"), vstack(rows[x:]), align="l"
+                                ),
+                                True,
+                                "l",
+                            )
+                        )
+
+                ret = hstack(cols, merged=False)
                 yield ret
             else:
-                continue
-    
+                rows = self.get_rows(min_rows, num_rows)
+                random.shuffle(rows)
+                if random.random() < self.filters["vstack_split_ratio"]:
+                    mid = len(rows) // 2
+                    top = vstack(rows[:mid])
+                    bottom = vstack(rows[mid:])
+
+                    top, bottom = _vstack(top, bottom, False).split("\n\n")
+
+                    sepr = "".join(
+                        [
+                            self.rand_text(random.randint(4, 10), place_holder="key")
+                            for _ in range(random.randint(1, 3))
+                        ]
+                    )
+
+                    ret = "\n".join([top, sepr, bottom])
+                else:
+                    if len(rows) > 1:
+                        ret = vstack(rows)
+                    else:
+                        ret = rows[0]
+                if self.filter(ret):
+                    yield ret
+                else:
+                    continue
+
+    def get_rows(self, min_rows, num_rows):
+        rows_count = 0
+        rows = []
+        while rows_count < min_rows:
+            for key, val in self.data.items():
+                func = self.__getattribute__(key)
+                if random.random() < val.get("probability"):  # 出现概率
+                    max_ = val.get("max_num", 1)
+                    min_ = val.get("min_num", 1)
+                    times = random.randint(min_, max_)
+                    for _ in range(times):
+                        rows.append(func(**val))
+                else:
+                    pass
+                rows_count = len("\n".join([str(i) for i in rows]).splitlines())
+                if rows_count >= num_rows:
+                    break
+        return rows
+
     def run(self, batch):
         """无尽表格生成器"""
         queue = list()
@@ -197,7 +234,7 @@ class UniForm:
             random.shuffle(rows)
             queue.extend(rows)
         return queue
-    
+
     def single_line(self, **kwargs):
         """
         单行文字模式
@@ -208,7 +245,7 @@ class UniForm:
         tab.add_row([self.rand_text(26)])
         tab.table_width = self.table_width
         return tab
-    
+
     def multiline_text(self, **kwargs):
         """
         多行文本模式
@@ -222,14 +259,13 @@ class UniForm:
         num = random.randint(min_num_of_rows, max_num_of_rows)
         multi_text = []
         for i in range(num):
-            multi_text.append(
-                str(i + 1) + "." + self.rand_text(random.randint(10, 20)))
+            multi_text.append(str(i + 1) + "." + self.rand_text(random.randint(10, 20)))
         tab = AwesomeTable()
         tab.add_rows([[x] for x in multi_text])
         tab.table_width = self.table_width
         tab.vrules = prettytable.FRAME
         tab.hrules = prettytable.FRAME
-        
+
         tab.align = "l"
         has_title = random.random() < kwargs["has_title_raito"]
         if not has_title:
@@ -239,7 +275,7 @@ class UniForm:
         title_tab.add_row([title])
         tab.table_width = self.table_width - title_tab.table_width + 1
         return hstack(title_tab, tab)
-    
+
     def single_key_value(self, **kwargs):
         """
         单个键值对
@@ -256,7 +292,7 @@ class UniForm:
         val_tab.table_width = self.table_width - key_tab.table_width + 1
         val_tab.min_width = self.min_width_of_cell
         return hstack(key_tab, val_tab)
-    
+
     def multiple_key_value_pairs(self, **kwargs):
         """
         多个键值对
@@ -271,13 +307,12 @@ class UniForm:
         pairs = []
         for _ in range(num):
             pairs.append(self.rand_text(6, place_holder="key"))
-            pairs.append(
-                self.rand_text(random.randint(8, 16), place_holder="value"))
+            pairs.append(self.rand_text(random.randint(8, 16), place_holder="value"))
         tab = AwesomeTable()
         tab.add_row(pairs)
         tab.min_width = self.min_width_of_cell
         return tab
-    
+
     def single_key_multiple_values(self, **kwargs):
         """
         单键多值
@@ -290,13 +325,12 @@ class UniForm:
         min_options = kwargs["min_options"]
         num = random.randint(min_options, max_options)
         choices = []
-        
+
         for _ in range(num):
             choices.append(
-                "[x]" + self.rand_text(random.randint(4, 8),
-                                       place_holder="value")
+                "[x]" + self.rand_text(random.randint(4, 8), place_holder="value")
             )
-        
+
         key = self.rand_text(6, place_holder="key")
         key_tab = AwesomeTable()
         key_tab.add_row([key])
@@ -306,7 +340,7 @@ class UniForm:
         val_tab.vrules = prettytable.FRAME
         val_tab.table_width = self.table_width - key_tab.table_width + 1
         return hstack(key_tab, val_tab)
-    
+
     def multiple_rows_multiple_columns(self, **kwargs):
         """
         多行多列
@@ -321,7 +355,7 @@ class UniForm:
         max_num_of_cols = kwargs["max_num_of_cols"]
         rows = random.randint(min_num_of_rows, max_num_of_rows)
         cols = random.randint(min_num_of_cols, max_num_of_cols)
-        
+
         table = [
             [
                 self.rand_text(random.randint(2, 6), place_holder="value")
@@ -329,10 +363,10 @@ class UniForm:
             ]
             for _ in range(rows)
         ]
-        
+
         head_top = random.random() < kwargs["header_top_ratio"]
         head_left = random.random() < kwargs["header_left_ratio"]
-        
+
         if head_top:
             table[0] = [
                 self.rand_text(random.randint(2, 6), place_holder="key")
@@ -340,11 +374,10 @@ class UniForm:
             ]
         if head_left:
             for i in range(rows):
-                table[i][0] = self.rand_text(random.randint(2, 6),
-                                             place_holder="key")
+                table[i][0] = self.rand_text(random.randint(2, 6), place_holder="key")
         tab = AwesomeTable()
         tab.add_rows(table)
-        
+
         if random.random() < kwargs["vrules_all_ratio"]:
             tab.vrules = prettytable.ALL
         else:
@@ -353,12 +386,12 @@ class UniForm:
             tab.hrules = prettytable.ALL
         else:
             tab.hrules = prettytable.FRAME
-        
+
         if self.table_width > 0:
             tab.table_width = self.table_width
         tab.min_width = self.min_width_of_cell
         return str(tab)
-    
+
     def complex(self, **kwargs):
         """
         复杂表头
@@ -370,29 +403,29 @@ class UniForm:
         min_depth_of_header = kwargs["min_depth_of_header"]
         max_depth_of_header = kwargs["max_depth_of_header"]
         depth = random.randint(min_depth_of_header, max_depth_of_header)
-        
+
         min_num_of_cols = kwargs["min_num_of_cols"]
         max_num_of_cols = kwargs["max_num_of_cols"]
         cols = random.randint(min_num_of_cols, max_num_of_cols)
-        
+
         min_num_of_rows = kwargs["min_num_of_rows"]
         max_num_of_rows = kwargs["max_num_of_rows"]
         rows = random.randint(min_num_of_rows, max_num_of_rows)
-        
+
         dic = self.rand_dict(depth, cols, rows)
         t2b = random.random() > kwargs["left_to_right_ratio"]  # 从上到下的概率
-        
+
         if t2b:
             if random.random() < kwargs["fixed_width_ratio"]:
-                max_width = max(self.table_width // (cols ** depth), 12)
+                max_width = max(self.table_width // (cols**depth), 12)
                 return from_dict(dic, t2b, max_width)
             return from_dict(dic, t2b)
-        
+
         if random.random() < kwargs["fixed_width_ratio"]:
             max_width = max(self.table_width // (depth + rows), 12)  # 保证同宽度的补丁
             return from_dict(dic, t2b, max_width)
         return from_dict(dic, t2b)
-    
+
     def cross_rows_cross_cols(self, **kwargs):
         """
         跨行跨列的情况
@@ -404,11 +437,15 @@ class UniForm:
         nob = random.randint(2, kwargs.get("max_num_of_blocks", 2))
         blocks = []
         blocks_width = self.table_width // nob  # 平均宽度
-        
+
         for _ in range(nob):
             noc = random.randint(2, kwargs.get("max_num_of_cols", 2))
             nor = random.randint(2, kwargs.get("max_num_of_rows", 2))
-            block = self.rand_table(noc, nor, blocks_width,
-                                    random.randint(0, 3))
+            block = self.rand_table(noc, nor, blocks_width, random.randint(0, 3))
             blocks.append(block)
         return hstack(blocks)
+
+
+# n = UniForm(r"E:\00IT\P\uniform\multilang\templates\express\config.yaml")
+# for i in n.create(1):
+#     print(i)

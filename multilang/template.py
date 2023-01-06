@@ -15,8 +15,6 @@ from PIL import Image, ImageDraw, ImageFont
 from pyrect import Rect
 
 from awesometable.fontwrap import put_text_in_box
-from post_processor.deco import c2p, p2c
-from utils.remover import remove_text
 
 
 class TemplateError(Exception):
@@ -201,23 +199,23 @@ class Template:
             obj = pickle.load(file)
         return obj
 
-    def get_background(self):
-        """将每个文本切片移除文字后回填"""
-        image = p2c(self.image)
-        for text in self.texts:
-            top, bottom, left, right = (
-                text.rect.top,
-                text.rect.bottom,
-                text.rect.left,
-                text.rect.right,
-            )
-            img = image[top:bottom, left:right]
-            new_img = remove_text(img, text.text)
-            image[top:bottom, left:right] = new_img
-            break
-        image = c2p(image)
-        image.save("background.jpg")
-        self.image = image
+    # def get_background(self):
+    #     """将每个文本切片移除文字后回填"""
+    #     image = p2c(self.image)
+    #     for text in self.texts:
+    #         top, bottom, left, right = (
+    #             text.rect.top,
+    #             text.rect.bottom,
+    #             text.rect.left,
+    #             text.rect.right,
+    #         )
+    #         img = image[top:bottom, left:right]
+    #         new_img = remove_text(img, text.text)
+    #         image[top:bottom, left:right] = new_img
+    #         break
+    #     image = c2p(image)
+    #     image.save("background.jpg")
+    #     self.image = image
 
     # """
     # @classmethod

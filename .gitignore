@@ -13,7 +13,7 @@
 !/test/
 !/.gitignore
 !/data/
-/post_processor/tests/
+/postprocessor/tests/
 /doc/
 /static/
 !/tests/
@@ -24,3 +24,6 @@
 *.jpg
 *.txt
 *.json
+/recycle/
+/tests/
+*.PNG

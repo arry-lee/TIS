@@ -1,23 +1,20 @@
 import io
 import os
-import os
 import random
-from string import digits, punctuation, ascii_letters
+from string import ascii_letters, digits, punctuation
 
 import requests
 from PIL import Image
 from faker.providers.lorem import Provider as BaseProvider
 
-from multifaker.providers.table import Provider as TableProvider
 
-
-def datelike(d):
+def _date_like(d):
     if d in "0129":
         return d
     return random.choice(digits)
 
 
-class Provider(BaseProvider, TableProvider):
+class Provider(BaseProvider):
     """Implement default lorem provider for Faker.
 
     .. important::
@@ -86,7 +83,7 @@ class Provider(BaseProvider, TableProvider):
         "timesbi",
         "timesi",
     ]
-    sign_font = r"E:\00IT\P\uniform\static\fonts\Sudestada.ttf"
+    sign_font = r"E:\00IT\P\uniform\static\fonts\Sudestada.ttf" #todo fix path
     base_images_dir = r"E:\00IT\P\uniform\multispider\images"
     image_list = []
 
@@ -186,14 +183,14 @@ class Provider(BaseProvider, TableProvider):
         words = []
         for char in out:
             if char in digits:
-                words.append(datelike(char))
+                words.append(_date_like(char))
             elif char in signs:
                 words.append(char)
             else:
                 words.append(self.wordlike(char, exact))
         return "".join(words)
 
-    # def word(self):
+
     def words(self, nb=3, ext_word_list=None, unique=False):
         """Generate a tuple of words.
 

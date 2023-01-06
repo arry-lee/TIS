@@ -8,19 +8,20 @@ import cv2
 import numpy as np
 
 from postprocessor.background import add_background_data
-from postprocessor.convert import keepdata
-from postprocessor.distortion import distortion
-
+from postprocessor.convert import processor
 from postprocessor.curve import bezier_curve
 from postprocessor.displace import TEXTURE_DIR, displace
+from postprocessor.distort import distort
 from postprocessor.noise import gauss_noise, pepper_noise
-from postprocessor.perspective import perspective_data
+from postprocessor.perspect import perspective_data
 from postprocessor.reflect import reflect
 from postprocessor.rotate import rotate_data
-from postprocessor.spread import spread
 from postprocessor.seal import add_seal
 from postprocessor.shadow import add_fold, add_shader
-from postprocessor.watermark import add_watermark
+from postprocessor.spread import spread
+
+
+# from postprocessor.watermark import add_watermark
 
 
 def random_distortion(data, max_peak, max_period):
@@ -36,8 +37,8 @@ def random_distortion(data, max_peak, max_period):
     direction = random.choice("xy")
     if data.get("mask", None) is None:
         data["mask"] = np.ones(data["image"].shape[:2], np.uint8) * 255
-    data["image"] = distortion(data["image"], peak, period, direction)
-    data["mask"] = distortion(data["mask"], peak, period, direction)
+    data["image"] = distort(data["image"], peak, period, direction)
+    data["mask"] = distort(data["mask"], peak, period, direction)
     return data
 
 
@@ -89,19 +90,19 @@ def random_background(data, bg_dir, min_offset, max_offset):
     return add_background_data(data, background, offset)
 
 
-@keepdata
-def random_pollution(data, dirty_dir):
-    """
-    随机污染
-    :param data: dict 标注字典
-    :param dirty_dir: str 污染资源目录
-    :return: dict 标注字典
-    """
-    watermark = random_source(dirty_dir)
-    return add_watermark(data, watermark)
+# @keepdata
+# def random_pollution(data, dirty_dir):
+#     """
+#     随机污染
+#     :param data: dict 标注字典
+#     :param dirty_dir: str 污染资源目录
+#     :return: dict 标注字典
+#     """
+#     watermark = random_source(dirty_dir)
+#     return add_watermark(data, watermark)
 
 
-@keepdata
+@processor
 def random_seal(data, seal_dir):
     """
     随机盖章
@@ -113,7 +114,7 @@ def random_seal(data, seal_dir):
     return add_seal(data, seal)
 
 
-@keepdata
+@processor
 def random_fold(data, min_range=0.25, max_range=0.75):
     """
     随机折痕
@@ -131,7 +132,7 @@ def random_fold(data, min_range=0.25, max_range=0.75):
     return add_fold(data, pos, direction)
 
 
-@keepdata
+@processor
 def random_noise(data, max_prob=0.02):
     """
     随机噪声
@@ -143,12 +144,12 @@ def random_noise(data, max_prob=0.02):
     return pepper_noise(data, prob)
 
 
-@keepdata
+@processor
 def random_gauss_noise(data):
     return gauss_noise(data, mean=0.01)
 
 
-@keepdata
+@processor
 def random_reflect(data, light=None):
     """
     随机反射效果
@@ -160,7 +161,7 @@ def random_reflect(data, light=None):
     return reflect(data, light)
 
 
-@keepdata
+@processor
 def random_shadow(data):
     shader = random_source(r"/postprocessor\displace\paper")
     return add_shader(data, shader)

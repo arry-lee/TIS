@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from postprocessor.convert import keepdata
+from postprocessor.convert import processor
 
 WIDTH_IN_MM = 210  # A4 的毫米尺寸
 HEIGHT_IN_MM = 279
@@ -133,7 +133,7 @@ def print_on_a4(image):
     return out
 
 
-@keepdata
+@processor
 def add_corner(image, mode="fold"):
     """
     给纸张或图像增加折角效果
