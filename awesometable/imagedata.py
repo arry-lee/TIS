@@ -11,54 +11,180 @@ from typing import List
 from PIL import Image, ImageDraw, ImageFont
 from pyrect import Rect
 
+# a = list()
 
-class Element(Rect):
-    """元素类"""
+class Element(Rect,list):
+    """元素类,同时具有矩形和列表的能力"""
     
-    def __init__(self, left=0, top=0, width=0, height=0):
+    def __init__(self, left=0, top=0, width=0, height=0, outline=(0, 0, 0, 0),
+                 line_width=1,line_type='s',visible=True):
         super().__init__(left, top, width, height, onChange=self.update_lines)
         
-        self._left_line = Line(self.topleft, self.bottomleft)
-        self._right_line = Line(self.topright, self.bottomleft)
-        self._top_line = Line(self.topleft, self.topright)
-        self._bottom_line = Line(self.bottomleft, self.bottomright)
+        # self._children = []
+        
+        self._outline = outline
+        self._line_width = line_width
+        self.visible = visible
+        # self._radius = radius  # 圆角
+        # 线型
+        self._line_fills = [outline]*4
+        self._line_widths = [line_width]*4
+        self._line_types = [line_type]*4
+        
+        self._left_line = Line(self.topleft, self.bottomleft,
+                               self._line_widths[0], self._line_fills[0],
+                               self._line_types[0])
+        self._right_line = Line(self.topright, self.bottomleft,
+                                self._line_widths[2], self._line_fills[2],
+                                self._line_types[0])
+        self._top_line = Line(self.topleft, self.topright,
+                              self._line_widths[1], self._line_fills[1],
+                              self._line_types[1])
+        self._bottom_line = Line(self.bottomleft, self.bottomright,
+                                 self._line_widths[3], self._line_fills[3],
+                                 self._line_types[3])
+        
     
     def update_lines(self, oldbox=None, newbox=None):
-        self._left_line = Line(self.topleft, self.bottomleft)
-        self._right_line = Line(self.topright, self.bottomleft)
-        self._top_line = Line(self.topleft, self.topright)
-        self._bottom_line = Line(self.bottomleft, self.bottomright)
+        """更新线和重置线是不一样的"""
+        self._update_left()
+
+        self._update_right()
+
+        self._update_top()
+
+        self._update_bottom()
+
+    def _update_bottom(self):
+        self._bottom_line.start = self.bottomleft
+        self._bottom_line.end = self.bottomright
+        self._bottom_line.fill = self._line_fills[3]
+        self._bottom_line.width = self._line_widths[3]
+        self._bottom_line.mode = self._line_types[3]
+
+    def _update_top(self):
+        self._top_line.start = self.topleft
+        self._top_line.end = self.topright
+        self._top_line.fill = self._line_fills[1]
+        self._top_line.width = self._line_widths[1]
+        self._top_line.mode = self._line_types[1]
+
+    def _update_right(self):
+        self._right_line.start = self.topright
+        self._right_line.end = self.bottomleft
+        self._right_line.fill = self._line_fills[2]
+        self._right_line.width = self._line_widths[2]
+        self._right_line.mode = self._line_types[2]
+
+    def _update_left(self):
+        self._left_line.start = self.topleft
+        self._left_line.end = self.bottomleft
+        self._left_line.fill = self._line_fills[0]
+        self._left_line.width = self._line_widths[0]
+        self._left_line.mode = self._line_types[0]
+
+    @property
+    def outline(self):
+        return self._outline
     
+    @outline.setter
+    def outline(self,val):
+        self._outline = val
+        self._line_fills = [val]*4
+        self.update_lines()
+    
+    @property
+    def line_width(self):
+        return self._line_width
+    
+    @line_width.setter
+    def line_width(self,val):
+        self._line_width = val
+        self._line_widths = [val]*4
+        self.update_lines()
+        
     @property
     def left_line(self):
         return self._left_line
+    
+    @left_line.setter
+    def left_line(self,val):
+        self._line_fills[0] = val[0]
+        self._line_widths[0] = val[1]
+        self._line_types[0] = val[2]
+        self._update_left()
     
     @property
     def top_line(self):
         return self._top_line
     
+    @top_line.setter
+    def top_line(self,val):
+        self._line_fills[1] = val[0]
+        self._line_widths[1] = val[1]
+        self._line_types[1] = val[2]
+        self._update_top()
+        
     @property
     def right_line(self):
         return self._right_line
     
+    @right_line.setter
+    def right_line(self,val):
+        self._line_fills[2] = val[0]
+        self._line_widths[2] = val[1]
+        self._line_types[2] = val[2]
+        self._update_right()
+        
     @property
     def bottom_line(self):
         return self._bottom_line
     
+    @bottom_line.setter
+    def bottom_line(self,val):
+        self._line_fills[3] = val[0]
+        self._line_widths[3] = val[1]
+        self._line_types[3] = val[2]
+        self._update_bottom()
+        
     @property
     def lines(self):
         return self._left_line, self._top_line, self._right_line, self._bottom_line
+    
+    @property
+    def line_widths(self):
+        return self._line_widths
+    
+    @property
+    def line_fills(self):
+        return self._line_fills
+    
+    @property
+    def line_types(self):
+        return self._line_types
+    
+    def render(self,drawer):
+        if self.visible:
+            for line in self.lines:
+                line.render(drawer)
 
-
+    def __str__(self):
+        return "%s(x=%s, y=%s, w=%s, h=%s)" % (
+            self.__class__.__name__,
+            self._left,
+            self._top,
+            self._width,
+            self._height,
+        )
+    
 @lru_cache
 def load_font(font_path, font_size):
     return ImageFont.truetype(font_path, font_size)
 
 
 def textbbox(pos, txt, font, anchor, stroke_width=0):
-    bbox = font.getbbox(txt, anchor=anchor, stroke_width=stroke_width)
-    return bbox[0] + pos[0], bbox[1] + pos[1], bbox[2] + pos[0], bbox[3] + pos[
-        1]
+    box = font.getbbox(txt, anchor=anchor, stroke_width=stroke_width)
+    return box[0] + pos[0], box[1] + pos[1], box[2] + pos[0], box[3] + pos[1]
 
 
 class Label:
@@ -95,11 +221,18 @@ class Label:
         )
 
 
-def draw_text(pos, txt, font_path, font_size, fill=(0, 0, 0, 255), anchor="lt",
-              stroke_width=0,
-              stroke_fill=None,
-              underline=False,
-              deleteline=False, ):
+def draw_text(
+        pos,
+        txt,
+        font_path,
+        font_size,
+        fill=(0, 0, 0, 255),
+        anchor="lt",
+        stroke_width=0,
+        stroke_fill=None,
+        underline=False,
+        deleteline=False,
+):
     """
     将任何锚点的字符串转化成 lt 锚点，并且去除前后空格
     :param pos: 锚点位置(x,y)
@@ -111,8 +244,18 @@ def draw_text(pos, txt, font_path, font_size, fill=(0, 0, 0, 255), anchor="lt",
     :return:
     """
     if txt == txt.strip():
-        return Text(pos, txt, fill, font_path, font_size, anchor, stroke_width,
-                    stroke_fill, underline, deleteline)
+        return Text(
+            pos,
+            txt,
+            fill,
+            font_path,
+            font_size,
+            anchor,
+            stroke_width,
+            stroke_fill,
+            underline,
+            deleteline,
+        )
     
     font = load_font(font_path, font_size)
     box = textbbox(pos, txt, font, anchor, stroke_width)
@@ -128,15 +271,25 @@ def draw_text(pos, txt, font_path, font_size, fill=(0, 0, 0, 255), anchor="lt",
         pos = box[2], (box[1] + box[3]) // 2  # 右中点
         anchor = "rm"
     
-    return Text(pos, txt.strip(), fill, font_path, font_size, anchor,
-                stroke_width, stroke_fill, underline, deleteline)
+    return Text(
+        pos,
+        txt.strip(),
+        fill,
+        font_path,
+        font_size,
+        anchor,
+        stroke_width,
+        stroke_fill,
+        underline,
+        deleteline,
+    )
 
 
 class Text(Element):
     def __init__(
             self,
-            xy,
-            text,
+            xy=(0,0),
+            text='',
             fill=None,
             font_path="simfang.ttf",
             font_size=20,
@@ -197,7 +350,6 @@ class Text(Element):
         self._right = box[2]
         self._bottom = box[3]
         super().update_lines(oldbox, newbox)
-        # self._deleteline = Line(self.midleft, self.midright, 1, self._fill)
     
     @property
     def text(self):
@@ -319,8 +471,8 @@ class Text(Element):
     def __contains__(self, item):
         return item in self._text
     
-    def __str__(self):
-        return self._text
+    # def __str__(self):
+    #     return self._text
     
     def show(self):
         im = Image.new("RGBA", self.bottomright, (255, 255, 255, 255))
@@ -411,70 +563,74 @@ class Cell(Element):
             top=0,
             width=0,
             height=0,
-            fill=None,
             outline=(0, 0, 0, 0),
             line_width=1,
+            line_type='s',
             visible=True,
             align=None,
             padding_width=0,
+            fill=None,
     ):
-        super().__init__(left, top, width, height)
+        super().__init__(left, top, width, height,outline,line_width,
+                         line_type,visible)
         self._fill = fill
-        self._outline = outline
-        self._line_width = line_width
         self.texts = []
-        self.visible = visible
         self._align = align
         if align:
             self._do_align()
         self.padding_width = padding_width
-        # self.update_lines()
     
     def _do_align(self):
-        if self.align == 'mm':
+        if self.align == "mm":
             for text in self:
                 text.xy = self.center
-                text.anchor = 'mm'
+                text.anchor = "mm"
         
-        elif self.align == 'lm':
+        elif self.align == "lm":
             for text in self:
                 text.xy = self.left + self.padding_width, self.centery
-                text.anchor = 'lm'
+                text.anchor = "lm"
         
-        elif self.align == 'rm':
+        elif self.align == "rm":
             for text in self:
                 text.xy = self.right - self.padding_width, self.centery
-                text.anchor = 'rm'
+                text.anchor = "rm"
         
-        elif self.align == 'lt':
+        elif self.align == "lt":
             for text in self:
                 text.xy = self.left + self.padding_width, self.top + self.padding_width
-                text.anchor = 'lt'
+                text.anchor = "lt"
         
-        elif self.align == 'rt':
+        elif self.align == "rt":
             for text in self:
                 text.xy = self.right - self.padding_width, self.top + self.padding_width
-                text.anchor = 'rt'
+                text.anchor = "rt"
         
-        elif self.align == 'mt':
+        elif self.align == "mt":
             for text in self:
                 text.xy = self.centerx, self.top + self.padding_width
-                text.anchor = 'mt'
+                text.anchor = "mt"
         
-        elif self.align == 'lb':
+        elif self.align == "lb":
             for text in self:
-                text.xy = self.left + self.padding_width, self.bottom - self.padding_width
-                text.anchor = 'lb'
+                text.xy = (
+                    self.left + self.padding_width,
+                    self.bottom - self.padding_width,
+                )
+                text.anchor = "lb"
         
-        elif self.align == 'rb':
+        elif self.align == "rb":
             for text in self:
-                text.xy = self.right - self.padding_width, self.bottom - self.padding_width
-                text.anchor = 'rb'
+                text.xy = (
+                    self.right - self.padding_width,
+                    self.bottom - self.padding_width,
+                )
+                text.anchor = "rb"
         
-        elif self.align == 'mb':
+        elif self.align == "mb":
             for text in self:
                 text.xy = self.centerx, self.bottom - self.padding_width
-                text.anchor = 'mb'
+                text.anchor = "mb"
     
     @property
     def align(self):
@@ -485,25 +641,7 @@ class Cell(Element):
         assert len(val) == 2
         self._align = val
         self._do_align()
-    
-    @property
-    def outline(self):
-        return self._outline
-    
-    @outline.setter
-    def outline(self, val):
-        self._outline = val
-        self.update_lines()
-    
-    @property
-    def line_width(self):
-        return self._line_width
-    
-    @line_width.setter
-    def line_width(self, val):
-        self._line_width = val
-        self.update_lines()
-    
+
     @property
     def is_empty(self):
         return not bool(self.texts)
@@ -515,18 +653,7 @@ class Cell(Element):
         self.texts.clear()
     
     def update_lines(self, oldbox=None, newbox=None):
-        self._left_line = Line(
-            self.topleft, self.bottomleft, self._line_width, self._outline
-        )
-        self._top_line = Line(
-            self.topleft, self.topright, self._line_width, self._outline
-        )
-        self._right_line = Line(
-            self.topright, self.bottomright, self._line_width, self._outline
-        )
-        self._bottom_line = Line(
-            self.bottomleft, self.bottomright, self._line_width, self._outline
-        )
+        super().update_lines()
         self._do_align()
     
     def __iter__(self):
@@ -563,12 +690,147 @@ class Cell(Element):
             text.render(drawer)
     
     def show(self):
-        im = Image.new('RGBA', self.bottomright, (0, 0, 0, 0))
+        im = Image.new("RGBA", self.bottomright, (0, 0, 0, 0))
         drawer = ImageDraw.Draw(im)
         self.render(drawer)
         im.crop(self.topleft + self.bottomright).show()
 
+
+class Row(Element):
+    """保持内部的cell有序，可以用heap"""
     
+    def __init__(self, cells: List[Cell] = None, outline=(0, 0, 0, 0),
+                 line_width=1):
+        self._cells = cells
+        self._outline = outline
+        self._line_width = line_width
+        
+        self._cells.sort(key=lambda x: x.left)
+        # self._merge_cells = []
+        x = self._cells[0].left
+        y = min(c.top for c in self._cells)
+        w = self._cells[-1].right - x
+        h = max(c.top for c in self._cells) - y
+        super().__init__(x, y, w, h)
+    
+    # def append(self,):
+    def update_cells(self):
+        """更新单元格形状"""
+        for cell in self._cells:
+            cell.top = self.top
+            cell.height = self.height
+            cell._do_align()
+    
+    def __iter__(self):
+        for cell in self._cells:
+            yield cell
+    
+    def __getitem__(self, item):
+        return self._cells[item]
+    
+    def merge(self, start=0, end=None):  # 左闭右闭
+        """
+        合并行内单元格
+        :param start:
+        :type start:
+        :param end:
+        :type end:
+        :return:
+        :rtype:
+        """
+        if end is None:
+            end = len(self._cells) - 1
+        
+        merged = Cell(
+            self._cells[start].left,
+            self.top,
+            self._cells[end].right - self._cells[start].left,
+            self.height,
+        )
+        for i in range(start, end + 1):
+            self._cells[i].visible = False
+            merged.texts.extend(self._cells[i].texts)
+        self._cells.append(merged)
+    
+    def split(self, cno):
+        # self._cells[cno].visible = False
+        cell = self._cells[cno]
+        cell_left = cell.copy()
+        cell_left.width = cell.width // 2
+        cell_right = cell.copy()
+        cell_right.width = cell_left.width
+        cell_right.left = cell_left.right
+        cell.visible = False
+        self._cells.append(cell_left)
+        self._cells.append(cell_right)
+    
+    def render(self, drawer):
+        for cell in self._cells:
+            if cell.visible:
+                cell.render(drawer)
+        for line in self.lines:
+            line.render(drawer)
+    
+    # def merge(self,start=0,end=None):
+    
+    @property
+    def label(self):
+        return Label("", self, key="row")
+
+
+class Col(Element):
+    def __init__(self, cells: List[Cell] = None):
+        self._cells = cells
+        self._cells.sort(key=lambda x: x.top)
+        
+        x = min(c.left for c in self._cells)
+        y = self._cells[0].top
+        w = max(c.right for c in self._cells) - x
+        h = self._cells[-1].bottom - y
+        super().__init__(x, y, w, h)
+    
+    def __iter__(self):
+        for cell in self._cells:
+            yield cell
+    
+    def __getitem__(self, item):
+        return self._cells[item]
+    
+    def merge(self, start=0, end=None):  # 左闭右闭
+        """
+        合并行内单元格
+        :param start:
+        :type start:
+        :param end:
+        :type end:
+        :return:
+        :rtype:
+        """
+        if end is None:
+            end = len(self._cells) - 1
+        
+        merged = Cell(
+            self.left,
+            self._cells[start].top,
+            self.width,
+            self._cells[start].bottom - self._cells[start].top,
+        )
+        for i in range(start, end + 1):
+            self._cells[i].visible = False
+            merged.texts.extend(self._cells[i].texts)
+        self._cells.append(merged)
+    
+    def render(self, drawer):
+        for cell in self._cells:
+            cell.render(drawer)
+        for line in self.lines:
+            line.render(drawer)
+    
+    @property
+    def label(self):
+        return Label("", self, key="col")
+
+
 class Table(Element):
     """表格不是基本元素，是容器元素"""
     
@@ -583,29 +845,59 @@ class Table(Element):
             d[cell.top].append(cell)
         self._rows = []
         for k in sorted(list(d.keys())):
-            d[k].sort(key=lambda x: x.left)
-            self._rows.append(d[k])
+            # d[k].sort(key=lambda x: x.left)
+            self._rows.append(Row(d[k]))
         
         x = self._rows[0][0].left
         y = self._rows[0][0].top
         width = self._rows[-1][-1].right - x
         height = self._rows[-1][-1].bottom - y
         super().__init__(x, y, width, height)
-        
-        # self.bottomright = self._rows[-1][-1].bottomright
-        
-        # self._left_line = Line(
-        #     self.topleft, self.bottomleft, self.line_width, self.outline
-        # )
-        # self._top_line = Line(
-        #     self.topleft, self.topright, self.line_width, self.outline
-        # )
-        # self._right_line = Line(
-        #     self.topright, self.bottomright, self.line_width, self.outline
-        # )
-        # self._bottom_line = Line(
-        #     self.bottomleft, self.bottomright, self.line_width, self.outline
-        # )
+    
+    def update(self):
+        """重新计算行的位置和高度"""
+        self._rows.sort(key=lambda r: r.top)
+        self.left = min(r.left for r in self._rows)
+        self.top = self._rows[0].top
+        self.width = max(r.right for r in self._rows) - self.left
+        self.height = self._rows[-1].bottom
+        self.update_rows()
+    
+    def update_rows(self):
+        for row in self._rows:
+            row.left = self.left
+            row.width = self.width
+    
+    def append_row(self, row: Row):
+        self._rows.append(row)
+        self.update()
+    
+    def copy_row(self, rno):
+        row = self._rows[rno]
+        copyed = row.copy()
+        copyed.top = row.bottom
+        self.append_row(row)
+    
+    def insert_after(self, row, rno):
+        t = self._rows[rno]
+        row.top = t.bottom
+        for r in self._rows[rno + 1:]:
+            r.top += row.height
+        self.append_row(row)
+    
+    def insert_before(self, row, rno):
+        if rno == 0:
+            row.top = self._rows[0].top
+            for r in self._rows:
+                r.top += row.height
+        else:
+            self.insert_after(row, rno - 1)
+    
+    def add_row(self):
+        self.insert_after(self._rows[-1].copy(), len(self._rows) - 1)
+    
+    def merge_rows(self, start, end):
+        pass
     
     @property
     def outline(self):
@@ -639,7 +931,7 @@ class Table(Element):
     
     @property
     def cols(self):
-        return list(zip(*self._rows))
+        return [Col(col) for col in list(zip(*self._rows))]
     
     def merge(self, row_start, col_start, row_end, col_end):
         """合并单元格"""
@@ -841,12 +1133,33 @@ class TableGenerator:
 
 
 if __name__ == "__main__":
-    im = Text((100, 100), "中国", (255, 0, 0, 255), "simfang.ttf", 50,
-              underline=True, deleteline=True)
-    cell = Cell(0, 0, 200, 200, outline=(0, 0, 0, 255), line_width=2,
-                align='lm', padding_width=10)
-    cell.append(im)
-    cell.width *= 2
-    cell.height = cell.height // 2
-    # cell.do_align()
-    cell.show()
+    c =Cell()
+    b =Text((0,0),'儿')
+    print(c)
+    print(b)
+    c.append(b)
+    
+    # im = Text(
+    #     (100, 100),
+    #     "中国",
+    #     (255, 0, 0, 255),
+    #     "simfang.ttf",
+    #     50,
+    #     underline=True,
+    #     deleteline=True,
+    # )
+    # cell = Cell(
+    #     0,
+    #     0,
+    #     200,
+    #     200,
+    #     outline=(0, 0, 0, 255),
+    #     line_width=2,
+    #     align="lm",
+    #     padding_width=10,
+    # )
+    # cell.append(im)
+    # cell.width *= 2
+    # cell.height = cell.height // 2
+    # # cell.do_align()
+    # cell.show()
