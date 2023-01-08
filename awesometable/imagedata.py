@@ -5,92 +5,131 @@
 4. 各个元素的属性可以自由修改
 """
 from collections import defaultdict
+from copy import deepcopy
 from functools import lru_cache
 from typing import List
 
 from PIL import Image, ImageDraw, ImageFont
 from pyrect import Rect
 
+
 # a = list()
 
-class Element(Rect,list):
-    """元素类,同时具有矩形和列表的能力"""
+
+class Element(Rect):
+    """元素类,同时具有矩的能力，但不是所有的元素都能放东西"""
     
-    def __init__(self, left=0, top=0, width=0, height=0, outline=(0, 0, 0, 0),
-                 line_width=1,line_type='s',visible=True):
-        super().__init__(left, top, width, height, onChange=self.update_lines)
-        
-        # self._children = []
-        
+    def __init__(
+            self,
+            left=0,
+            top=0,
+            width=0,
+            height=0,
+            outline=(0, 0, 0, 255),
+            line_width=1,
+            line_type="s",
+            visible=True,
+    ):
+        super().__init__(left, top, width, height, onChange=self.update)
         self._outline = outline
         self._line_width = line_width
         self.visible = visible
-        # self._radius = radius  # 圆角
         # 线型
-        self._line_fills = [outline]*4
-        self._line_widths = [line_width]*4
-        self._line_types = [line_type]*4
+        self._line_fills = [outline] * 4
+        self._line_widths = [line_width] * 4
+        self._line_types = [line_type] * 4
         
-        self._left_line = Line(self.topleft, self.bottomleft,
-                               self._line_widths[0], self._line_fills[0],
-                               self._line_types[0])
-        self._right_line = Line(self.topright, self.bottomleft,
-                                self._line_widths[2], self._line_fills[2],
-                                self._line_types[0])
-        self._top_line = Line(self.topleft, self.topright,
-                              self._line_widths[1], self._line_fills[1],
-                              self._line_types[1])
-        self._bottom_line = Line(self.bottomleft, self.bottomright,
-                                 self._line_widths[3], self._line_fills[3],
-                                 self._line_types[3])
+        self._left_line = Line(
+            self.topleft,
+            self.bottomleft,
+            self._line_widths[0],
+            self._line_fills[0],
+            self._line_types[0],
+        )
+        self._right_line = Line(
+            self.topright,
+            self.bottomright,
+            self._line_widths[2],
+            self._line_fills[2],
+            self._line_types[0],
+        )
+        self._top_line = Line(
+            self.topleft,
+            self.topright,
+            self._line_widths[1],
+            self._line_fills[1],
+            self._line_types[1],
+        )
+        self._bottom_line = Line(
+            self.bottomleft,
+            self.bottomright,
+            self._line_widths[3],
+            self._line_fills[3],
+            self._line_types[3],
+        )
         
+        self.parent = None #每个元素都有一个直接的父亲
+
+    # 改变的连锁反应是：子元素尺寸改变>本身几何改变>线性更新
+    #                         >
+    # 本身几何改变>子元素位置改变>线性更新
     
+    def update(self,oldbox=None,newbox=None):
+        """
+        几何状态改变之后会自动更新线
+        如果有父类，掉调用父类的更新方法
+        # 不能改变子元素的状态，不然就死循环了
+        :return:
+        :rtype:
+        """
+        self.update_lines()
+        if self.parent:
+            self.parent.update()
+        
+    # ------------- 以下是几何属性 -------
     def update_lines(self, oldbox=None, newbox=None):
         """更新线和重置线是不一样的"""
         self._update_left()
-
         self._update_right()
-
         self._update_top()
-
         self._update_bottom()
-
+    
     def _update_bottom(self):
         self._bottom_line.start = self.bottomleft
         self._bottom_line.end = self.bottomright
         self._bottom_line.fill = self._line_fills[3]
         self._bottom_line.width = self._line_widths[3]
         self._bottom_line.mode = self._line_types[3]
-
+    
     def _update_top(self):
         self._top_line.start = self.topleft
         self._top_line.end = self.topright
         self._top_line.fill = self._line_fills[1]
         self._top_line.width = self._line_widths[1]
         self._top_line.mode = self._line_types[1]
-
+    
     def _update_right(self):
         self._right_line.start = self.topright
-        self._right_line.end = self.bottomleft
+        self._right_line.end = self.bottomright
         self._right_line.fill = self._line_fills[2]
         self._right_line.width = self._line_widths[2]
         self._right_line.mode = self._line_types[2]
-
+    
     def _update_left(self):
         self._left_line.start = self.topleft
         self._left_line.end = self.bottomleft
         self._left_line.fill = self._line_fills[0]
         self._left_line.width = self._line_widths[0]
         self._left_line.mode = self._line_types[0]
-
+    
     @property
     def outline(self):
         return self._outline
     
     @outline.setter
-    def outline(self,val):
+    def outline(self, val):
         self._outline = val
-        self._line_fills = [val]*4
+        self._line_fills = [val] * 4
         self.update_lines()
     
     @property
@@ -98,17 +137,17 @@ class Element(Rect,list):
         return self._line_width
     
     @line_width.setter
-    def line_width(self,val):
+    def line_width(self, val):
         self._line_width = val
-        self._line_widths = [val]*4
+        self._line_widths = [val] * 4
         self.update_lines()
-        
+    
     @property
     def left_line(self):
         return self._left_line
     
     @left_line.setter
-    def left_line(self,val):
+    def left_line(self, val):
         self._line_fills[0] = val[0]
         self._line_widths[0] = val[1]
         self._line_types[0] = val[2]
@@ -119,34 +158,34 @@ class Element(Rect,list):
         return self._top_line
     
     @top_line.setter
-    def top_line(self,val):
+    def top_line(self, val):
         self._line_fills[1] = val[0]
         self._line_widths[1] = val[1]
         self._line_types[1] = val[2]
         self._update_top()
-        
+    
     @property
     def right_line(self):
         return self._right_line
     
     @right_line.setter
-    def right_line(self,val):
+    def right_line(self, val):
         self._line_fills[2] = val[0]
         self._line_widths[2] = val[1]
         self._line_types[2] = val[2]
         self._update_right()
-        
+    
     @property
     def bottom_line(self):
         return self._bottom_line
     
     @bottom_line.setter
-    def bottom_line(self,val):
+    def bottom_line(self, val):
         self._line_fills[3] = val[0]
         self._line_widths[3] = val[1]
         self._line_types[3] = val[2]
         self._update_bottom()
-        
+    
     @property
     def lines(self):
         return self._left_line, self._top_line, self._right_line, self._bottom_line
@@ -163,13 +202,13 @@ class Element(Rect,list):
     def line_types(self):
         return self._line_types
     
-    def render(self,drawer):
+    def render(self, drawer):
         if self.visible:
             for line in self.lines:
                 line.render(drawer)
-
+    
     def __str__(self):
-        return "%s(x=%s, y=%s, w=%s, h=%s)" % (
+        return "%s(%s,%s,%s,%s)" % (
             self.__class__.__name__,
             self._left,
             self._top,
@@ -177,6 +216,194 @@ class Element(Rect,list):
             self._height,
         )
     
+    def show(self):
+        im = Image.new(
+            "RGBA",
+            (self.right + self.line_width, self.bottom + self.line_width),
+            (255, 255, 255, 255),
+        )
+        drawer = ImageDraw.Draw(im)
+        self.render(drawer)
+        im.crop(
+            self.topleft + (
+                self.right + self.line_width, self.bottom + self.line_width)
+        ).show()
+
+
+class Box(Element):
+    """可以放元素的盒子
+    盒子也是一种元素
+    盒子里面可以是盒子
+
+    不会纠结于里面东西的排序和大小
+    内部元素改变时，自动改变可变的盒子，需要一个字典记录该盒子的父亲
+    """
+    
+    def __init__(self, initlist=None, *args, **kwargs):
+        super(Box, self).__init__(*args, **kwargs)
+        self.data = []
+        if initlist is not None:
+            # XXX should this accept an arbitrary sequence?
+            if type(initlist) == type(self.data):
+                self.data[:] = initlist
+            elif isinstance(initlist, Box):
+                self.data[:] = initlist.data[:]
+            else:
+                self.data = list(initlist)
+        
+            for one in self.data: # 内部元素的父亲
+                one.parent = self
+    
+    def update(self,oldbox=None,newbox=None):
+        self.update_data() #里面的方法不会反向传播
+        for c in self.data:
+            c.update_lines()
+        if self.parent:
+            self.parent.update()
+        self.update_lines() #更新自己线自己的
+
+            
+    def update_data(self):
+        pass
+    
+    def __repr__(self):
+        return repr(self.data)
+    
+    # -------- 以下是容器属性
+    def __lt__(self, other):
+        return self.data < self.__cast(other)
+    
+    def __le__(self, other):
+        return self.data <= self.__cast(other)
+    
+    def __eq__(self, other):
+        return self.data == self.__cast(other)
+    
+    def __gt__(self, other):
+        return self.data > self.__cast(other)
+    
+    def __ge__(self, other):
+        return self.data >= self.__cast(other)
+    
+    def __cast(self, other):
+        return other.data if isinstance(other, Box) else other
+    
+    def __contains__(self, item):
+        return item in self.data
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            return self.__class__(self.data[i])
+        else:
+            return self.data[i]
+    
+    def __setitem__(self, i, item):
+        self.data[i] = item
+    
+    def __delitem__(self, i):
+        del self.data[i]
+    
+    def __add__(self, other):
+        return self.__copy__().__iadd__(other)
+    
+    __radd__ = __add__
+    
+    def __iadd__(self, other):
+        if isinstance(other, Box):
+            self.data += other.data
+        elif isinstance(other, type(self.data)):
+            self.data += other
+        else:
+            self.data += list(other)
+        # self.union(other)
+        self._left = min(self.left, other.left)
+        self._top = min(self.top, other.top)
+        self._width = max(self.right, other.right) - self._left
+        self._height = max(self.bottom, other.bottom) - self._top
+        self.update_lines()
+        return self
+    
+    def __mul__(self, n):
+        return self.__class__(self.data * n)
+    
+    __rmul__ = __mul__
+    
+    def __imul__(self, n):
+        self.data *= n
+        return self
+    
+    def __copy__(self):
+        inst = self.__class__.__new__(self.__class__)
+        inst.__dict__.update(self.__dict__)
+        # Create a copy and avoid triggering descriptors
+        inst.__dict__["data"] = deepcopy(self.__dict__["data"])  # 深拷贝
+        return inst
+    
+    def append(self, item):  # item is sub element
+        self.data.append(item)
+    
+    def insert(self, i, item):
+        self.data.insert(i, item)
+    
+    def pop(self, i=-1):
+        return self.data.pop(i)
+    
+    def remove(self, item):
+        self.data.remove(item)
+    
+    def clear(self):
+        self.data.clear()
+    
+    # def copy(self):
+    #     return self.__class__(self)
+    
+    def count(self, item):
+        return self.data.count(item)
+    
+    def index(self, item, *args):
+        return self.data.index(item, *args)
+    
+    def reverse(self):
+        self.data.reverse()
+    
+    def sort(self, /, *args, **kwds):
+        self.data.sort(*args, **kwds)
+    
+    def extend(self, other):
+        if isinstance(other, Box):
+            self.data.extend(other.data)
+        else:
+            self.data.extend(other)
+    
+    # 当盒子移动的时候，内部所有东西都要移动,线也要更新
+    def move(self, xOffset, yOffset):
+        super().move(xOffset, yOffset)
+        for ele in self.data:
+            ele.move(xOffset, yOffset)
+            ele.update_lines()
+    
+    def copy2(self, x, y):
+        ele = self.__copy__()
+        ele.move(x - self.left, y - self.top)
+        return ele
+    
+    def render(self, drawer):
+        # super().render(drawer)
+        for line in self.lines:
+            line.render(drawer)
+            
+        if self.visible:
+            for ele in self:
+                ele.render(drawer)
+    
+    def __str__(self):
+        return super().__str__() + '{' + ','.join(
+            [str(i) for i in self.data]) + '}'
+
+
 @lru_cache
 def load_font(font_path, font_size):
     return ImageFont.truetype(font_path, font_size)
@@ -288,8 +515,8 @@ def draw_text(
 class Text(Element):
     def __init__(
             self,
-            xy=(0,0),
-            text='',
+            xy=(0, 0),
+            text="",
             fill=None,
             font_path="simfang.ttf",
             font_size=20,
@@ -313,7 +540,7 @@ class Text(Element):
         super().__init__(box[0], box[1], box[2] - box[0], box[3] - box[1])
         self._underline = underline
         if underline:
-            self._bottom_line.fill = self._fill
+            self._line_fills[3] = self._fill
         if deleteline:
             self._deleteline = Line(self.midleft, self.midright, 1, self._fill)
         else:
@@ -397,7 +624,8 @@ class Text(Element):
     @underline.setter
     def underline(self, val):
         self._underline = val
-        self._bottom_line.fill = self._fill
+        self._line_fills[3] = self._fill
+        self.update_lines()
     
     @property
     def anchor(self):
@@ -463,22 +691,27 @@ class Text(Element):
             stroke_width=self._stroke_width,
             stroke_fill=self._stroke_fill,
         )
-        if self._deleteline:
-            self._deleteline.render(drawer)
-        if self._underline:
-            self._bottom_line.render(drawer)
+        super().render(drawer)
+        # if self._deleteline:
+        #     self._deleteline.render(drawer)
+        # if self._underline:
+        #     self._bottom_line.render(drawer)
     
     def __contains__(self, item):
         return item in self._text
     
-    # def __str__(self):
-    #     return self._text
+    def __str__(self):
+        return self._text
     
     def show(self):
         im = Image.new("RGBA", self.bottomright, (255, 255, 255, 255))
         drawer = ImageDraw.Draw(im)
         self.render(drawer)
         im.crop(self.bbox).show(self._text)
+
+
+class TextBox(Box):
+    """文本框"""
 
 
 def draw_dash_line(drawer, start, end, fill, width, dash=4, gap=2):
@@ -552,33 +785,21 @@ class Line:
         return f"Line({self.start[0]},{self.start[1]},{self.end[0]},{self.end[1]})"
 
 
-class Cell(Element):
+class Cell(Box):
     """
     单元格内部的对齐方式需不需要
+    todo 超出单元格怎么办
+    todo 排列
     """
     
-    def __init__(
-            self,
-            left=0,
-            top=0,
-            width=0,
-            height=0,
-            outline=(0, 0, 0, 0),
-            line_width=1,
-            line_type='s',
-            visible=True,
-            align=None,
-            padding_width=0,
-            fill=None,
-    ):
-        super().__init__(left, top, width, height,outline,line_width,
-                         line_type,visible)
-        self._fill = fill
-        self.texts = []
+    def __init__(self, initlist=None, align=None, padding_width=0, *args,
+                 **kwargs):
+        super().__init__(initlist, *args, **kwargs)
         self._align = align
+        self._paddings = []
+        self._set_paddings(padding_width)
         if align:
             self._do_align()
-        self.padding_width = padding_width
     
     def _do_align(self):
         if self.align == "mm":
@@ -588,48 +809,50 @@ class Cell(Element):
         
         elif self.align == "lm":
             for text in self:
-                text.xy = self.left + self.padding_width, self.centery
+                text.xy = self.left + self._paddings[0], self.centery
                 text.anchor = "lm"
         
         elif self.align == "rm":
             for text in self:
-                text.xy = self.right - self.padding_width, self.centery
+                text.xy = self.right - self._paddings[2], self.centery
                 text.anchor = "rm"
         
         elif self.align == "lt":
             for text in self:
-                text.xy = self.left + self.padding_width, self.top + self.padding_width
+                text.xy = self.left + self._paddings[0], self.top + \
+                          self._paddings[1]
                 text.anchor = "lt"
         
         elif self.align == "rt":
             for text in self:
-                text.xy = self.right - self.padding_width, self.top + self.padding_width
+                text.xy = self.right - self._paddings[2], self.top + \
+                          self._paddings[1]
                 text.anchor = "rt"
         
         elif self.align == "mt":
             for text in self:
-                text.xy = self.centerx, self.top + self.padding_width
+                text.xy = self.centerx, self.top + self._paddings[1]
                 text.anchor = "mt"
         
         elif self.align == "lb":
             for text in self:
                 text.xy = (
-                    self.left + self.padding_width,
-                    self.bottom - self.padding_width,
+                    self.left + self._paddings[0],
+                    self.bottom - self._paddings[3],
                 )
                 text.anchor = "lb"
         
         elif self.align == "rb":
             for text in self:
                 text.xy = (
-                    self.right - self.padding_width,
-                    self.bottom - self.padding_width,
+                    self.right - self._paddings[2],
+                    self.bottom - self._paddings[3],
                 )
                 text.anchor = "rb"
         
         elif self.align == "mb":
             for text in self:
-                text.xy = self.centerx, self.bottom - self.padding_width
+                text.xy = self.centerx, self.bottom - self._paddings[3]
                 text.anchor = "mb"
     
     @property
@@ -641,307 +864,235 @@ class Cell(Element):
         assert len(val) == 2
         self._align = val
         self._do_align()
-
+    
     @property
-    def is_empty(self):
-        return not bool(self.texts)
+    def paddings(self):
+        return self._paddings
     
-    def append(self, item):
-        self.texts.append(item)
-    
-    def clear(self):
-        self.texts.clear()
-    
-    def update_lines(self, oldbox=None, newbox=None):
-        super().update_lines()
+    @paddings.setter
+    def paddings(self, val):
+        self._set_paddings(val)
         self._do_align()
     
-    def __iter__(self):
-        yield from self.texts
+    def _set_paddings(self, val):
+        if isinstance(val, int):
+            self._paddings = [val] * 4
+        elif isinstance(val, (tuple, list)):
+            if len(val) == 2:
+                self._paddings = [*val, *val]
+            elif len(val) == 4:
+                self._paddings = list(val)
+            else:
+                raise ValueError("padding_with is int or list")
+        else:
+            raise ValueError("padding_with is int or list")
     
-    def __contains__(self, item):
-        """是否存在匹配的文本"""
-        for text in self.texts:
-            if item in text:
-                return True
-        return False
-    
-    def __getitem__(self, item):
-        """1.按序号返回单元格的文字
-        2.按文本内容搜索返回单元格文字
-        """
-        if isinstance(item, int):
-            return self.texts[item]
-    
-    def merge(self, other):
-        """合并单元格"""
-        self.union(other)
-        self.texts.extend(other.texts)
-        self.update_lines()
+    def update_data(self):
+        self._do_align()
+    # def update_lines(self, oldbox=None, newbox=None):
+    #     self._do_align()
+    #     super().update_lines()
     
     @property
     def label(self):
         return Label("", self, key="cell")
-    
-    def render(self, drawer):
-        for line in self.lines:
-            line.render(drawer)
-        for text in self.texts:
-            text.render(drawer)
-    
-    def show(self):
-        im = Image.new("RGBA", self.bottomright, (0, 0, 0, 0))
-        drawer = ImageDraw.Draw(im)
-        self.render(drawer)
-        im.crop(self.topleft + self.bottomright).show()
 
 
-class Row(Element):
+class Row(Box):
     """保持内部的cell有序，可以用heap"""
     
-    def __init__(self, cells: List[Cell] = None, outline=(0, 0, 0, 0),
-                 line_width=1):
-        self._cells = cells
-        self._outline = outline
-        self._line_width = line_width
-        
-        self._cells.sort(key=lambda x: x.left)
-        # self._merge_cells = []
-        x = self._cells[0].left
-        y = min(c.top for c in self._cells)
-        w = self._cells[-1].right - x
-        h = max(c.top for c in self._cells) - y
-        super().__init__(x, y, w, h)
+    def __init__(self, cells: List[Cell] = None, *args, **kwargs):
+        super(Row, self).__init__(cells, *args, **kwargs)
+        self.update_row()
     
-    # def append(self,):
-    def update_cells(self):
+    # def update(self,oldbox=None,newbox=None):
+    #     # self.update_row()
+    #     super().update()
+        
+    def update_row(self):
+        """更新行时会自动更新线"""
+        self.data.sort(key=lambda x: x.left)
+        self._left = self.data[0].left
+        self._top = min(c.top for c in self.data)
+        self._width = self.data[-1].right - self._left  # self.width 会更新
+        self._height = max(c.bottom for c in self.data) - self.top
+    
+    # todo 更新线时更新行内单元格
+    def update_data(self):
         """更新单元格形状"""
-        for cell in self._cells:
-            cell.top = self.top
-            cell.height = self.height
+        self.data.sort(key=lambda x: x.left)
+        
+        self.data[0]._width = self.data[0].right - self.left
+        self.data[0]._left = self.left
+        
+        self.data[-1]._width = self.right - self.data[-1].left
+        self.data[-1]._right = self.right
+        
+        for cell in self.data:
+            cell._top = self.top
+            cell._height = self.height
             cell._do_align()
     
-    def __iter__(self):
-        for cell in self._cells:
-            yield cell
+    # def update_lines(self, oldbox=None, newbox=None):
+    #     super().update_lines()
+        # self.update_cells()
     
-    def __getitem__(self, item):
-        return self._cells[item]
-    
-    def merge(self, start=0, end=None):  # 左闭右闭
-        """
-        合并行内单元格
-        :param start:
-        :type start:
-        :param end:
-        :type end:
-        :return:
-        :rtype:
-        """
-        if end is None:
-            end = len(self._cells) - 1
-        
-        merged = Cell(
-            self._cells[start].left,
-            self.top,
-            self._cells[end].right - self._cells[start].left,
-            self.height,
-        )
-        for i in range(start, end + 1):
-            self._cells[i].visible = False
-            merged.texts.extend(self._cells[i].texts)
-        self._cells.append(merged)
-    
-    def split(self, cno):
-        # self._cells[cno].visible = False
-        cell = self._cells[cno]
-        cell_left = cell.copy()
-        cell_left.width = cell.width // 2
-        cell_right = cell.copy()
-        cell_right.width = cell_left.width
-        cell_right.left = cell_left.right
-        cell.visible = False
-        self._cells.append(cell_left)
-        self._cells.append(cell_right)
-    
-    def render(self, drawer):
-        for cell in self._cells:
-            if cell.visible:
-                cell.render(drawer)
-        for line in self.lines:
-            line.render(drawer)
-    
-    # def merge(self,start=0,end=None):
+    def merge(self, start, end):
+        """合并单元格 左闭右开"""
+        cell = self.data[start]
+        for i in range(start + 1, end):
+            cell += self.data[i]
+            del self.data[i]
     
     @property
     def label(self):
         return Label("", self, key="row")
 
 
-class Col(Element):
-    def __init__(self, cells: List[Cell] = None):
-        self._cells = cells
-        self._cells.sort(key=lambda x: x.top)
+class Col(Box):
+    """保持内部的cell有序，可以用heap"""
+    
+    def __init__(self, cells: List[Cell] = None, *args, **kwargs):
+        super(Col, self).__init__(cells, *args, **kwargs)
+        self.update_col()
+    
+    def update_col(self):
+        """更新行时会自动更新线"""
+        self.data.sort(key=lambda x: x.top)
+        self._left = min(c.left for c in self.data)
+        self._top = self.data[0].top
+        self._width = max(c.right for c in self.data) - self._left  # self.width
+        # 会更新
+        self.height = max(c.bottom for c in self.data) - self.top
+    
+    # todo 更新线时更新行内单元格
+    def update_data(self):
+        """更新单元格形状"""
+        self.data[0]._height = self.data[0].bottom - self.top
+        self.data[0]._top = self.top
         
-        x = min(c.left for c in self._cells)
-        y = self._cells[0].top
-        w = max(c.right for c in self._cells) - x
-        h = self._cells[-1].bottom - y
-        super().__init__(x, y, w, h)
-    
-    def __iter__(self):
-        for cell in self._cells:
-            yield cell
-    
-    def __getitem__(self, item):
-        return self._cells[item]
-    
-    def merge(self, start=0, end=None):  # 左闭右闭
-        """
-        合并行内单元格
-        :param start:
-        :type start:
-        :param end:
-        :type end:
-        :return:
-        :rtype:
-        """
-        if end is None:
-            end = len(self._cells) - 1
+        self.data[-1]._height = self.bottom - self.data[-1].top
+        self.data[-1]._bottom = self.bottom
         
-        merged = Cell(
-            self.left,
-            self._cells[start].top,
-            self.width,
-            self._cells[start].bottom - self._cells[start].top,
-        )
-        for i in range(start, end + 1):
-            self._cells[i].visible = False
-            merged.texts.extend(self._cells[i].texts)
-        self._cells.append(merged)
+        for cell in self.data:
+            cell._left = self.left
+            cell._width = self.width
+            # cell._do_align()
     
-    def render(self, drawer):
-        for cell in self._cells:
-            cell.render(drawer)
-        for line in self.lines:
-            line.render(drawer)
+    def merge(self, start, end):
+        """合并单元格 左闭右开"""
+        cell = self.data[start]
+        for i in range(start + 1, end):
+            cell += self.data[i]
+            del self.data[i]
     
-    @property
-    def label(self):
-        return Label("", self, key="col")
+    # def update_lines(self, oldbox=None, newbox=None):
+        # super().update_lines()
+        # self.update_cells()
 
 
-class Table(Element):
+class Table(Col):
     """表格不是基本元素，是容器元素"""
     
-    def __init__(self, cells: List[Cell] = None, outline=(0, 0, 0, 0),
-                 line_width=1):
-        self.cells = cells
-        self._outline = outline
-        self._line_width = line_width
+    def __init__(self, initlist: List[Row] = None,*args,**kwargs):
+        if initlist:
+            if isinstance(initlist[0],Cell):
+                initlist = self.from_cells(initlist)
         
+        super().__init__(initlist,*args,**kwargs)
+    
+    @staticmethod
+    def from_cells(cells):
         d = defaultdict(list)
-        for cell in self.cells:
+        for cell in cells:
             d[cell.top].append(cell)
-        self._rows = []
+        rows = []
         for k in sorted(list(d.keys())):
-            # d[k].sort(key=lambda x: x.left)
-            self._rows.append(Row(d[k]))
-        
-        x = self._rows[0][0].left
-        y = self._rows[0][0].top
-        width = self._rows[-1][-1].right - x
-        height = self._rows[-1][-1].bottom - y
-        super().__init__(x, y, width, height)
+            rows.append(Row(d[k]))
+        return rows
     
-    def update(self):
+    def update_data(self):
         """重新计算行的位置和高度"""
-        self._rows.sort(key=lambda r: r.top)
-        self.left = min(r.left for r in self._rows)
-        self.top = self._rows[0].top
-        self.width = max(r.right for r in self._rows) - self.left
-        self.height = self._rows[-1].bottom
-        self.update_rows()
+        self.data.sort(key=lambda r: r.top)
+        self._left = min(r.left for r in self.data)
+        self._top = self.data[0].top
+        self._width = max(r.right for r in self.data) - self.left
+        self._height = self.data[-1].bottom
+        for row in self.data:
+            row._left = self.left
+            row._width = self.width
+            row.update_data()
     
-    def update_rows(self):
-        for row in self._rows:
-            row.left = self.left
-            row.width = self.width
+    # def append_row(self, row: Row):
+    #     self._rows.append(row)
+    #     self.update()
+    #
+    # def copy_row(self, rno):
+    #     row = self._rows[rno]
+    #     copyed = row.copy()
+    #     copyed.top = row.bottom
+    #     self.append_row(row)
     
-    def append_row(self, row: Row):
-        self._rows.append(row)
-        self.update()
+    # def insert_after(self, row, rno):
+    #     t = self._rows[rno]
+    #     row.top = t.bottom
+    #     for r in self._rows[rno + 1:]:
+    #         r.top += row.height
+    #     self.append_row(row)
     
-    def copy_row(self, rno):
-        row = self._rows[rno]
-        copyed = row.copy()
-        copyed.top = row.bottom
-        self.append_row(row)
+    # def insert_before(self, row, rno):
+    #     if rno == 0:
+    #         row.top = self._rows[0].top
+    #         for r in self._rows:
+    #             r.top += row.height
+    #     else:
+    #         self.insert_after(row, rno - 1)
     
-    def insert_after(self, row, rno):
-        t = self._rows[rno]
-        row.top = t.bottom
-        for r in self._rows[rno + 1:]:
-            r.top += row.height
-        self.append_row(row)
+    # def add_row(self):
+    #     self.insert_after(self._rows[-1].copy(), len(self._rows) - 1)
     
-    def insert_before(self, row, rno):
-        if rno == 0:
-            row.top = self._rows[0].top
-            for r in self._rows:
-                r.top += row.height
-        else:
-            self.insert_after(row, rno - 1)
+    # def merge_rows(self, start, end):
+    #     pass
     
-    def add_row(self):
-        self.insert_after(self._rows[-1].copy(), len(self._rows) - 1)
+    # @property
+    # def outline(self):
+    #     return self._outline
+    #
+    # @outline.setter
+    # def outline(self, val):
+    #     self._outline = val
+    #     self.update_lines()
     
-    def merge_rows(self, start, end):
-        pass
+    # @property
+    # def line_width(self):
+    #     return self._line_width
+    #
+    # @line_width.setter
+    # def line_width(self, val):
+    #     self._line_width = val
+    #     self.update_lines()
     
-    @property
-    def outline(self):
-        return self._outline
+    # def __iter__(self):
+    #     for row in self._rows:
+    #         for cell in row:
+    #             yield cell
+    #
+    # def __getitem__(self, item):
+    #     """可以取单元格或者某行
+    #     table[0] 是第0行
+    #     table[0][0] 是第0行第0列的cell
+    #     """
+    #     return self._rows[item]
     
-    @outline.setter
-    def outline(self, val):
-        self._outline = val
-        self.update_lines()
-    
-    @property
-    def line_width(self):
-        return self._line_width
-    
-    @line_width.setter
-    def line_width(self, val):
-        self._line_width = val
-        self.update_lines()
-    
-    def __iter__(self):
-        for row in self._rows:
-            for cell in row:
-                yield cell
-    
-    def __getitem__(self, item):
-        """可以取单元格或者某行
-        table[0] 是第0行
-        table[0][0] 是第0行第0列的cell
-        """
-        return self._rows[item]
-    
-    @property
-    def cols(self):
-        return [Col(col) for col in list(zip(*self._rows))]
-    
-    def merge(self, row_start, col_start, row_end, col_end):
-        """合并单元格"""
-        self._rows[row_start][row_start].merge(self._rows[row_end][col_end])
-        self._rows[row_end][col_end].visible = False  # 不可以直接删除，标记为删除
+    # def merge(self, row_start, col_start, row_end, col_end):
+    #     """合并单元格"""
+    #     self._rows[row_start][row_start].merge(self._rows[row_end][col_end])
+    #     self._rows[row_end][col_end].visible = False  # 不可以直接删除，标记为删除
     
     @property
     def label(self):
         labels = []
-        for row in self._rows:
+        for row in self.data:
             for cell in row:
                 if cell.visible:
                     labels.append(cell.label)
@@ -949,13 +1100,13 @@ class Table(Element):
                         labels.append(text.label)
         return labels
     
-    def render(self, drawer):
-        for row in self._rows:
-            for cell in row:
-                if cell.visible:
-                    cell.render(drawer)
-        for line in self.lines:
-            line.render(drawer)
+    # def render(self, drawer):
+    #     for row in self.data:
+    #         for cell in row:
+    #             if cell.visible:
+    #                 cell.render(drawer)
+    #     for line in self.lines:
+    #         line.render(drawer)
 
 
 class ImageInfo(Rect):
@@ -1133,33 +1284,79 @@ class TableGenerator:
 
 
 if __name__ == "__main__":
-    c =Cell()
-    b =Text((0,0),'儿')
-    print(c)
-    print(b)
-    c.append(b)
+    # c = Cell()
+    # b = Text((0, 0), "儿")
+    # print(c)
+    # print(b)
+    # c.append(b)
+    #
+    # d = Cell()
+    # d.append(b.copy())
+    # print(c)
+    #
+    # e = c + d
+    # print(e)
+    im = Text(
+        (100, 100),
+        "中国",
+        (255, 0, 0, 255),
+        "simfang.ttf",
+        50,
+        underline=True,
+        deleteline=True,
+    )
+    cell = Cell(
+        None,
+        "mm",
+        0,
+        0,
+        0,
+        200,
+        200,
+        outline=(0, 0, 0, 255),
+        line_width=2,
+    )
     
-    # im = Text(
-    #     (100, 100),
-    #     "中国",
-    #     (255, 0, 0, 255),
-    #     "simfang.ttf",
-    #     50,
-    #     underline=True,
-    #     deleteline=True,
-    # )
-    # cell = Cell(
-    #     0,
-    #     0,
-    #     200,
-    #     200,
-    #     outline=(0, 0, 0, 255),
-    #     line_width=2,
-    #     align="lm",
-    #     padding_width=10,
-    # )
-    # cell.append(im)
+    cell.append(im)
+    # cell.show()
     # cell.width *= 2
     # cell.height = cell.height // 2
-    # # cell.do_align()
+    # cell.do_align()
+    # cell.paddings = 0
+    
+    # cell.copy()
     # cell.show()
+    cell2 = Cell(
+        None,
+        "mm",
+        0,
+        200,
+        0,
+        200,
+        200,
+        outline=(0, 0, 0, 255),
+        line_width=2,
+    )
+    
+    # cell.show()
+    # cell2.show()
+    # c = cell+cell2
+    # print(c)
+    # c.show()
+    # cell+=cell2
+    # cell.show()
+    row = Row([cell, cell2, cell.copy2(400, 0)])
+    row1 = row.copy2(0,200)
+    # row1.show()
+    t = Table([row,row1])
+    # print(row)
+    # row.height = 50
+    # row.merge(0, 2)
+    # row.show()
+    print(t)
+    # t.show()
+    row1.height //=2
+    t[1][0][0].fill = (0,255,0,255)
+    # t[1][0].align = 'lb'
+    t.show()
+
