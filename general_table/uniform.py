@@ -12,7 +12,7 @@ from awesometable.awesometable import (
     wrap,
 )
 from awesometable.converter import from_dict
-from .fakekeys import key_value_generator
+from fakekeys import key_value_generator
 
 
 class UniForm:

@@ -2,6 +2,11 @@
 通用表格工厂函数
 """
 import os
+import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(BASE_DIR)
+sys.path.append(PROJECT_DIR)
 import random
 import time
 from functools import partial
@@ -14,27 +19,27 @@ import yaml
 from tqdm import tqdm
 
 from awesometable.table2image import table2image
-from postprocessor import random as _random
+from postprocessor import rand as _random
 from postprocessor.background import add_background_data
 from postprocessor.convert import processor
 from postprocessor.label import log_label, show_label
-from postprocessor.random import (
+from postprocessor.rand import (
     random_background,
     random_distortion,
     random_fold,
     random_noise,
     random_perspective,
-    random_pollution,
+    # random_pollution,
     random_rotate,
     random_seal,
 )
 from postprocessor.seal import add_seal, gen_seal
-from static.logo import get_logo_path
+from postprocessor.logo import get_logo_path
 from utils.ulpb import encode
-from .bank_data_generator import bank_detail_generator, bank_table_generator
-from .bank_data_generator import banktable2image
-from .fakekeys import read_background
-from .uniform import UniForm
+from bank_data_generator import bank_detail_generator, bank_table_generator
+from bank_data_generator import banktable2image
+from fakekeys import read_background
+from uniform import UniForm
 
 
 class BackTableFactory(Thread):
@@ -48,7 +53,7 @@ class BackTableFactory(Thread):
         self.image_compositor = banktable2image  # table > image
         self.post_processor = [
             {"func": random_seal, "ratio": 0.4},
-            {"func": random_pollution, "ratio": 0},
+            # {"func": random_pollution, "ratio": 0},
             {"func": random_fold, "ratio": 0.5},
             {"func": random_noise, "ratio": 0.5},
             {"func": random_distortion, "ratio": 1},
@@ -67,6 +72,7 @@ class BackTableFactory(Thread):
             self.post_processor.append({"func": func, "ratio": ratio})
 
         self.output_dir = "../data/bank/"
+        os.makedirs(self.output_dir, exist_ok=True)
         self.save_mid = False
 
     def _save_and_log(self, image_data, fname):
@@ -103,10 +109,11 @@ class BackTableFactory(Thread):
                 fname = "0" + str(int(time.time() * 1000))[5:]
                 self._save_and_log(image_data, fname)
 
-            seal_name = os.path.join(sealdir, encode(bankname) + ".jpg")
+            seal_name = os.path.join(sealdir, encode(bankname) + ".png")
             if not os.path.exists(seal_name):
                 seal = gen_seal(bankname + "南京市分行")
-                cv2.imwrite(seal_name, seal)
+                seal.save(seal_name)
+                # cv2.imwrite(seal_name, seal)
 
             # 银行印章不随机
             self.post_processor[0]["func"] = processor(
