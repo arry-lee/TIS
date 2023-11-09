@@ -1,0 +1,9 @@
+-arc_text
+	- arctext.py 核心算法类，实现了弧形文本的算法
+	- label.py 生成标注文件
+	- layout.py 布局类，管理文字切片在背景图片上的排布
+	- main.py 主函数入口
+	- perspective.py 图像透视变换
+	- picsum.py 提供尺寸返回随机自然图像接口
+	- provider.py 假数据供应商
+	- rotation.py 旋转变换

@@ -1,0 +1,70 @@
+base:
+  label_dir: E:\00IT\P\PaddleOCR\ppotr\data\transport
+  bg_dir: E:\00IT\P\PaddleOCR\ppotr\static\paper
+  output_dir: E:\00IT\P\uniform\data\empty\normal
+  type: normal
+filters:
+  disable: true
+  keys_length: 6
+  keys_length_fixed: true
+  max_num_of_rows: 15
+  max_table_width: -1
+  min_num_of_rows: 10
+  min_table_width: 10
+  vstack_split_ratio: 0
+  min_width_of_cell: 8
+  empty_cell_ratio: 0.
+form_type:
+  cross_rows_cross_cols:
+    probability: 0.
+    max_num: 2
+    max_num_of_rows: 2
+    max_num_of_cols: 3
+    max_num_of_blocks: 3
+  complex:
+    left_to_right_ratio: 0.
+    max_depth_of_header: 3
+    max_num: 1
+    max_num_of_cols: 2
+    max_num_of_rows: 3
+    min_depth_of_header: 2
+    min_num_of_cols: 2
+    min_num_of_rows: 2
+    fixed_width_ratio: 1
+    probability: 0.
+  multiline_text:
+    has_title_raito: 0.
+    max_num: 1
+    max_num_of_rows: 8
+    min_num_of_rows: 3
+    probability: 0.
+  multiple_key_value_pairs:
+    max_num: 3
+    max_num_of_pairs: 3
+    min_num_of_pairs: 2
+    probability: 0.
+  multiple_rows_multiple_columns:
+    header_left_ratio: 0.5
+    header_top_ratio: 0.5
+    hrules_all_ratio: 0.5
+    max_num: 1
+    max_num_of_cols: 16
+    min_num_of_cols: 10
+    max_num_of_rows: 22
+    min_num_of_rows: 16
+    probability: 1.
+    vrules_all_ratio: 0.5
+  single_key_multiple_values:
+    max_num: 3
+    max_options: 4
+    min_num: 1
+    min_options: 2
+    probability: 0.
+  single_key_value:
+    max_num: 3
+    min_num: 1
+    probability: 0.
+  single_line:
+    max_num: 3
+    min_num: 1
+    probability: 0.
