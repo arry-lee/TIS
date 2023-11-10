@@ -8,8 +8,8 @@ from pyrect import Rect
 
 from multifaker import Faker
 from .template import Template, Text, random_color
-from utils.picsum import rand_person
-from utils.poison import poison_text
+from tis.utils.picsum import rand_person
+from tis.utils.poison import poison_text
 
 default_engine = Faker("id")
 

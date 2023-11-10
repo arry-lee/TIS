@@ -1,22 +1,15 @@
-from torchvision.datasets import VisionDataset
-from torch.utils.data.dataset import IterableDataset
 import os
 import sys
+
+from torch.utils.data.dataset import Dataset
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 
 sys.path.append(PROJECT_DIR)
 
-import shutil
-import time
-
-from tqdm import tqdm
-
-from tasks.multilang.factory import *
-from postprocessor.label import save_and_log
 from register import IMAGE_GENERATOR_REGISTRY
-
+import numpy as np
 from multifaker import Faker
 # class IterableDataset(Dataset[T_co]):
 #     r"""An iterable Dataset.
@@ -126,30 +119,51 @@ from multifaker import Faker
 #     def __add__(self, other: Dataset[T_co]):
 #         return ChainDataset([self, other])
 
-class TISDataset(IterableDataset):
-    """与具体的生成器类型无关的部分"""
 
-    def __init__(self, name, size, lang='zh_CN'):
+class TISDataset(Dataset):
+    """与具体的生成器类型无关的部分
+   如果生成图像数据的过程比较耗时，那么在线生成数据可能会导致训练过程变慢，甚至无法进行有效训练。
+   此外，如果数据生成速度跟不上模型训练的速度，也容易出现内存占用过多的问题。
+   在线生成数据集可能会增加训练过程中的负担，尤其是当数据集较大或者数据生成过程复杂耗时时。
+   相比之下，离线生成数据集并将生成好的数据保存到文件中，可以在训练过程中更快速地加载数据，减少数据生成对训练过程的影响。
+   你可以考虑在训练之前将数据集离线生成并保存到文件中，然后在训练过程中直接从文件中加载数据。
+   这样可以有效减轻训练过程中的负担，并且有助于避免内存占用过多的问题。
+
+    """
+
+    def __init__(self, name, size, lang='zh_CN', transforms=None):
         self._post_processors = []
         self.name = name
         self.generator = IMAGE_GENERATOR_REGISTRY.get(name)(name)
         self.engine = Faker  # 引擎类型
         self.size = size
         self.lang = lang
+        self.transforms = transforms
+        super().__init__()
 
-    def __iter__(self):
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, item):
         lang = self.lang
         product_engine = self.engine(lang)  # 各个语言有一个引擎实例
 
-        for index in tqdm(range(self.size), unit=lang):
+        image_data = self.generator.run(
+            product_engine, lang=lang
+        )
+        # 后处理
+        if self._post_processors:
+            self.postprocess(image_data)
 
-            image_data = self.generator.run(
-                product_engine, lang=lang
-            )
-            # 后处理
-            if self._post_processors:
-                self.postprocess(image_data)
-            yield image_data
+        # image_data['image'] = PILToTensor()(image_data['image'])
+        keys = list(image_data.keys())
+
+        image_data = TISLabelEncode()(image_data)
+        for k in keys:
+            if k not in ('image', 'polys', 'texts', "ignore_tags"):
+                del image_data[k]
+        image_data = self.transforms(image_data)
+        return image_data
 
     def postprocess(self, image_data):
         """后处理器钩子
@@ -164,6 +178,52 @@ class TISDataset(IterableDataset):
             image_data = processor(image_data)
 
 
-# dataset = TISDataset('idcard',10,'id')
-# for i in dataset:
-#     print(i)
+class TISLabelEncode:
+    def __init__(self, **kwargs):
+        pass
+
+    def __call__(self, data):
+        label = data["label"]
+        point = data["points"]
+        nBox = len(label)
+        boxes, txts, txt_tags = [], [], []
+        for bno in range(0, nBox):
+            box = point[bno * 4:bno * 4 + 4]  # 可能要扁平化
+            # bx = [ ]
+            # for x in box:
+            #     bx.append(x[0])
+            #     bx.append(x[1])
+
+            txt = label[bno].removeprefix("text@")
+            boxes.append(box)
+            txts.append(txt)
+        boxes = np.array(boxes, dtype=np.float32)
+        txt_tags = np.array(txt_tags, dtype=bool)
+
+        data["polys"] = boxes
+        data["texts"] = txts
+        data["ignore_tags"] = txt_tags
+
+        return data
+
+    def order_points_clockwise(self, pts):
+        rect = np.zeros((4, 2), dtype="float32")
+        s = pts.sum(axis=1)
+        rect[0] = pts[np.argmin(s)]
+        rect[2] = pts[np.argmax(s)]
+        tmp = np.delete(pts, (np.argmin(s), np.argmax(s)), axis=0)
+        diff = np.diff(np.array(tmp), axis=1)
+        rect[1] = tmp[np.argmin(diff)]
+        rect[3] = tmp[np.argmax(diff)]
+        return rect
+
+    def expand_points_num(self, boxes):
+        max_points_num = 0
+        for box in boxes:
+            if len(box) > max_points_num:
+                max_points_num = len(box)
+        ex_boxes = []
+        for box in boxes:
+            ex_box = box + [box[-1]] * (max_points_num - len(box))
+            ex_boxes.append(ex_box)
+        return ex_boxes

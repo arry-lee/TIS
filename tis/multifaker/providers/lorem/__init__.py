@@ -6,7 +6,7 @@ from string import ascii_letters, digits, punctuation
 import requests
 from PIL import Image
 from faker.providers.lorem import Provider as BaseProvider
-
+from _appdir import STATIC_DIR
 
 def _date_like(d):
     if d in "0129":
@@ -83,7 +83,8 @@ class Provider(BaseProvider):
         "timesbi",
         "timesi",
     ]
-    sign_font = r"E:\00IT\P\uniform\static\fonts\Sudestada.ttf"  # todo fix path
+
+    sign_font = os.path.join(STATIC_DIR,"fonts\Sudestada.ttf")  # todo fix path
     base_images_dir = r"E:\00IT\P\uniform\multispider\images"
     image_list = []
 

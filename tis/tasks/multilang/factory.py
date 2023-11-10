@@ -48,11 +48,11 @@ from postprocessor.rand import (
 from postprocessor.shadow import add_shader
 from postprocessor.label import save_and_log
 
-from utils.maxrect import max_left
-from utils.picsum import rand_logo
+from tis.utils.maxrect import max_left
+from tis.utils.picsum import rand_logo
 from generator import BaseGenerator
 from register import IMAGE_GENERATOR_REGISTRY
-
+from _appdir import STATIC_DIR
 DISPLACE_PAPER = os.path.join(PROJECT_DIR, "postprocessor/displace/paper")
 
 
@@ -92,7 +92,7 @@ class TemplateGenerator(BaseGenerator):
     单一职责是渲染一个模板并生成
     """
 
-    templates_basedir = os.path.join(BASE_DIR, "templates")
+    templates_basedir = os.path.join(STATIC_DIR, "templates")
 
     def __init__(self, name):
         super().__init__(name)
