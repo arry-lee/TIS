@@ -14,5 +14,5 @@ def qrcode_image(data):
 
 def barcode_image(num="123456789100"):
     """条形码图像"""
-    brc = barcode.get('ean13', str(num), writer=ImageWriter())
-    return Image.open(brc.save('tmp')).crop((10, 0, 500, 200))
+    brc = barcode.get("ean13", str(num), writer=ImageWriter())
+    return Image.open(brc.save("tmp")).crop((10, 0, 500, 200))

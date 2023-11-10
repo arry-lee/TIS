@@ -2,17 +2,17 @@ import functools
 
 
 class ImagePipe:
-    
-    def __init__(self,function):
+    def __init__(self, function):
         self.function = function
         functools.update_wrapper(self, function)
-        
+
     def __or__(self, other):
         return self.function(other)
 
     def __call__(self, *args, **kwargs):
-        print(f'calling {self.function.__name__}')
-        return self.function(*args,**kwargs)
+        print(f"calling {self.function.__name__}")
+        return self.function(*args, **kwargs)
+
 
 class Pipe:
     """
@@ -37,7 +37,7 @@ class Pipe:
         functools.update_wrapper(self, function)
 
     def __or__(self, other):
-        return Pipe(lambda x:self.function(other.function(x)))
+        return Pipe(lambda x: self.function(other.function(x)))
 
-    def __call__(self,image, *args, **kwargs):
-        return self.function(image,*args,**kwargs)
+    def __call__(self, image, *args, **kwargs):
+        return self.function(image, *args, **kwargs)

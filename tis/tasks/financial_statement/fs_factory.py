@@ -20,13 +20,16 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(BASE_DIR))
 
 sys.path.append(PROJECT_DIR)
 from awesometable.table2pdf import render_pdf
-from fs_data import FinancialStatementTable, fstable2image, fstable2image_en
-from fs_designer import LayoutDesigner
+from .fs_data import FinancialStatementTable, fstable2image, fstable2image_en
+from .fs_designer import LayoutDesigner
 from postprocessor import rand as _random
 from postprocessor.background import add_background_data
 from postprocessor.label import log_label
 from _appdir import OUTPUT_DIR
+
 print(OUTPUT_DIR)
+
+
 class FSFactory(Thread):
     """工厂模式"""
 
@@ -52,13 +55,13 @@ class FSFactory(Thread):
         self.fst = None
         if lang == "zh_CN":
             self.image_compositor = fstable2image  # table > image
-            self.output_dir = os.path.join(OUTPUT_DIR,"financial_statement")
+            self.output_dir = os.path.join(OUTPUT_DIR, "financial_statement")
         elif lang == "en" and type != "sp":
             self.image_compositor = fstable2image_en
-            self.output_dir = os.path.join(OUTPUT_DIR,"financial_statement_en")
+            self.output_dir = os.path.join(OUTPUT_DIR, "financial_statement_en")
         elif lang == "en" and type == "sp":
             self.fst = LayoutDesigner()
-            self.output_dir = os.path.join(OUTPUT_DIR,"financial_statement_en_layout")
+            self.output_dir = os.path.join(OUTPUT_DIR, "financial_statement_en_layout")
 
         self.background_generator = None
         self.post_processor = [
@@ -173,7 +176,7 @@ class FSFactory(Thread):
                             image_data = add_background_data(image_data, white, 0)
 
                 # if not self.save_mid:
-                print( os.path.join(output_dir, "%s.jpg" % fn))
+                print(os.path.join(output_dir, "%s.jpg" % fn))
                 cv2.imwrite(
                     os.path.join(output_dir, "%s.jpg" % fn), image_data["image"]
                 )

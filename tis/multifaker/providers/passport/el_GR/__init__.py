@@ -7,7 +7,7 @@ from multifaker.providers.lorem.el_GR import Provider as LoremProvider
 # faker_el = _Faker()
 
 
-class Provider(BaseProvider,LoremProvider):
+class Provider(BaseProvider, LoremProvider):
     """护照信息"""
 
     def passport(self):
@@ -17,7 +17,7 @@ class Provider(BaseProvider,LoremProvider):
         birth = birth[:-4] + birth[-2:]
         issue = issue[:-4] + issue[-2:]
 
-        expiry = issue[:-2] + str(int(issue[-2:]) + 5).ljust(2,'0')
+        expiry = issue[:-2] + str(int(issue[-2:]) + 5).ljust(2, "0")
         # expiry = expiry[:-4] + expiry[-2]
         sex = self.sex()
         name_en = LN()

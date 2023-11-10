@@ -28,8 +28,8 @@
 
 from faker import Faker as _Faker
 
-FAKER_ZH = _Faker('zh_CN')
-FAKER_EN = _Faker('en')
+FAKER_ZH = _Faker("zh_CN")
+FAKER_EN = _Faker("en")
 
 LANG_TUPLE = [
     ("id", "Indonesian", "印尼语"),  # 60. Indonesian
@@ -63,21 +63,26 @@ LANG_CODES = (
 class Faker:  # noqa
     """已经存在的语种和不存在的语种假数据引擎类
     设计各个语言假数据引擎为单例模式
-    
+
     """
+
     singleton_map = {}
-    
+
     def __new__(cls, locale=None):
         if locale in cls.singleton_map:
             return cls.singleton_map.get(locale)
-        
+
         if locale in LANG_CODES:
-            klass = _Faker(providers=[f"multifaker.providers.lorem.{locale}",
-                                      f"multifaker.providers.passport.{locale}"])
+            klass = _Faker(
+                providers=[
+                    f"multifaker.providers.lorem.{locale}",
+                    f"multifaker.providers.passport.{locale}",
+                ]
+            )
             klass.locale = locale
             cls.singleton_map[locale] = klass
             return klass
-        
+
         if locale in ("HKG", "tw", "MO"):
             klass = _Faker(locale="zh_CN")
             klass.locale = locale

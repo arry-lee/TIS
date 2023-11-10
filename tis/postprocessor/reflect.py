@@ -17,7 +17,7 @@ def level_adjust(img, sin=0, hin=255, mt=1.0, sout=0, hout=255):
     mt = min(max(mt, 0.01), 9.99)  # Mt, 灰场调节值, 0.01~9.99
     sout = min(max(sout, 0), hout - 2)  # Sout, 输出黑场阈值, 0<=Sout<Hout
     hout = min(hout, 255)  # Hout, 输出白场阈值, Sout<Hout<=255
-    
+
     dif_in = hin - sin
     dif_out = hout - sout
     table = np.zeros(256, np.uint16)
@@ -25,7 +25,7 @@ def level_adjust(img, sin=0, hin=255, mt=1.0, sout=0, hout=255):
         v1 = min(max(255 * (i - sin) / dif_in, 0), 255)  # 输入动态线性拉伸
         v2 = 255 * np.power(v1 / 255, 1 / mt)  # 灰场伽马调节
         table[i] = min(max(sout + dif_out * v2 / 255, 0), 255)  # 输出线性拉伸
-    
+
     out = cv2.LUT(img, table)
     return out
 
@@ -47,7 +47,7 @@ def apply(bottom_img, top_img, func):
             func = strong_lighten
         else:
             func = add_color
-    
+
     bottom_img = as_array(bottom_img)
     top_img = as_array(top_img)
     top_img = cv2.resize(top_img, (bottom_img.shape[1], bottom_img.shape[0]))
@@ -84,8 +84,7 @@ def soft_lighten(img1, img2):
 
 def strong_lighten(img1, img2):
     """强光模式"""
-    dst = np.where(img1 <= 0.5, 2 * img1 * img2,
-                   1 - 2 * (1 - img1) * (1 - img2))
+    dst = np.where(img1 <= 0.5, 2 * img1 * img2, 1 - 2 * (1 - img1) * (1 - img2))
     return dst
 
 
@@ -95,7 +94,7 @@ def reflect(img, light, ksize=(50, 50), func="screen", alpha=0.3):
     https://jingyan.baidu.com/article/4e5b3e193865e8d0911e2444.html
     :return:
     """
-    
+
     light = as_array(light)
     out = cv2.blur(light, ksize)
     img2 = level_adjust(out, 90, 225, 1.0, 10, 245)

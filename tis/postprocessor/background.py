@@ -19,18 +19,16 @@ def add_background(image, background, offset=0, mask=None):
     # print(image)
     # assert image.mode == 'RGBA'
     img = as_image(image)
-    width,height = img.size
+    width, height = img.size
     height += offset * 2
     width += offset * 2
     back = as_image(background).resize((width, height))
     if mask is not None:
         mask = as_image(mask).convert("L")
-    if img.mode == 'RGBA':
-        mask = img.getchannel('A')
+    if img.mode == "RGBA":
+        mask = img.getchannel("A")
     back.paste(img, (offset, offset), mask=mask)
     return p2c(back)
-
-
 
 
 def add_background_data(data, background, offset):
@@ -63,8 +61,7 @@ def add_to_paper(data, paper):
     return data
 
 
-def get_background(img, thresh=128, ksize=(3, 3), iterations=2,
-                   inpaint_radius=5):
+def get_background(img, thresh=128, ksize=(3, 3), iterations=2, inpaint_radius=5):
     """
     移除图像中的文字，获取单纯的背景
     :param img: 图像

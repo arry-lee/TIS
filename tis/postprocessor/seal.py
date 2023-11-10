@@ -56,8 +56,7 @@ def gen_name_seal(name, font_size=40, yang=True):
 
 
 def gen_seal(
-        text, bottom_text="结算专用章", center_text="2021.01.01", width=200,
-        usestar=False
+    text, bottom_text="结算专用章", center_text="2021.01.01", width=200, usestar=False
 ):
     """
     圆形印章生成器
@@ -74,10 +73,8 @@ def gen_seal(
         out = Image.new("RGBA", (width, width), (255, 255, 255, 0))
     draw = ImageDraw.Draw(out)
     draw.ellipse((0, 0) + (width, width), outline=(255, 0, 0, 255), width=5)
-    font = ImageFont.truetype("simfang.ttf", 20,
-                              encoding="utf-8")
-    font_small = ImageFont.truetype("simfang.ttf", 16,
-                                    encoding="utf-8")
+    font = ImageFont.truetype("simfang.ttf", 20, encoding="utf-8")
+    font_small = ImageFont.truetype("simfang.ttf", 16, encoding="utf-8")
     draw.text(
         (width // 2, width - 30),
         bottom_text,
@@ -120,10 +117,11 @@ def gen_seal(
             stroke_fill="red",
             stroke_width=1,
         )
-        txt = txt.rotate(135 - 270 / (lot - 1) * i, expand=True,
-                         fillcolor=(255, 255, 255, 0))
+        txt = txt.rotate(
+            135 - 270 / (lot - 1) * i, expand=True, fillcolor=(255, 255, 255, 0)
+        )
         txts.append(txt)
-    
+
     for pos, txt in zip(points, txts):
         ptx, pty = int(pos[0]), int(pos[1])
         width, height = txt.size
@@ -143,8 +141,7 @@ def add_seal(img, seal_p="./static/seal/seal.jpg", pos=None, angle=None):
     img = as_image(img)
     width, height = img.size
     if pos is None:
-        pos = random.randint(0, 3 * width // 4), random.randint(0,
-                                                                3 * height // 4)
+        pos = random.randint(0, 3 * width // 4), random.randint(0, 3 * height // 4)
     if angle is None:
         angle = random.randint(0, 45)
     seal_p = as_array(seal_p)
@@ -155,8 +152,7 @@ def add_seal(img, seal_p="./static/seal/seal.jpg", pos=None, angle=None):
 
 
 def add_seal_box(
-        img, seal_p="./static/seal/seal.jpg", pos=None, angle=None,
-        arc_seal=True
+    img, seal_p="./static/seal/seal.jpg", pos=None, angle=None, arc_seal=True
 ):
     """
     给图像添加印章效果, 返回图像和印章位置
@@ -170,9 +166,7 @@ def add_seal_box(
     img = as_image(img)
     width, height = img.size
     if pos is None:
-        pos = (
-            random.randint(0, 3 * width // 4),
-            random.randint(0, 3 * height // 4))
+        pos = (random.randint(0, 3 * width // 4), random.randint(0, 3 * height // 4))
     if angle is None:
         angle = random.randint(0, 45)
     seal_p = as_array(seal_p)

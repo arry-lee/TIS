@@ -60,9 +60,10 @@ TRANS_DICT = {
     "其他": "Other",
 }
 
-            
+
 from faker import Faker
-FAKE_CN = Faker('zh_CN')
+
+FAKE_CN = Faker("zh_CN")
 random_words = lambda: FAKE_CN.word()
 
 
@@ -81,6 +82,7 @@ class FinancialStatementTable(object):
             config_path = "./config/fs_config_zh.yaml"
         else:
             config_path = "./config/fs_config_en.yaml"
+
             ## 翻译组件
             def trans(chr):
                 if chr in TRANS_DICT.keys():
@@ -416,7 +418,6 @@ class FinancialStatementTable(object):
             return vstack([self.title, self.info, self.body, self.footer])
 
     def get_image(self):
-
         return table2image(self.table, line_pad=-1, offset=10)
 
     def create(self, batch, page_it=False):

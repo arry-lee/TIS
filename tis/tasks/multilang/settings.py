@@ -15,33 +15,37 @@ import os
 # 项目目录
 BASE_DIR = os.path.split(os.path.abspath(__file__))[0]
 # 模板目录
-TEMPLATES_DIR = 'templates'
+TEMPLATES_DIR = "templates"
 # 输出目录
-OUTPUT_DIR = 'output_data'
+OUTPUT_DIR = "output_data"
 # 任务模板字典
-TEMPLATES_MAP = dict(身份证='idcard', 护照='passport', 银行卡='bankcard', 会员卡='vipcard',
-                     名片='businesscard', 收银条='receipt', 快递单='express',
-                     货运单='waybill', 优惠券='coupons', 书籍='book', 报纸='newspaper',
-                     杂志='magazine', 表格='form', 菜单='menu', 包装='package')
+TEMPLATES_MAP = dict(
+    身份证="idcard",
+    护照="passport",
+    银行卡="bankcard",
+    会员卡="vipcard",
+    名片="businesscard",
+    收银条="receipt",
+    快递单="express",
+    货运单="waybill",
+    优惠券="coupons",
+    书籍="book",
+    报纸="newspaper",
+    杂志="magazine",
+    表格="form",
+    菜单="menu",
+    包装="package",
+)
 # 模板类型，0:设计,1:pdf文件,2:图片文件,4:自动生成布局
-TEMPLATE_TYPE = {
-    0: 'DESIGN',
-    1: 'PDF',
-    2: 'IMAGE',
-    4: 'LAYOUT'
-}
+TEMPLATE_TYPE = {0: "DESIGN", 1: "PDF", 2: "IMAGE", 4: "LAYOUT"}
 # 多语言语料类型：0：翻译, 1:假数据, 2:爬虫
-CORPUS_TYPE = {
-    0: 'TRANSLATE',
-    1: 'FAKER',
-    2: 'SPIDER'
-}
+CORPUS_TYPE = {0: "TRANSLATE", 1: "FAKER", 2: "SPIDER"}
 # 各个任务所采用的解决方案模板类型
 SOLUTION_MAP = {
-    0: ['名片', '优惠券', '菜单', '包装'],
-    1: ['书籍', '报纸', '杂志'],
-    2: ['身份证', '护照', '银行卡','会员卡'],
-    4: ['快递单', '货运单', '表格']
+    0: ["名片", "优惠券", "菜单", "包装"],
+    1: ["书籍", "报纸", "杂志"],
+    2: ["身份证", "护照", "银行卡", "会员卡"],
+    4: ["快递单", "货运单", "表格"],
 }
 # 多语言三元组(code,en,zh)
 LANG_TUPLE = (
@@ -71,5 +75,6 @@ def build_dirs():
     for one in dirs:
         os.makedirs(os.path.join(*one), exist_ok=True)
     return dirs
+
 
 # build_dirs()

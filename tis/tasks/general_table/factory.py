@@ -37,12 +37,13 @@ from postprocessor.rand import (
 from postprocessor.seal import add_seal, gen_seal
 from postprocessor.logo import get_logo_path
 from utils.ulpb import encode
-from bank_data_generator import bank_detail_generator, bank_table_generator
-from bank_data_generator import banktable2image
-from fakekeys import read_background
-from uniform import UniForm
+from .bank_data_generator import bank_detail_generator, bank_table_generator
+from .bank_data_generator import banktable2image
+from .fakekeys import read_background
+from .uniform import UniForm
 
 from _appdir import STATIC_DIR, OUTPUT_DIR
+
 
 class BackTableFactory(Thread):
     """工厂模式"""
@@ -73,7 +74,7 @@ class BackTableFactory(Thread):
             func = partial(getattr(_random, key), **val)
             self.post_processor.append({"func": func, "ratio": ratio})
 
-        self.output_dir = os.path.join(OUTPUT_DIR,"bank_flow")
+        self.output_dir = os.path.join(OUTPUT_DIR, "bank_flow")
         os.makedirs(self.output_dir, exist_ok=True)
         self.save_mid = False
 
@@ -93,7 +94,7 @@ class BackTableFactory(Thread):
         print("start")
         sealdir = self.post_processor_config["random_seal"]["seal_dir"]
         if not sealdir:
-            sealdir = os.path.join(STATIC_DIR,"seal")
+            sealdir = os.path.join(STATIC_DIR, "seal")
         for data in self.data_generator.create(iterations=self.batch):
             bankname = data["银行"]
             align = random.choice("lcr")
@@ -146,7 +147,7 @@ class BackTableFactory(Thread):
 class GeneralTableFactory(Thread):
     """通用表格工厂"""
 
-    def __init__(self, config, batch,use_faker=True):
+    def __init__(self, config, batch, use_faker=True):
         super().__init__()
         with open(config, "r", encoding="utf-8") as cfg:
             self.config = yaml.load(cfg, Loader=yaml.SafeLoader)
@@ -159,7 +160,7 @@ class GeneralTableFactory(Thread):
             with open(config, "r", encoding="utf-8") as cfg:
                 self.config = yaml.load(cfg, Loader=yaml.SafeLoader)
 
-        self.table_generator = UniForm(self.config,use_faker=use_faker)
+        self.table_generator = UniForm(self.config, use_faker=use_faker)
         bg_dir = self.config["base"]["bg_dir"]
 
         if not use_faker:
@@ -179,12 +180,11 @@ class GeneralTableFactory(Thread):
     def run(self):
         pbar = tqdm(total=self.batch)
         pbar.set_description("Threading %s" % self._type)
-        output_dir = os.path.join(OUTPUT_DIR,"normal")
+        output_dir = os.path.join(OUTPUT_DIR, "normal")
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
         for tab in self.table_generator.create(self.batch):
-
             if self.background_generator is None:
                 background = None
                 bg_box = None
@@ -256,7 +256,7 @@ def main(argv):
         factory = BackTableFactory(batch)
     else:
         config = "config/%s.yaml" % mode
-        factory = GeneralTableFactory(config=config, batch=batch,use_faker=True)
+        factory = GeneralTableFactory(config=config, batch=batch, use_faker=True)
     factory.start()
 
 

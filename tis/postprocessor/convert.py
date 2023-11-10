@@ -75,7 +75,7 @@ def as_array(img):
 def processor(func):
     """
     将处理器函数包装成可以处理字典的,以及任何输入图像的输入转换
-    
+
     :param func: The function to be decorated
     """
     """
@@ -102,7 +102,7 @@ def processor(func):
                 else:
                     img["image"] = func(c2p(img["image"]), *args, **kwargs)
             return img
-        
+
         try:
             return func(img, *args, **kwargs)  # 尝试直接处理图片
         except:

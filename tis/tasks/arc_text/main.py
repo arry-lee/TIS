@@ -1,10 +1,12 @@
 import os
 import faker
 from tqdm import tqdm
-from label import save_data
+from .label import save_data
+from _appdir import OUTPUT_DIR
 
 
-def main(batch, output_dir="../data/arc_text/"):
+def main(batch):
+    output_dir = os.path.join(OUTPUT_DIR, "arc_text")
     f = faker.Faker(providers=["provider"])
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)

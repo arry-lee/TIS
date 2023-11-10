@@ -511,6 +511,7 @@ def banktable2image(
         "points": points,
     }
 
+
 def banktable2image(
     table,
     xy=None,

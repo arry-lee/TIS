@@ -12,14 +12,13 @@ from awesometable.awesometable import (
     wrap,
 )
 from awesometable.converter import from_dict
-from fakekeys import key_value_generator
-
+from .fakekeys import key_value_generator
 
 
 class UniForm:
     """根据配置的参数随机生成通用表格"""
 
-    def __init__(self, config,use_faker=True):
+    def __init__(self, config, use_faker=True):
         if isinstance(config, dict):
             self.config = config
         elif isinstance(config, str):
@@ -39,7 +38,8 @@ class UniForm:
             self.gen_key_value_texts()
         else:
             from faker import Faker
-            self.faker = Faker('zh_CN')
+
+            self.faker = Faker("zh_CN")
 
         self.empty_cell_ratio = self.filters.get("empty_cell_ratio", 0.05)
         self.long_text_ratio = self.filters.get("long_text_ratio", 0.1)

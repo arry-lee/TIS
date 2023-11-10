@@ -11,6 +11,6 @@ from scrapy.exceptions import DropItem
 
 class MultispiderPipeline:
     def process_item(self, item, spider):
-        if item['content']:
+        if item["content"]:
             return item
         raise DropItem

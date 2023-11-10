@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 def multiline(text, fill, font_path, fontsize, mode="-"):
     """多行文本渲染
-    
+
     :param text: 文本
     :type text: str
     :param fill: 颜色
@@ -25,25 +25,23 @@ def multiline(text, fill, font_path, fontsize, mode="-"):
     if mode == "-":
         return put_text_in_box(text, fill, font_path, fontsize, break_word=True)
     if mode == "":
-        return put_text_in_box(text, fill, font_path, fontsize,
-                               break_word=False)
+        return put_text_in_box(text, fill, font_path, fontsize, break_word=False)
     if mode == " ":
-        return put_text_in_box_without_break_word(text, fill, font_path,
-                                                  fontsize)
+        return put_text_in_box_without_break_word(text, fill, font_path, fontsize)
 
 
 def put_text_in_box(
-        text,
-        width=None,
-        fill="black",
-        font_path="arial.ttf",
-        font_size=20,
-        line_pad=4,
-        break_word=True,
-        indent=0,
+    text,
+    width=None,
+    fill="black",
+    font_path="arial.ttf",
+    font_size=20,
+    line_pad=4,
+    break_word=True,
+    indent=0,
 ):
     """软换行但是不调整空格宽度
-    
+
     :param text: 没有换行的完整英文句子
     :param width: 最大可用宽度 如果为None 则排成一行
     :param fill: 颜色
@@ -59,9 +57,9 @@ def put_text_in_box(
         width = font.getsize(text)[0]
     img = Image.new("RGB", (width, width), "white")
     draw = ImageDraw.Draw(img)
-    
+
     space_width = font.getsize(" ")[0]
-    
+
     for i in text:
         if i.isspace():
             indent += 1
@@ -117,7 +115,7 @@ def put_text_in_box(
             line = ""
             x = 0
             y += font_size + line_pad
-    
+
     lines.append(line)
     bbox = draw.textbbox((0, y), line, font)
     boxes.append(bbox)
@@ -127,11 +125,16 @@ def put_text_in_box(
 
 
 def put_text_in_box_without_break_word(
-        text, width=None, indent=0, fill="black", font_path="arial.ttf",
-        font_size=20, line_pad=5
+    text,
+    width=None,
+    indent=0,
+    fill="black",
+    font_path="arial.ttf",
+    font_size=20,
+    line_pad=5,
 ):
     """软换行而且调整空格宽度来实现两端对齐
-    
+
     试图不打破单词进行换行，text 是个段落
     用栈存放单词，判断入栈条件，放不下的单词溢出的长度如果小等于栈中单词的数量，
     则可减少空格宽度并放入该词
@@ -148,12 +151,12 @@ def put_text_in_box_without_break_word(
     boxes = []
     lines = []
     line = []
-    
+
     words = text.split()
     font = ImageFont.truetype(font_path, font_size)
     if not width:
         width = font.getsize(text)[0]
-    
+
     space_width = font.getsize(" ")[0]
     max_space_diff = 0.1 * space_width  # 空格宽度变化百分比
     x0 = indent * space_width
@@ -177,16 +180,16 @@ def put_text_in_box_without_break_word(
                 lines.append(line)
                 line = [word]
                 lens = w + space_width
-    
+
     end_line = None
     if line and not isinstance(line[-1], int):
         end_line = " ".join(line)
-    
+
     if end_line is None:
         height = len(lines) * (font_size + line_pad)
     else:
         height = (len(lines) + 1) * (font_size + line_pad)
-    
+
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
     x, y = x0, 0
@@ -211,7 +214,7 @@ def put_text_in_box_without_break_word(
         boxes.append((start, y, width, y + font_size))
         y += font_size + line_pad
         x = 0
-    
+
     if end_line:
         draw.text((x, y), end_line, fill, font)
         boxes.append(draw.textbbox((x, y), end_line, font))
@@ -221,7 +224,7 @@ def put_text_in_box_without_break_word(
 
 def draw_multiline_text(text, fill, font_path="arial.ttf", font_size=20):
     """通过像素偏移实现两端对齐
-    
+
     :param text: str 已经换好行的英文文本
     :param fill: tuple|str 字体颜色
     :param font_path: str|path 字体文件路径
@@ -245,7 +248,7 @@ def draw_multiline_text(text, fill, font_path="arial.ttf", font_size=20):
         for i in range(m):
             offsets[i] += 1
         offsets.append(0)
-        
+
         for c, b in zip(t, offsets):
             draw.text((x, y), c, fill, font)
             w = font.getsize(c)[0]
@@ -261,7 +264,7 @@ def draw_multiline_text(text, fill, font_path="arial.ttf", font_size=20):
 
 def font_wrap(text, width, font_path="arial.ttf", font_size=40):
     """返回在某一字体字号下重新换行打包的字符串
-    
+
     :param text: str 文本
     :param width: int 字符宽度
     :param font_path: str 字体路径

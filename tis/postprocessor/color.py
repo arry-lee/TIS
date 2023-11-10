@@ -36,8 +36,7 @@ def split_color(image):
     """
     flat = np.float32(image.reshape((-1, 3)))
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    _, __, center = cv2.kmeans(flat, 2, None, criteria, 10,
-                               cv2.KMEANS_RANDOM_CENTERS)
+    _, __, center = cv2.kmeans(flat, 2, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
     center = np.uint8(center)
     return center[0], center[1]
 
@@ -46,8 +45,7 @@ def mean_color(colors):
     """平均色"""
     flat = np.float32(colors.reshape((-1, 3)))
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    _, __, center = cv2.kmeans(flat, 1, None, criteria, 10,
-                               cv2.KMEANS_RANDOM_CENTERS)
+    _, __, center = cv2.kmeans(flat, 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
     center = np.uint8(center)
     return center[0]
 
@@ -61,26 +59,26 @@ def get_colormap(image):
     """重新着色"""
     image = reduce_color(image, 3)
     cmap = [None] * 256
-    
+
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
     for i in range(h):
         for j in range(w):
             cmap[gray[i, j]] = image[i, j, :]
-    
+
     last_color = None
-    
+
     for c in cmap:
         if c is not None:
             last_color = c
             break
-    
+
     for idx, c in enumerate(cmap):
         if c is None:
             cmap[idx] = last_color
         else:
             last_color = c
-    
+
     return cmap
 
 

@@ -43,17 +43,19 @@ user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 headers = dict(line.split(": ", 1) for line in headers.splitlines() if line)
 
 authorization_header = {
-    "authorization": "Bearer eyJ0eXAiOiJqd3QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ1bXMiLCJzdWIiOjE3NjY5NzE5NDYsImF1ZCI6Imdhb2Rpbmd4IiwiZXhwIjoxNjY3NDY3MDM3LCJqdGkiOiIwYTEzYzA2OGQ1NmFlMjljOGY0ZWFjZjZiMzUxMzlhZTA5MDVhMTQxIn0.bXWrB3z5iaLE391DEsizaKB4hUuzfvEpPPSvoEEBPTc"}
+    "authorization": "Bearer eyJ0eXAiOiJqd3QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ1bXMiLCJzdWIiOjE3NjY5NzE5NDYsImF1ZCI6Imdhb2Rpbmd4IiwiZXhwIjoxNjY3NDY3MDM3LCJqdGkiOiIwYTEzYzA2OGQ1NmFlMjljOGY0ZWFjZjZiMzUxMzlhZTA5MDVhMTQxIn0.bXWrB3z5iaLE391DEsizaKB4hUuzfvEpPPSvoEEBPTc"
+}
+
 
 class Designer:
     """设计者类,提供模板ID即可下载PDF"""
-    
+
     sess = requests.Session()
     sess.headers = headers
-    
+
     max_retry_times = 30
     sleep_time = 2
-    
+
     # 第0步，登录
     def open_template(self, template_id=88797, category_id=None):
         print("Opening Template")
@@ -63,7 +65,7 @@ class Designer:
             template_url = f"https://www.gaoding.com/design?id={template_id}"
         resp = self.sess.get(template_url)
         return resp
-    
+
     def get_token(self):
         print("Getting Token")
         token_url = "https://www.gaoding.com/api/filems/access/token"
@@ -71,14 +73,16 @@ class Designer:
         token = resp.json()
         print(f'Token is {token["auth_key"]}')
         return token["auth_key"]
-    
+
     def get_me(self):
         print("Getting User")
         me_url = "https://www.gaoding.com/api/users/me"
-        self.sess.headers.update({
-            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-            # "refer":null,
-        })
+        self.sess.headers.update(
+            {
+                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+                # "refer":null,
+            }
+        )
         resp = self.sess.get(me_url)
         print(resp)
         me = resp.json()
@@ -90,14 +94,14 @@ class Designer:
                 break
         print(f"me_id:{me_id}, repository_id:{repository_id}")
         return me_id, repository_id
-    
+
     def get_user(self):
         user_url = "https://www.gaoding.com/api/structure/gray/user"
         resp = self.sess.get(user_url)
         user = resp.json()
         # user = {"ums_id": "1766971946", "status": "2"}
         return user
-    
+
     def get_template_info(self, user_id, template_id):
         print("Getting Template Info")
         info_url = f"https://www.gaoding.com/api/open/editor/materials/{template_id}/info?user_id={user_id}&region_id=1&biz_code=1&endpoint=4&is_free="
@@ -105,21 +109,21 @@ class Designer:
         info = resp.json()
         print("Getting Template Info Success")
         return info
-    
+
     @staticmethod
     def patch_info(info, template_id, user_id, repository_id):
         sp_info = {
-            "id"           : template_id,
-            "source_id"    : template_id,
-            "user_id"      : str(user_id),
+            "id": template_id,
+            "source_id": template_id,
+            "user_id": str(user_id),
             "repository_id": repository_id,
-            "shot"         : true,
-            "shot_config"  : {"delay": 60000},
-            "channel_id"   : 8,
+            "shot": true,
+            "shot_config": {"delay": 60000},
+            "channel_id": 8,
         }
         info.update(sp_info)
         return info
-    
+
     def post_template_info(self, info_post):
         """
         :param info_post: 数据字典
@@ -128,60 +132,61 @@ class Designer:
         print("Post Template Info")
         info_url = "https://www.gaoding.com/api/open/editor/dam/editors/materials/info"
         # 继承自info
-        info_resp = self.sess.post(info_url, json=info_post,
-                                   headers=authorization_header)
+        info_resp = self.sess.post(
+            info_url, json=info_post, headers=authorization_header
+        )
         print(info_resp)
         info_resp = info_resp.json()
         print(f"Get Target ID {info_resp.get('id')}")
         return info_resp.get("id")
-    
+
     def put_editor_info(self, target_id, info_put):
         print("put_editor_info")
         info_url = f"https://www.gaoding.com/api/open/editor/dam/editors/materials/{target_id}/info"
         info_resp = self.sess.put(info_url, json=info_put).json()
         print(info_resp)
         return info_resp
-    
+
     def post_render_task(self, user_id, target_id):
         print("post_render_task")
         render_url = "https://www.gaoding.com/api/open/editor/media-render"
         render_post = {
-            "mode"         : "user",
-            "user_id"      : user_id,
-            "target_id"    : target_id,
+            "mode": "user",
+            "user_id": user_id,
+            "target_id": target_id,
             "export_config": {
-                "from"            : "dam",
-                "type"            : "template",
-                "export_type"     : "pdf",
-                "indexes"         : "0,1",
-                "format"          : "",
-                "timeout"         : 180000,
-                "shot_enable"     : true,
+                "from": "dam",
+                "type": "template",
+                "export_type": "pdf",
+                "indexes": "0,1",
+                "format": "",
+                "timeout": 180000,
+                "shot_enable": true,
                 "watermark_enable": true,
             },
         }
-        
-        render_resp = self.sess.post(render_url, json=render_post,
-                                     headers=authorization_header).json()
+
+        render_resp = self.sess.post(
+            render_url, json=render_post, headers=authorization_header
+        ).json()
         # render_resp = {"id": 1275483, "task_id": "1799832589"}
         print(render_resp)
         print(f"task id is {render_resp.get('id')}")
         return render_resp.get("id")
-    
+
     def get_render_result(self, task_id):
         print("Getting Render Result")
         result_url = (
             f"https://www.gaoding.com/api/open/editor/media-render?id={task_id}"
         )
-        
-        result_resp = self.sess.get(result_url,
-                                    headers=authorization_header).json()
+
+        result_resp = self.sess.get(result_url, headers=authorization_header).json()
         if int(result_resp.get("status")) == 1:
             print("Getting Render Result Success")
             return result_resp["result"]["url"]
         print("Getting Render Result Failed")
         return None
-    
+
     def download_pdf(self, pdf_url, save_dir="."):
         print("Downloading PDF")
         resp = self.sess.get(pdf_url)
@@ -191,7 +196,7 @@ class Designer:
             f.write(resp.content)
         print("Downloading PDF Success")
         return path
-    
+
     def load(self, template_id, category_id=None, save_dir="."):
         # 第一步，打开模板
         self.open_template(template_id, category_id)
@@ -221,19 +226,18 @@ class Designer:
             time.sleep(self.sleep_time)
             cnt += 1
         if pdf_url is None:
-            raise TimeoutError(
-                f"{self.max_retry_times * self.sleep_time}s time out ")
+            raise TimeoutError(f"{self.max_retry_times * self.sleep_time}s time out ")
         # 第九步，下载PDF
         return self.download_pdf(pdf_url, save_dir)
-    
-    def load_all(self,templates,save_dir):
+
+    def load_all(self, templates, save_dir):
         """多线程下载全部的模板PDF"""
-        
-        download_method = functools.partial(self.load,save_dir=save_dir)
+
+        download_method = functools.partial(self.load, save_dir=save_dir)
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as exe:
             for a in exe.map(download_method, templates):
                 print(a)
-                
+
     def batch_pull(self, wordlist):
         url = "https://www.gaoding.com/api/v3/oc/search-directs/batch-pull"
         if isinstance(wordlist, str):
@@ -241,17 +245,17 @@ class Designer:
         data = {"keywords": wordlist}
         self.sess.headers.update(
             {
-                "content-type" : "application/json",
-                "referer"      : "https://www.gaoding.com/templates/f4814229",
+                "content-type": "application/json",
+                "referer": "https://www.gaoding.com/templates/f4814229",
                 "x-business-id": "1",
-                "x-channel-id" : "8",
-                "x-device-id"  : "44d1c11886844cd39cce79907412ea0f",
+                "x-channel-id": "8",
+                "x-device-id": "44d1c11886844cd39cce79907412ea0f",
             }
         )
         resp = self.sess.post(url, json=data)
         print(resp)
         return resp.json()
-    
+
     def get_filters(self, mode="pricelist123"):
         """获取资源的过滤器"""
         resources_url = (
@@ -260,8 +264,8 @@ class Designer:
         self.sess.headers.update(
             {
                 "x-business-id": "1",
-                "x-channel-id" : "8",
-                "x-device-id"  : "44d1c11886844cd39cce79907412ea0f",
+                "x-channel-id": "8",
+                "x-device-id": "44d1c11886844cd39cce79907412ea0f",
             }
         )
         resources_resp = self.sess.get(resources_url).json()
@@ -272,10 +276,10 @@ class Designer:
                 for mt in mts:
                     filter_value = mt.get("material").get("filter").get("value")
                     # print(filter)
-                    
+
                     filters.append(filter_value)
         return filters
-    
+
     def recommend(self, filters, page_num=1, page_size=50):
         """推荐系统推荐相关的模板
         返回模板列表
@@ -285,20 +289,20 @@ class Designer:
             filter_node = {"id": filter_value, "type": 1, "children": []}
             filter_nodes.append(filter_node)
             break
-        
+
         recommend_url = (
             "https://www.gaoding.com/api/v3/cp/template-centers/v2/recommend-templates"
         )
         recommend_post = {
-            "page_num"    : page_num,
-            "page_size"   : page_size,
-            "styles"      : [],
-            "colors"      : [],
+            "page_num": page_num,
+            "page_size": page_size,
+            "styles": [],
+            "colors": [],
             "filter_nodes": filter_nodes,
-            "is_group"    : true,
+            "is_group": true,
         }
         return self.sess.post(recommend_url, json=recommend_post).json()
-    
+
     def search(self, word, page_num=1, page_size=50):
         """根据单词查找指定数量的模板"""
         url = self.batch_pull(word)[0]
@@ -313,26 +317,27 @@ class Designer:
         recommend_result = self.recommend(filters, page_num, page_size)
         print(recommend_result)
         return [one["id"] for one in recommend_result]
-    
+
     def get_templates_from_url(self, url):
-        s = url.removeprefix(
-            "https://www.gaoding.com/templates/fc").removesuffix(
-            "?is_group=true")
-        f1, f23 = s.split('-')
-        f2, f3 = f23[1:].split(',')
+        s = url.removeprefix("https://www.gaoding.com/templates/fc").removesuffix(
+            "?is_group=true"
+        )
+        f1, f23 = s.split("-")
+        f2, f3 = f23[1:].split(",")
         api = f"https://www.gaoding.com/api/v3/bp/search-contents/templates/search?page_size=120&page_num=1&q=&design_cid=&channel_cid=&industry_cid=&filter_id={f2}%2C{f3}%2C{f1}&type_filter_id={f2}%2C{f3}&channel_filter_id={f1}&channel_children_filter_id=&sort=&styles=&colors=&ratios=&is_group=true&user_id=1766971946"
-        
+
         headers = {
             "x-business-id": "1",
-            "x-channel-id" : "8",
-            "x-device-id"  : "44d1c11886844cd39cce79907412ea0f",
+            "x-channel-id": "8",
+            "x-device-id": "44d1c11886844cd39cce79907412ea0f",
         }
         resp = self.sess.get(api, headers=headers).json()
         # print(resp)
-        return [one['id'] for one in resp]
+        return [one["id"] for one in resp]
+
 
 def parse_html(path):
-    with open(path,'r',encoding='utf-8') as file:
+    with open(path, "r", encoding="utf-8") as file:
         text = file.read()
     pat = re.compile(r"/template/(\d+)")
     res = pat.findall(text)
@@ -344,7 +349,7 @@ if __name__ == "__main__":
     res = parse_html(r"E:\00IT\P\uniform\multilang\temp\bussinescard.html")
     d = Designer()
     print(len(res))
-    d.load_all(res,save_dir='../templates/businesscard/')
+    d.load_all(res, save_dir="../templates/businesscard/")
     # for one in tqdm.tqdm(res):
     #     d.load(int(one),save_dir=r'E:\00IT\P\uniform\multilang\templates\coupons')
     # d.get_templates_from_url(

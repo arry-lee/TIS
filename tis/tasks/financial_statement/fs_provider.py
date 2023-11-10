@@ -12,6 +12,7 @@ from awesometable.awesometable import AwesomeTable, V_LINE_PATTERN, vstack
 from awesometable.converter import from_list
 from _appdir import STATIC_DIR
 
+
 def _read_words_from_dir(basedir):
     # 读取标注文件夹内的所有label文本并分词
     out = set()
@@ -61,7 +62,7 @@ class Provider(BaseProvider):
     _long_sentence_file = "config/fs_config_en.yaml"
     _long_sentence_list = linecache.getlines(_long_sentence_file)
 
-    _index_file = os.path.join(STATIC_DIR,"index.txt")
+    _index_file = os.path.join(STATIC_DIR, "index.txt")
     _index_list = linecache.getlines(_index_file)
 
     _word_list = set()

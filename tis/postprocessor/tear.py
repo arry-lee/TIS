@@ -24,7 +24,7 @@ def _random_tear_curve(width, slope=0):
     none = -offset // 2 + width // 3  # >0
     zeros = [0] * width
     zeros[:ones] = [1] * ones
-    zeros[ones: ones + none] = [-1] * none
+    zeros[ones : ones + none] = [-1] * none
     random.shuffle(zeros)
     return zeros
 
@@ -67,7 +67,7 @@ def tear_image(img, pos, gap=20, slope=0):
         mid = mid + zeros[i]
         for j in range(mid):
             out.putpixel((i, j), img.getpixel((i, j)))
-        
+
         for j in range(mid, mid + THICKNESS):
             img.putpixel((i, j), (255, 255, 255))
         img.putpixel((i, mid), (100, 100, 100))
@@ -85,7 +85,7 @@ def tear_image_alpha(img, pos, gap=20, slope=0):
     :param slope: float 斜率
     :return: np.ndarray 裂开图
     """
-    img = as_image(img).convert('RGBA')
+    img = as_image(img).convert("RGBA")
     zeros = _random_tear_curve(img.width, slope)
     out = Image.new("RGBA", (img.width, img.height + gap), (0, 0, 0, 0))
     mid = pos
@@ -93,9 +93,9 @@ def tear_image_alpha(img, pos, gap=20, slope=0):
         mid = mid + zeros[i]
         for j in range(mid):
             out.putpixel((i, j), img.getpixel((i, j)))
-        
+
         for j in range(mid, mid + THICKNESS):
             out.putpixel((i, j), (255, 255, 255, 255))
         out.putpixel((i, mid), (100, 100, 100, 255))
-    
+
     return out

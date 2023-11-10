@@ -36,5 +36,3 @@ def bezier_curve(points, color="red"):
     plt.close()
     buffer.close()
     return cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
-
-

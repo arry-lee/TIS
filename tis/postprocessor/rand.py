@@ -22,6 +22,7 @@ from postprocessor.spread import spread
 
 from _appdir import STATIC_DIR
 
+
 def random_distortion(data, max_peak, max_period):
     """
     随机扭曲
@@ -99,7 +100,9 @@ def random_background(data, bg_dir, min_offset, max_offset):
 #     watermark = random_source(dirty_dir)
 #     return add_watermark(data, watermark)
 
-SEAL_DIR = os.path.join(STATIC_DIR,'seal')
+SEAL_DIR = os.path.join(STATIC_DIR, "seal")
+
+
 @processor
 def random_seal(data, seal_dir=None):
     """
@@ -160,7 +163,9 @@ def random_gauss_noise(data):
 #         light = r'E:\00IT\P\uniform\post_processor\tmp\test.jpeg'
 #     return reflect(data, light)
 
-PAPER_DIR = os.path.join(STATIC_DIR,"paper")
+PAPER_DIR = os.path.join(STATIC_DIR, "paper")
+
+
 @processor
 def random_shadow(data):
     shader = random_source(PAPER_DIR)
@@ -185,7 +190,7 @@ def random_ink():
     return cv2.blur(spread(img), ksize=(3, 3))
 
 
-def random_displace(text_layer,ratio=2,paper_dir=TEXTURE_DIR):
+def random_displace(text_layer, ratio=2, paper_dir=TEXTURE_DIR):
     """
     随机置换
     :param text_layer: 文字层

@@ -19,7 +19,7 @@ from postprocessor.label import log_label
 from postprocessor.background import add_background_data, add_to_paper
 from awesometable.table2image import table2image
 
-from fs_settings import *
+from .fs_settings import *
 from postprocessor.paper import Paper
 
 COLUMN_WIDTH = (PAPER_WIDTH - PAPER_OFFSET * 2 - HOR_GAP_WIDTH) // 2
@@ -27,7 +27,7 @@ PAGE_WIDTH = PAPER_WIDTH - PAPER_OFFSET * 2
 paper = Paper(PAPER_WIDTH, offset_p=PAPER_OFFSET)
 COL_HEIGHT = paper.height - PAPER_OFFSET * 2
 
-f = Faker(providers=["fs_provider"])
+f = Faker(providers=["tasks.financial_statement.fs_provider"])
 hit = lambda r: random.random() < r
 
 
@@ -64,7 +64,6 @@ class FSTable(FlexTable):
         lno_column=False,
         **kwargs
     ):
-
         super().__init__(width, font_size, **kwargs)
         if rows is None:
             rows = random.randint(DEFAULT_ROW_MIN, DEFAULT_ROW_MAX)

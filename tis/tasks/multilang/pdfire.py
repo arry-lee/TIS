@@ -48,8 +48,10 @@ from postprocessor.convert import p2c
 from .template import Template, Text
 
 from paddleocr import PaddleOCR
+
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-OCR_ENGINE = None#PaddleOCR(lang="ch",show_log=False)
+OCR_ENGINE = None  # PaddleOCR(lang="ch",show_log=False)
+
 
 def ocr(image, ocr_engine=None):
     """
@@ -60,10 +62,10 @@ def ocr(image, ocr_engine=None):
     """
     if ocr_engine is None:
         ocr_engine = OCR_ENGINE
-    if isinstance(image,Image.Image):
-        image = p2c(image)[:,:,3]
-        
-    results = ocr_engine.ocr(image,cls=False)
+    if isinstance(image, Image.Image):
+        image = p2c(image)[:, :, 3]
+
+    results = ocr_engine.ocr(image, cls=False)
     texts = []
     for box, content in results:
         text, _ = content
@@ -103,7 +105,7 @@ class ImageExporter(ImageWriter):
         name = super().export_image(image)
         path = os.path.join(self.outdir, name)
         img = Image.open(path)
-        
+
         if name.endswith("bmp"):  # 原来的 ImageWriter产生bmp 是bgr格式的有错误
             red, green, blue = img.split()
             img = Image.merge("RGB", (blue, green, red))
@@ -160,11 +162,10 @@ class TemplateConverter(PDFConverter):
         outdir=None,
         rect_colors={"curve": "black", "page": "gray"},
         text_colors={"char": "black"},
-        use_ocr=False
+        use_ocr=False,
     ):
         PDFConverter.__init__(self, rsrcmgr, outfp, pageno=pageno, laparams=laparams)
 
-        
         self.scale = scale
         self.fontscale = fontscale
         self.layoutmode = layoutmode
@@ -195,7 +196,7 @@ class TemplateConverter(PDFConverter):
 
         self.textbox_list = []
         self.figure_list = []
-        
+
         self.imagewriter = ImageExporter(self.outdir)
         self.template_list = []
         self.text_layer = None
@@ -203,7 +204,7 @@ class TemplateConverter(PDFConverter):
         self.image = None
         self.draw = None
         self.use_ocr = use_ocr
-        
+
     def place_rect(self, color, borderwidth, x, y, w, h, rbg=None):
         if color is not None:
             rect = [
@@ -219,7 +220,7 @@ class TemplateConverter(PDFConverter):
         if isinstance(item, LTTextLine):
             self.textbox_list.append(
                 Text(
-                    text=item.get_text(),#remove_duplicate(item.get_text().strip()),
+                    text=item.get_text(),  # remove_duplicate(item.get_text().strip()),
                     rect=Rect(
                         item.x0 * self.scale,
                         (self.page_height - item.y1) * self.scale,
@@ -230,7 +231,7 @@ class TemplateConverter(PDFConverter):
                     font=font,
                 )
             )
-        elif isinstance(item, (LTLine,LTRect)):
+        elif isinstance(item, (LTLine, LTRect)):
             self.place_rect(
                 color, borderwidth, item.x0, item.y1, item.width, item.height, None
             )
@@ -242,25 +243,23 @@ class TemplateConverter(PDFConverter):
         pty = int((self.page_height - item.y1) * self.scale)
 
         img = self.imagewriter.export_image(item)
-       
-        
+
         if width > 0 and height > 0:
             img = img.resize((width, height))
-        
-        
+
         def is_watermark(img):
             """简单的判断是否为水印"""
             return False
-        
+
         def is_opacity(img):
-            return np.any(np.asarray(img.getchannel('A'),np.uint8)==0)
+            return np.any(np.asarray(img.getchannel("A"), np.uint8) == 0)
 
         if not is_watermark(img):
             # 处理有透明层的文字
             if self.use_ocr and is_opacity(img):
                 texts = ocr(img)
                 print(texts)
-                if len(texts)>0:
+                if len(texts) > 0:
                     for text in texts:
                         text.rect.move(ptx, pty)
                         self.textbox_list.append(text)
@@ -271,13 +270,8 @@ class TemplateConverter(PDFConverter):
                 # self.image.save(os.path.join(self.outdir,'/element/{}'))
                 self.textbox_list.append(
                     Text(
-                        text='<LTImage>',
-                        rect=Rect(
-                            ptx,
-                            pty,
-                            width,
-                            height
-                        ),
+                        text="<LTImage>",
+                        rect=Rect(ptx, pty, width, height),
                     )
                 )
         else:
@@ -360,14 +354,14 @@ class TemplateConverter(PDFConverter):
                     # print(item.graphicstate)
                     color = covert_color(item.graphicstate.ncolor)
                     color = (*color, 255)
-                    
+
                     # print(stream_value(font))
                     fontfile = item.font.descriptor.get("FontFile2")
                     # print(item.font.descriptor)
 
                     if fontfile:
-                        stream = stream_value(fontfile)#.resolve()
-                        data = stream.get_data() #fix
+                        stream = stream_value(fontfile)  # .resolve()
+                        data = stream.get_data()  # fix
                         # print(stream.attrs)
                         # font = self.rsrcmgr.get_font(stream.objid,
                         #                              item.font.descriptor)
@@ -376,7 +370,8 @@ class TemplateConverter(PDFConverter):
                         ftsize = int(item.height * self.scale)
                         # print(ftsize)
                         _font = ImageFont.truetype(
-                            io.BytesIO(data), int(item.height * self.scale),
+                            io.BytesIO(data),
+                            int(item.height * self.scale),
                         )
                         # print(_font.path,_font.getname())
                         self.pen.text(
@@ -387,14 +382,14 @@ class TemplateConverter(PDFConverter):
                         )
                     # else:
                     #     print('No font')
-                        # self.pen.text(
-                        #     (x, y),
-                        #     item.get_text(),
-                        #     color,
-                        #     _font,
-                        # )
-                        # _font = ImageFont.truetype('simfang.ttf',int(item.height * self.scale))
-                    
+                    # self.pen.text(
+                    #     (x, y),
+                    #     item.get_text(),
+                    #     color,
+                    #     _font,
+                    # )
+                    # _font = ImageFont.truetype('simfang.ttf',int(item.height * self.scale))
+
                     # if item.get_text().isdigit():
                     #     print(repr(item))
                     # else:
@@ -404,13 +399,12 @@ class TemplateConverter(PDFConverter):
                     #     x = int(item.x0 * self.scale)
                     #     y = int((self.page_height - item.y1-item.height) * self.scale)
                     # else:
-                    
+
                     # todo: #issue006, PDF 转换过程中数字框的位置不对
                     # print(item.get_text())
-                    
 
         def init_page(page):
-            """ 初始化页面 """
+            """初始化页面"""
             page_size = round(page.width * self.scale), round(page.height * self.scale)
             self.page_height = page.height
             self.image = Image.new("RGB", page_size, "white")
@@ -419,7 +413,7 @@ class TemplateConverter(PDFConverter):
             self.pen = ImageDraw.Draw(self.text_layer)
 
         def save_page(item):
-            """ 保存页面 """
+            """保存页面"""
             self.image.save(os.path.join(self.outdir, f"{self.fn}-{item.pageid}.jpg"))
             self.text_layer.save(
                 os.path.join(self.outdir, f"{self.fn}-{item.pageid}.png")
@@ -449,18 +443,18 @@ def cmyk_to_rgb(cmyk):
 def covert_color(color):
     if isinstance(color, float):
         # print('color error',color)
-        c = int(color*255)
-        return (c,c,c)
-    if isinstance(color,int):
-        return color,color,color
-    
+        c = int(color * 255)
+        return (c, c, c)
+    if isinstance(color, int):
+        return color, color, color
+
     if color is None:
         return (0, 0, 0)
     if len(color) == 1:
-        if isinstance(color[0],(int,float)):
+        if isinstance(color[0], (int, float)):
             return color[0] * 255, color[0] * 255, color[0] * 255
         else:
-            return 0,0,0
+            return 0, 0, 0
     if len(color) == 4:
         color = cmyk_to_rgb(color)
     if len(color) == 3:
@@ -506,10 +500,10 @@ def from_pdf(file, outdir=None, maxpages=0, use_ocr=False):
         sys.stdout,
         outdir=outdir,
         fn=file,
-        scale=2, # defualt 2
+        scale=2,  # defualt 2
         showpageno=False,
         laparams=LAParams(),
-        use_ocr=use_ocr
+        use_ocr=use_ocr,
     )
     process_pdf(rsrcmgr, device, open(file, "rb"), maxpages=maxpages)
     device.close()
@@ -517,7 +511,11 @@ def from_pdf(file, outdir=None, maxpages=0, use_ocr=False):
 
 
 if __name__ == "__main__":
-    print(from_pdf(r"E:\00IT\P\uniform\multilang\templates\menu\bn\0a9e2cfc53ad3fd0f7fc7fc97ef5f285.pdf"))
+    print(
+        from_pdf(
+            r"E:\00IT\P\uniform\multilang\templates\menu\bn\0a9e2cfc53ad3fd0f7fc7fc97ef5f285.pdf"
+        )
+    )
     # im = Image.open(r'E:\00IT\P\uniform\multilang\templates\menu\filter\0e98196931ebaa85c5c734a3cb94dffa-2.png')
     # t = ocr(im)
     # print(t)

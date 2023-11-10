@@ -10,8 +10,7 @@ import prettytable
 from PIL import Image, ImageFont
 
 from awesometable.awesometable import AwesomeTable
-from awesometable.fontwrap import (put_text_in_box,
-                                   put_text_in_box_without_break_word)
+from awesometable.fontwrap import put_text_in_box, put_text_in_box_without_break_word
 from awesometable.table2image import Text, table2image
 from postprocessor.convert import as_image, p2c
 
@@ -34,7 +33,7 @@ def _modify_line(line, pos):
 
 class LayoutTable(AwesomeTable):
     """布局文字布局管理"""
-    
+
     def __init__(self, field_names=None, **kwargs):
         super().__init__(field_names, kwargs=kwargs)
         self.vrules = prettytable.FRAME
@@ -43,7 +42,7 @@ class LayoutTable(AwesomeTable):
         self._left_padding_width = 0
         self._right_padding_width = 0
         self.hide_outlines()
-    
+
     def hide_outlines(self):
         """隐藏制表符"""
         self._horizontal_char = ""
@@ -61,28 +60,28 @@ class LayoutTable(AwesomeTable):
 
 class AbstractTable(object, metaclass=ABCMeta):
     """抽象表格类"""
-    
+
     def __init__(self):
         self.layouts = []
-    
+
     def __str__(self):
         return str(self.get_string())
-    
+
     @abstractmethod
     def get_string(self):
         """字符表示"""
         return NotImplemented
-    
+
     @property
     def height(self):
         """图像高度"""
         return self.get_image()["image"].shape[0]
-    
+
     # @abstractmethod
     # def get_image(self):
     #     """图片表示"""
     #     return NotImplemented
-    
+
     def append(self, obj):
         """追加布局"""
         if hasattr(obj, "get_image"):
@@ -96,7 +95,7 @@ class HorLayout(AbstractTable):
     任何实现了 get_image 方法和 table_width 属性的类表格，
     均可作为布局管理的 layouts列表的子元素，包括布局自身
     """
-    
+
     def __init__(self, layouts=None, widths=None, gaps=None):
         """
         :param layouts: list 布局元素列表
@@ -105,14 +104,14 @@ class HorLayout(AbstractTable):
         """
         super().__init__()
         self.layouts = layouts or []
-        
+
         if isinstance(widths, int):
             self._widths = [widths] * len(self.layouts)
         elif isinstance(widths, list):
             self._widths = widths
         else:
             self._widths = [x.table_width for x in self.layouts]
-        
+
         if isinstance(gaps, int):
             self._gaps = [gaps] * (len(self.layouts) - 1)
         elif isinstance(gaps, list):
@@ -120,30 +119,30 @@ class HorLayout(AbstractTable):
         else:
             self._gaps = [0] * (len(self.layouts) - 1)
         # _char_width 是字符属性 _table 是图像属性
-        
+
         # self._char_width = sum(x + 1 for x in self._widths) - 1
-        
+
         self._table_width = sum(self._widths) + sum(self._gaps)
         self.table = LayoutTable()
-    
+
     @property
     def table_width(self):
         """图片宽度"""
         return self._table_width
-    
+
     @table_width.setter
     def table_width(self, val):
         self._table_width = val
-    
+
     @property
     def widths(self):
         """元素宽度列表"""
         return self._widths
-    
+
     @widths.setter
     def widths(self, val):
         self._widths = val
-    
+
     def get_string(self):
         row = []
         for lot, width in zip(self.layouts, self._widths):
@@ -152,7 +151,7 @@ class HorLayout(AbstractTable):
         self.table.clear_rows()
         self.table.add_row(row)
         return self.table.get_string()
-    
+
     def get_image(self):
         cols = []
         out = {}
@@ -169,13 +168,13 @@ class HorLayout(AbstractTable):
         gaps = self._gaps + [0]
         for data, gap in zip(cols, gaps):
             hei, wid = data["image"].shape[:2]
-            img[pty: pty + hei, ptx: ptx + wid] = data["image"]
+            img[pty : pty + hei, ptx : ptx + wid] = data["image"]
             data["points"] = (np.array(data["points"]) + (ptx, pty)).tolist()
             for text in data["text"]:
                 _modify_text(text, (ptx, pty))
             for line in data["line"]:
                 _modify_line(line, (ptx, pty))
-            
+
             if not out:
                 out = data
             else:
@@ -190,7 +189,7 @@ class HorLayout(AbstractTable):
 
 class VerLayout(AbstractTable):
     """输入二维列表，输出竖直布局"""
-    
+
     def __init__(self, layouts=None, widths=None, gaps=None):
         """
         :param layouts: list 布局元素列表
@@ -209,26 +208,26 @@ class VerLayout(AbstractTable):
             print(self.layouts)
             self._table_width = max([x.table_width for x in self.layouts])
             self._widths = [self._table_width] * len(self.layouts)
-        
+
         if isinstance(gaps, int):
             self._gaps = [gaps] * (len(self.layouts) - 1)
         elif isinstance(gaps, list):
             self._gaps = gaps
         else:
             self._gaps = [0] * (len(self.layouts) - 1)
-        
+
         self.table = LayoutTable()
-    
+
     @property
     def table_width(self):
         """图片宽度"""
         return self._table_width
-    
+
     @table_width.setter
     def table_width(self, val):
         self._table_width = val
         self._widths = [self._table_width] * len(self.layouts)
-    
+
     def get_string(self):
         row = []
         for lot, wid in zip(self.layouts, self._widths):
@@ -237,7 +236,7 @@ class VerLayout(AbstractTable):
         self.table.clear_rows()
         self.table.add_rows(row)
         return self.table.get_string()
-    
+
     def get_image(self):
         rows = []
         out = {}
@@ -245,7 +244,7 @@ class VerLayout(AbstractTable):
             lot.table_width = wid
             imgc = lot.get_image()
             rows.append(imgc)
-        
+
         hei = sum(row["image"].shape[0] for row in rows) + sum(self._gaps)
         wid = max(row["image"].shape[1] for row in rows)
         img = np.ones((hei, wid, 3), np.uint8) * 255
@@ -254,7 +253,7 @@ class VerLayout(AbstractTable):
         gaps = self._gaps + [0]
         for data, gap in zip(rows, gaps):
             hei, wid = data["image"].shape[:2]
-            img[pty: pty + hei, ptx: ptx + wid] = data["image"]
+            img[pty : pty + hei, ptx : ptx + wid] = data["image"]
             data["points"] = (np.array(data["points"]) + (ptx, pty)).tolist()
             for text in data["text"]:
                 _modify_text(text, (ptx, pty))
@@ -276,7 +275,7 @@ class FlexTable(AwesomeTable):
     """在 awesometable 基础上增加 tablewith 像素尺度
     英文字体大多都是非等宽字体，如果按行左对齐则右边参差补齐
     """
-    
+
     def __init__(self, width=None, font_size=40, **kwargs):
         """
         :param width: int 图片宽度
@@ -290,24 +289,24 @@ class FlexTable(AwesomeTable):
             self._table_width = width  # 像素尺寸
             self.min_table_width = width * 2 // self.font_size - 1
             self.max_table_width = width * 2 // self.font_size - 1
-    
+
     @property
     def table_width(self):
         """图片宽度"""
         return self._table_width
-    
+
     @table_width.setter
     def table_width(self, val):
         self._validate_option("table_width", val)
         self.min_table_width = val * 2 // self.font_size - 1
         self._table_width = val
         self.max_table_width = val * 2 // self.font_size - 1
-    
+
     @property
     def height(self):
         """图片高度"""
         return (len(str(self).splitlines())) * (self.font_size - 2)
-    
+
     def get_image(self):
         """图像表示"""
         return table2image(
@@ -316,7 +315,7 @@ class FlexTable(AwesomeTable):
             vrules=None,
             hrules=None,
             style=self.style,
-            **self.options
+            **self.options,
         )
 
 
@@ -324,17 +323,17 @@ class TextBlock(AbstractTable):
     """
     文本块元素,其高度是被动决定的
     """
-    
+
     def __init__(
-            self,
-            text,
-            width=None,
-            indent=0,
-            font_path="arial.ttf",
-            font_size=20,
-            padding=0,
-            fill="black",
-            **kwargs
+        self,
+        text,
+        width=None,
+        indent=0,
+        font_path="arial.ttf",
+        font_size=20,
+        padding=0,
+        fill="black",
+        **kwargs,
     ):
         """
         :param text: str 文本
@@ -360,26 +359,26 @@ class TextBlock(AbstractTable):
         self.font_path = font_path
         self.padding = padding
         self.fill = fill
-    
+
     @property
     def text(self):
         """文本"""
         return " " * self.indent + self._text
-    
+
     @property
     def wrap_text(self):
         """打包文本"""
         return textwrap.wrap(self.text, self._char_width)
-    
+
     @property
     def table_width(self):
         """图像宽度"""
-        return self.get_image()['image'].shape[1]
-    
+        return self.get_image()["image"].shape[1]
+
     @table_width.setter
     def table_width(self, val):
         self._table_width = val
-    
+
     @staticmethod
     def double_end_align(text: str, width: int):
         """
@@ -408,14 +407,12 @@ class TextBlock(AbstractTable):
             newlines.append(newline)
         newlines.append(lines[-1])
         return "\n".join(newlines)
-    
+
     def get_string(self):
         if self.align == "d":
-            return self.double_end_align("\n".join(self.wrap_text),
-                                         self._char_width)
-        return put_text_in_box(self.text, self._table_width, break_word=False)[
-            0]
-    
+            return self.double_end_align("\n".join(self.wrap_text), self._char_width)
+        return put_text_in_box(self.text, self._table_width, break_word=False)[0]
+
     def get_image(self):
         txt, img, boxes = put_text_in_box_without_break_word(
             self.text,
@@ -436,7 +433,7 @@ class TextBlock(AbstractTable):
             )
             for b, text in zip(boxes, txt.splitlines())
         ]
-        
+
         if self.padding != 0:
             back = Image.new(
                 "RGB",
@@ -447,40 +444,43 @@ class TextBlock(AbstractTable):
             for text in texts:
                 _modify_text(text, (self.padding, self.padding))
             img = back
-        
+
         points = []
         for box in boxes:
             points.append([box[0] + self.padding, box[1] + self.padding])
             points.append([box[2] + self.padding, box[1] + self.padding])
             points.append([box[2] + self.padding, box[3] + self.padding])
             points.append([box[0] + self.padding, box[3] + self.padding])
-        
+
         return {
-            "image" : cv2.cvtColor(np.asarray(img, np.uint8),
-                                   cv2.COLOR_RGB2BGR),
+            "image": cv2.cvtColor(np.asarray(img, np.uint8), cv2.COLOR_RGB2BGR),
             "points": points,
-            "label" : ["text@" + l for l in txt.splitlines()],
-            "text"  : texts,
-            "line"  : [],
+            "label": ["text@" + l for l in txt.splitlines()],
+            "text": texts,
+            "line": [],
         }
 
 
 class Cell(TextBlock):
     """单元格表示"""
-    
+
     def __init__(self, text, **kwargs):
         super().__init__(text, **kwargs)
-        self.outline = kwargs.get('outline', (0, 0, 0))
-        self.line_width = kwargs.get('line_width', 1)
-        self.bg_color = kwargs.get('bg_color', (255, 255, 255))
-    
+        self.outline = kwargs.get("outline", (0, 0, 0))
+        self.line_width = kwargs.get("line_width", 1)
+        self.bg_color = kwargs.get("bg_color", (255, 255, 255))
+
     def get_image(self):
         data = super().get_image()
-        img = data['image']
+        img = data["image"]
         height, width = img.shape[:2]
-        data['image'] = cv2.rectangle(img, (0, 0), (
-            width - self.line_width, height - self.line_width), self.outline,
-                                      self.line_width)
+        data["image"] = cv2.rectangle(
+            img,
+            (0, 0),
+            (width - self.line_width, height - self.line_width),
+            self.outline,
+            self.line_width,
+        )
         return data
 
 
@@ -488,11 +488,11 @@ class TableBlock(AwesomeTable):
     """
     以TextBlock为元素的表格
     """
-    
+
     def __init__(self, rows=None, field_names=None, **kwargs):
         super().__init__(rows=rows, field_names=field_names, **kwargs)
-        self.font_path = kwargs.get('font_path', 'arial.ttf')
-    
+        self.font_path = kwargs.get("font_path", "arial.ttf")
+
     def parse_layout(self):
         table_block = []
         for col in zip(*self._rows):  # 行列转置
@@ -503,10 +503,10 @@ class TableBlock(AwesomeTable):
             table_block.append(VerLayout(col_block))
         # print(table_block)
         return HorLayout(table_block)
-    
+
     def get_image(self):
         return self.parse_layout().get_image()
-    
+
     def table_width(self):
         return self.parse_layout().table_width
 
@@ -516,32 +516,36 @@ class ImageBlock:
         self.image = as_image(img)
         self._width = width or self.image.width
         self._height = height or self.image.height
-    
+
     @property
     def table_width(self):
         return self._width
-    
+
     @table_width.setter
     def table_width(self, val):
         self._width = val
-    
+
     @property
     def height(self):
         return self._height
-    
+
     @height.setter
     def height(self, val):
         self._height = val
-    
+
     def get_image(self):
-        return {'image' : p2c(self.image.resize((self._width, self._height))),
-                "points": [[0, 0], [self._width, 0], [self._width, self.height],
-                           [0, self._height]],
-                "label" : ["image@"],
-                "text"  : [],
-                "line"  : [],
-                }
-    
+        return {
+            "image": p2c(self.image.resize((self._width, self._height))),
+            "points": [
+                [0, 0],
+                [self._width, 0],
+                [self._width, self.height],
+                [0, self._height],
+            ],
+            "label": ["image@"],
+            "text": [],
+            "line": [],
+        }
+
     def __str__(self):
         return f"<ImageBlock>{id(self)}-{self._width}x{self._height}"
-

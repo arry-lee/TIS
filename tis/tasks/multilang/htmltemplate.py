@@ -68,7 +68,7 @@ def _(nums):
 
 class IDCardTemplate(Template):
     """身份证用模板"""
-    
+
     def replace_text(self, engine):
         """
         engine 是faker引擎
@@ -93,8 +93,7 @@ class IDCardTemplate(Template):
                 elif engine.locale in ("HKG", "zh_CN", "zh", "CN", "MO"):
                     text.text = txt
                 else:
-                    keep_ascii = engine.locale in (
-                    "km", "ne", "lo_LA", "bn", "si")
+                    keep_ascii = engine.locale in ("km", "ne", "lo_LA", "bn", "si")
                     text.text = engine.sentence_like(
                         txt, exact=True, keep_ascii=keep_ascii
                     )
@@ -104,7 +103,7 @@ class IDCardTemplate(Template):
                     number = text.text
                 if label == "birth":
                     birth = text.text
-        
+
         for text in self.texts:
             if text.text in ("SIGN", "sign@", "script@"):
                 text.text = name.split()[0] if " " in name else name
@@ -115,7 +114,7 @@ class IDCardTemplate(Template):
                     text.text = _(number)
                 if text.text.split("@")[0] == "spbirth":
                     text.text = _(birth)
-    
+
     def render_image_data(self):
         try:
             person_img = rand_person()
@@ -126,14 +125,14 @@ class IDCardTemplate(Template):
                 img = person_img.resize(text.rect.size)
                 self.image.paste(img, text.rect.topleft)
         return super().render_image_data()
-    
+
     def render_image_data_poison(self):
         """使用泊松编辑方法写字"""
         person_img = rand_person()
         image = self.image.copy()
         text_layer = Image.new("RGB", image.size, (255, 255, 255))
         text_drawer = ImageDraw.Draw(text_layer)
-        
+
         mask = Image.new("L", image.size, 0)
         draw = ImageDraw.Draw(image)
         mask_draw = ImageDraw.Draw(mask)
@@ -144,7 +143,7 @@ class IDCardTemplate(Template):
                 image.paste(img, text.rect.topleft)
                 self.image.paste(img, text.rect.topleft)
                 continue
-            
+
             if text.text.startswith("key@"):  # 固定位置的文字不重写
                 text_box = [
                     text.rect.left,
@@ -152,15 +151,13 @@ class IDCardTemplate(Template):
                     text.rect.right,
                     text.rect.bottom,
                 ]
-                text_list.append(
-                    [text_box, "text@" + text.text.removeprefix("key@")])
+                text_list.append([text_box, "text@" + text.text.removeprefix("key@")])
                 continue
-            
+
             if text.font is None or text.font.lower() in ("b", "i"):
                 # """原始模板，没填充的"""
                 draw.rectangle(
-                    (text.rect.left, text.rect.top, text.rect.right,
-                     text.rect.bottom),
+                    (text.rect.left, text.rect.top, text.rect.right, text.rect.bottom),
                     outline=random_color(),
                     width=2,
                 )
@@ -188,14 +185,12 @@ class IDCardTemplate(Template):
                 text_drawer.text(
                     (text.rect.left, text.rect.top), text.text, text.color, font
                 )
-                mask_draw.text((text.rect.left, text.rect.top), text.text, 255,
-                               font)
+                mask_draw.text((text.rect.left, text.rect.top), text.text, 255, font)
                 # mask_draw.rectangle((text.rect.left,text.rect.top,text.rect.right,text.rect.bottom),(255,255,255,255))
-            
-            text_box = draw.textbbox((text.rect.left, text.rect.top), text.text,
-                                     font)
+
+            text_box = draw.textbbox((text.rect.left, text.rect.top), text.text, font)
             text_list.append([text_box, "text@" + text.text])
-        
+
         boxes = [tb[0] for tb in text_list]
         label = [tb[1] for tb in text_list]
         points = []
@@ -204,18 +199,18 @@ class IDCardTemplate(Template):
             points.append([box[2], box[1]])
             points.append([box[2], box[3]])
             points.append([box[0], box[3]])
-        
+
         return {
-            "image"     : image,
+            "image": image,
             # cv2.cvtColor(np.array(image, np.uint8),cv2.COLOR_RGB2BGR),
-            "boxes"     : boxes,  # box 和 label是一一对应的
-            "label"     : label,
-            "points"    : points,
-            "mask"      : mask,
+            "boxes": boxes,  # box 和 label是一一对应的
+            "label": label,
+            "points": points,
+            "mask": mask,
             "text_layer": text_layer,
             "background": self.image.copy(),
         }
-    
+
     @classmethod
     def from_html(cls, file):
         """从html文件生成模板"""
@@ -227,7 +222,7 @@ class IDCardTemplate(Template):
 
 class PassportTemplate(IDCardTemplate):
     """护照用模板"""
-    
+
     def replace_text(self, engine):
         passport = engine.passport()
         for text in self.texts:
@@ -237,8 +232,8 @@ class PassportTemplate(IDCardTemplate):
                 continue
             if "@" in text.text:
                 label, txt = text.text.split("@")
-                text.text = passport.get(label, '')
-    
+                text.text = passport.get(label, "")
+
     def render_image_data(self):
         """
         渲染模板成图片字典格式,包含标注
@@ -249,12 +244,12 @@ class PassportTemplate(IDCardTemplate):
         image = self.image.copy()
         text_layer = Image.new("RGBA", image.size, (255, 255, 255, 0))
         text_drawer = ImageDraw.Draw(text_layer)
-        
+
         mask = Image.new("L", image.size, 0)
         draw = ImageDraw.Draw(image)
         mask_draw = ImageDraw.Draw(mask)
         text_list = []
-        
+
         for text in self.texts:
             if text.text in ("IMAGE", "image@"):
                 continue
@@ -265,45 +260,45 @@ class PassportTemplate(IDCardTemplate):
                     text.rect.right,
                     text.rect.bottom,
                 ]
-                text_list.append(
-                    [text_box, "text@" + text.text.removeprefix("key@")])
+                text_list.append([text_box, "text@" + text.text.removeprefix("key@")])
                 continue
-            
+
             if text.font is None or text.font.lower() in ("b", "i"):
                 # 原始模板，没填充的
                 draw.rectangle(
-                    (text.rect.left, text.rect.top, text.rect.right,
-                     text.rect.bottom),
+                    (text.rect.left, text.rect.top, text.rect.right, text.rect.bottom),
                     outline=random_color(),
                     width=2,
                 )
                 font = ImageFont.truetype(self.default_font, text.rect.height)
             else:
+
                 def put_text_in_rect(text):
                     """闭包,将text.text拉伸值text.rect的宽度"""
                     width = text.rect.width
                     length = len(text.text)
                     font = ImageFont.truetype(text.font, text.rect.height)
                     delta_x = (width - font.getlength(text.text)) // length
-                    
+
                     ptx = text.rect.left
                     pty = text.rect.top
                     for char in text.text:
                         draw.text((ptx, pty), char, text.color, font)
                         text_drawer.text((ptx, pty), char, text.color, font)
-                        mask_draw.text((ptx, pty), char, 255, font, stroke_fill=255,
-                                       stroke_width=0)
+                        mask_draw.text(
+                            (ptx, pty), char, 255, font, stroke_fill=255, stroke_width=0
+                        )
                         ptx += font.getlength(char) + delta_x
-                
+
                 if len(text.text) == 44:  # 专门针对编号优化
                     put_text_in_rect(text)
                 else:
                     font = ImageFont.truetype(text.font, text.rect.height)
-                    draw.text((text.rect.left, text.rect.top), text.text,
-                              text.color, font)
+                    draw.text(
+                        (text.rect.left, text.rect.top), text.text, text.color, font
+                    )
                     text_drawer.text(
-                        (text.rect.left, text.rect.top), text.text, text.color,
-                        font
+                        (text.rect.left, text.rect.top), text.text, text.color, font
                     )
                     mask_draw.text(
                         (text.rect.left, text.rect.top),
@@ -313,15 +308,14 @@ class PassportTemplate(IDCardTemplate):
                         stroke_fill=255,
                         stroke_width=0,
                     )
-            
+
             text_list.append(
                 [
-                    draw.textbbox((text.rect.left, text.rect.top), text.text,
-                                  font),
+                    draw.textbbox((text.rect.left, text.rect.top), text.text, font),
                     "text@" + text.text,
                 ]
             )
-        
+
         boxes = [tb[0] for tb in text_list]
         label = [tb[1] for tb in text_list]
         points = []
@@ -330,13 +324,13 @@ class PassportTemplate(IDCardTemplate):
             points.append([box[2], box[1]])
             points.append([box[2], box[3]])
             points.append([box[0], box[3]])
-        
+
         return {
-            "image"     : image,
-            "boxes"     : boxes,
-            "label"     : label,
-            "points"    : points,
-            "mask"      : mask,
+            "image": image,
+            "boxes": boxes,
+            "label": label,
+            "points": points,
+            "mask": mask,
             "text_layer": text_layer,
             "background": self.image.copy(),
         }
@@ -351,6 +345,7 @@ class PassportTemplate(IDCardTemplate):
                 img = person_img.resize(text.rect.size)
                 self.image.paste(img, text.rect.topleft)
                 continue
+
 
 # for lang in LANG_CODES:
 #     p = PassportTemplate.from_html(f"templates/passport/{lang}/{lang}.html")

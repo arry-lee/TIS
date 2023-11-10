@@ -41,11 +41,19 @@ class EfficientBackbone(EfficientNet):
         # ------------------------------------------------------------
         image_size = global_params.image_size
         Conv2d = get_same_padding_conv2d(image_size=image_size)
-        self._conv_fg = Conv2d(in_channels, out_channels, kernel_size=3, stride=2, bias=False)
-        self._bn_fg = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
+        self._conv_fg = Conv2d(
+            in_channels, out_channels, kernel_size=3, stride=2, bias=False
+        )
+        self._bn_fg = nn.BatchNorm2d(
+            num_features=out_channels, momentum=bn_mom, eps=bn_eps
+        )
 
-        self._conv_bg = Conv2d(in_channels, out_channels, kernel_size=3, stride=2, bias=False)
-        self._bn_bg = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
+        self._conv_bg = Conv2d(
+            in_channels, out_channels, kernel_size=3, stride=2, bias=False
+        )
+        self._bn_bg = nn.BatchNorm2d(
+            num_features=out_channels, momentum=bn_mom, eps=bn_eps
+        )
         # ------------------------------------------------------------
 
     def forward(self, xfg, xbg):
@@ -63,8 +71,14 @@ class EfficientBackbone(EfficientNet):
 
         # Head
         x = self._swish(self._bn1(self._conv_head(x)))
-        
-        return block_outputs[0], block_outputs[2], block_outputs[4], block_outputs[10], x
+
+        return (
+            block_outputs[0],
+            block_outputs[2],
+            block_outputs[4],
+            block_outputs[10],
+            x,
+        )
 
 
 # for EfficientNet
@@ -96,8 +110,12 @@ class EfficientBackboneCommon(EfficientNet):
         # ------------------------------------------------------------
         image_size = global_params.image_size
         Conv2d = get_same_padding_conv2d(image_size=image_size)
-        self._conv = Conv2d(in_channels, out_channels, kernel_size=3, stride=2, bias=False)
-        self._bn = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
+        self._conv = Conv2d(
+            in_channels, out_channels, kernel_size=3, stride=2, bias=False
+        )
+        self._bn = nn.BatchNorm2d(
+            num_features=out_channels, momentum=bn_mom, eps=bn_eps
+        )
         # ------------------------------------------------------------
 
     def forward(self, x):
@@ -112,5 +130,11 @@ class EfficientBackboneCommon(EfficientNet):
 
         # Head
         x = self._swish(self._bn1(self._conv_head(x)))
-        
-        return block_outputs[0], block_outputs[2], block_outputs[4], block_outputs[10], x
+
+        return (
+            block_outputs[0],
+            block_outputs[2],
+            block_outputs[4],
+            block_outputs[10],
+            x,
+        )

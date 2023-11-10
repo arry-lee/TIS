@@ -5,6 +5,7 @@ import numpy as np
 
 from postprocessor.convert import as_array
 
+
 def grad(size, direct, color_start, color_end):
     """
     创建一个渐变蒙版
@@ -82,13 +83,12 @@ def add_fold(img, pos, direction="h"):
     return blend
 
 
-def add_shader(img,shader=None,alpha=0.5,beta=0.5):
+def add_shader(img, shader=None, alpha=0.5, beta=0.5):
     """按纸张增加阴影"""
     img = as_array(img)
     h, w = img.shape[:2]
     shader = as_array(shader)
     shader = cv2.resize(shader, (w, h))
-    shader = cv2.cvtColor(shader,cv2.COLOR_BGR2GRAY)
-    shader = cv2.cvtColor(shader,cv2.COLOR_GRAY2BGR)
+    shader = cv2.cvtColor(shader, cv2.COLOR_BGR2GRAY)
+    shader = cv2.cvtColor(shader, cv2.COLOR_GRAY2BGR)
     return cv2.addWeighted(img, alpha, shader, beta, 0.0)
-

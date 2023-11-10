@@ -31,12 +31,12 @@ class FormTemplate(Template):
         tempfont = ImageFont.truetype(font, self.texts[0].rect.height)
         title_count = 0
         for text in self.texts:
-            if text.text == '<TITLE>':
-                title_count+=1
+            if text.text == "<TITLE>":
+                title_count += 1
                 tmp = engine.sentence_fontlike(tempfont, text.rect.width)
-                text.text = str(title_count)+'.'+tmp.upper()
+                text.text = str(title_count) + "." + tmp.upper()
                 # text.color = 'white'
-            
+
             elif not text.text.isdigit():
                 tmp = engine.sentence_fontlike(tempfont, text.rect.width)
                 text.text = tmp.title() if random.random() < 0.4 else tmp
@@ -64,7 +64,10 @@ def table2template(
     keep_ratio=False,
     debug=False,
     fgcolor="black",
-    border=True, outcolor='blue', cellcolor='orange'):
+    border=True,
+    outcolor="blue",
+    cellcolor="orange",
+):
     """
     将PrettyTable 字符串对象化为模板
     """
@@ -188,19 +191,27 @@ def table2template(
                     bb += 1
                 cbox = (left, tt * line_height + y0, right, bb * line_height + y0)
                 cell_boxes.add(cbox)
-                if '<TITLE>' in cell:
+                if "<TITLE>" in cell:
                     title_cells.add(cbox)
 
     # 以下处理标注
     for box in cell_boxes:
         text_boxes.append([box, "cell@"])
         if vrules == "ALL":
-            draw.line((box[0], box[1]) + (box[0], box[3]), fill=fgcolor, width=line_width)
-            draw.line((box[2], box[1]) + (box[2], box[3]), fill=fgcolor, width=line_width)
+            draw.line(
+                (box[0], box[1]) + (box[0], box[3]), fill=fgcolor, width=line_width
+            )
+            draw.line(
+                (box[2], box[1]) + (box[2], box[3]), fill=fgcolor, width=line_width
+            )
         if hrules == "ALL":
-            draw.line((box[0], box[1]) + (box[2], box[1]), fill=fgcolor, width=line_width)
-            draw.line((box[0], box[3]) + (box[2], box[3]), fill=fgcolor, width=line_width)
-        if hrules in ("-",'.','=','~','_'):
+            draw.line(
+                (box[0], box[1]) + (box[2], box[1]), fill=fgcolor, width=line_width
+            )
+            draw.line(
+                (box[0], box[3]) + (box[2], box[3]), fill=fgcolor, width=line_width
+            )
+        if hrules in ("-", ".", "=", "~", "_"):
             draw.text(
                 (box[0], box[1]),
                 hrules * (int((box[2] - box[0]) / font.getlength(hrules))),
@@ -222,7 +233,7 @@ def table2template(
     points = []
     boxes = [tb[0] for tb in text_boxes]  # 单纯的boxes分不清是行列还是表格和文本
     l, t, r, b = boxes[0]  # 求表格四极
-    
+
     for box in boxes:
         points.append([box[0], box[1]])
         points.append([box[2], box[1]])
@@ -233,28 +244,32 @@ def table2template(
         r = max(r, box[2])
         b = max(b, box[3])
     boxes.append([l, t, r, b])
-    if border=='bold':
-        draw.rectangle((l,t,r,b),outline=fgcolor,width=line_width+1)
-    if border=='double':
-        draw.rectangle((l-4,t-4,r+4,b+4),outline=fgcolor,width=line_width)
-        draw.rectangle((l,t,r,b),outline=fgcolor,width=line_width)
-    if border == 'fill':
-        draw.rounded_rectangle((l-20,t-20,r+20,b+20), 10, fill=outcolor)
+    if border == "bold":
+        draw.rectangle((l, t, r, b), outline=fgcolor, width=line_width + 1)
+    if border == "double":
+        draw.rectangle((l - 4, t - 4, r + 4, b + 4), outline=fgcolor, width=line_width)
+        draw.rectangle((l, t, r, b), outline=fgcolor, width=line_width)
+    if border == "fill":
+        draw.rounded_rectangle((l - 20, t - 20, r + 20, b + 20), 10, fill=outcolor)
         for box in cell_boxes:
-            draw.rectangle(box,bgcolor,fgcolor,line_width)
+            draw.rectangle(box, bgcolor, fgcolor, line_width)
             if box in title_cells:
                 draw.rectangle(box, cellcolor, fgcolor, line_width)
             if vrules == "ALL":
-                draw.line((box[0], box[1]) + (box[0], box[3]), fill=fgcolor,
-                          width=line_width)
-                draw.line((box[2], box[1]) + (box[2], box[3]), fill=fgcolor,
-                          width=line_width)
+                draw.line(
+                    (box[0], box[1]) + (box[0], box[3]), fill=fgcolor, width=line_width
+                )
+                draw.line(
+                    (box[2], box[1]) + (box[2], box[3]), fill=fgcolor, width=line_width
+                )
             if hrules == "ALL":
-                draw.line((box[0], box[1]) + (box[2], box[1]), fill=fgcolor,
-                          width=line_width)
-                draw.line((box[0], box[3]) + (box[2], box[3]), fill=fgcolor,
-                          width=line_width)
-            if hrules in ("-", '.', '=', '~', '_'):
+                draw.line(
+                    (box[0], box[1]) + (box[2], box[1]), fill=fgcolor, width=line_width
+                )
+                draw.line(
+                    (box[0], box[3]) + (box[2], box[3]), fill=fgcolor, width=line_width
+                )
+            if hrules in ("-", ".", "=", "~", "_"):
                 draw.text(
                     (box[0], box[1]),
                     hrules * (int((box[2] - box[0]) / font.getlength(hrules))),
@@ -269,7 +284,7 @@ def table2template(
                     font,
                     anchor="lm",
                 )
-  
+
     points.append([l, t])
     points.append([r, t])
     points.append([r, b])

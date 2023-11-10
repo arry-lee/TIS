@@ -189,7 +189,6 @@ class StraightText(object):
         ver=False,
         perspective=False,
     ):
-
         font = ImageFont.truetype(font_path, font_size)
         w, h = font.getsize(text, stroke_width=2)
         im = Image.new("RGBA", (w, h), (255, 255, 255, 0))

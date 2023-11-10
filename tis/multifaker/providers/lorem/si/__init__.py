@@ -21,6 +21,6 @@ class Provider(LoremProvider):
     word_map = defaultdict(list)
     for w in word_list:
         word_map[len(w.strip())].append(w.strip())
-    
+
     def passport(self):
         pass
